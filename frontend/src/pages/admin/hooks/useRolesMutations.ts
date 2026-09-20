@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api, {
   confirmPassword,
@@ -21,6 +22,7 @@ export interface CreateRoleData {
 const defaultFormData: CreateRoleData = { code: '', name: '', permission_ids: [] }
 
 export function useRolesMutations() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { toast } = useToast()
 
@@ -67,12 +69,12 @@ export function useRolesMutations() {
       queryClient.invalidateQueries({ queryKey: ['roles'] })
       setShowCreateDialog(false)
       setFormData(defaultFormData)
-      toast({ title: '成功', description: '角色已創建' })
+      toast({ title: t('common.success'), description: t('adminUsers.roles.toast.created') })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getErrorMessage(error) || '創建失敗',
+        title: t('common.error'),
+        description: getErrorMessage(error) || t('adminUsers.shared.createFailed'),
         variant: 'destructive',
       })
     },
@@ -90,12 +92,12 @@ export function useRolesMutations() {
       queryClient.invalidateQueries({ queryKey: ['roles'] })
       setShowEditDialog(false)
       setSelectedRole(null)
-      toast({ title: '成功', description: '角色已更新' })
+      toast({ title: t('common.success'), description: t('adminUsers.roles.toast.updated') })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getErrorMessage(error) || '更新失敗',
+        title: t('common.error'),
+        description: getErrorMessage(error) || t('adminUsers.shared.updateFailed'),
         variant: 'destructive',
       })
     },
@@ -119,14 +121,14 @@ export function useRolesMutations() {
     onSuccess: ({ is_system }) => {
       queryClient.invalidateQueries({ queryKey: ['roles'] })
       toast({
-        title: '成功',
-        description: is_system ? '系統角色已停用' : '角色已刪除',
+        title: t('common.success'),
+        description: is_system ? t('adminUsers.roles.toast.deactivated') : t('adminUsers.roles.toast.deleted'),
       })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getErrorMessage(error) || '刪除失敗',
+        title: t('common.error'),
+        description: getErrorMessage(error) || t('adminUsers.shared.deleteFailed'),
         variant: 'destructive',
       })
     },
@@ -134,7 +136,7 @@ export function useRolesMutations() {
 
   const handleCreate = () => {
     if (!formData.code || !formData.name) {
-      toast({ title: '錯誤', description: '請填寫所有必填欄位', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('adminUsers.shared.fillAllRequired'), variant: 'destructive' })
       return
     }
     if (requireSignature) {

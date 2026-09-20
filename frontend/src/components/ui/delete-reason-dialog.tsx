@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
     Dialog,
     DialogContent,
@@ -39,21 +40,22 @@ export function DeleteReasonDialog({
     onConfirm,
     isPending = false,
 }: DeleteReasonDialogProps) {
-    const actionNoun = copy?.actionNoun ?? '刪除'
-    const title = copy?.title ?? `確認${actionNoun}`
+    const { t } = useTranslation()
+    const actionNoun = copy?.actionNoun ?? t('ui.deleteReasonDialog.defaultNoun')
+    const title = copy?.title ?? t('ui.deleteReasonDialog.title', { noun: actionNoun })
     const description =
-        copy?.description ?? `此操作無法復原。請提供${actionNoun}原因以符合 GLP 規範。`
-    const confirmLabel = `確認${actionNoun}`
+        copy?.description ?? t('ui.deleteReasonDialog.description', { noun: actionNoun })
+    const confirmLabel = t('ui.deleteReasonDialog.confirm', { noun: actionNoun })
     const [reason, setReason] = useState('')
     const [error, setError] = useState('')
 
     const handleConfirm = () => {
         if (!reason.trim()) {
-            setError(`請輸入${actionNoun}原因`)
+            setError(t('ui.deleteReasonDialog.reasonRequired', { noun: actionNoun }))
             return
         }
         if (reason.trim().length < 5) {
-            setError(`${actionNoun}原因至少需要 5 個字元`)
+            setError(t('ui.deleteReasonDialog.reasonTooShort', { noun: actionNoun }))
             return
         }
         setError('')
@@ -82,11 +84,11 @@ export function DeleteReasonDialog({
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
                         <Label htmlFor="delete-reason" className="text-sm font-medium">
-                            {actionNoun}原因 <span className="text-status-error-solid">*</span>
+                            {t('ui.deleteReasonDialog.reasonLabel', { noun: actionNoun })} <span className="text-status-error-solid">*</span>
                         </Label>
                         <Textarea
                             id="delete-reason"
-                            placeholder={`請說明${actionNoun}此紀錄的原因...`}
+                            placeholder={t('ui.deleteReasonDialog.reasonPlaceholder', { noun: actionNoun })}
                             value={reason}
                             onChange={(e) => {
                                 setReason(e.target.value)
@@ -101,15 +103,15 @@ export function DeleteReasonDialog({
 
                     <div className="bg-status-warning-bg border border-status-warning-border rounded-lg p-3">
                         <p className="text-sm text-status-warning-text">
-                            <strong>GLP 合規提醒：</strong>
-                            {actionNoun}操作將被記錄於操作日誌中，包含{actionNoun}原因及操作者資訊。
+                            <strong>{t('ui.deleteReasonDialog.glpReminderTitle')}</strong>
+                            {t('ui.deleteReasonDialog.glpReminderBody', { noun: actionNoun })}
                         </p>
                     </div>
                 </div>
 
                 <DialogFooter className="gap-2">
                     <Button variant="outline" onClick={() => handleClose(false)} disabled={isPending}>
-                        取消
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         variant="destructive"

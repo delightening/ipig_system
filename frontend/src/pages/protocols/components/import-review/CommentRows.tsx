@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import type { ImportReviewComment } from '@/lib/api/protocol'
 import { Repeater } from '@/components/ui/repeater'
 import { Input } from '@/components/ui/input'
@@ -14,6 +16,7 @@ export function CommentRows({
   onChange: (v: ImportReviewComment[]) => void
   addLabel: string
 }) {
+  const { t } = useTranslation()
   return (
     <Repeater<ImportReviewComment>
       value={value}
@@ -24,30 +27,30 @@ export function CommentRows({
       renderItem={(item, _idx, onItemChange) => (
         <div className="grid gap-2 rounded-md border p-3">
           <div className="grid gap-1">
-            <Label className="text-sm font-normal text-muted-foreground">項次（選填，對應計畫書，如 4.1.2）</Label>
+            <Label className="text-sm font-normal text-muted-foreground">{t('protocolPages.importReview.commentRows.sectionNo')}</Label>
             <Input
               value={item.section_no ?? ''}
               onChange={(e) => onItemChange({ ...item, section_no: e.target.value })}
-              placeholder="如 4.1.2"
+              placeholder={t('protocolPages.importReview.commentRows.sectionNoPlaceholder')}
               className="max-w-[12rem]"
             />
           </div>
           <div className="grid gap-1">
-            <Label className="text-sm font-normal text-muted-foreground">審查意見</Label>
+            <Label className="text-sm font-normal text-muted-foreground">{t('protocolPages.shared.reviewComment')}</Label>
             <Textarea
               rows={2}
               value={item.content}
               onChange={(e) => onItemChange({ ...item, content: e.target.value })}
-              placeholder="輸入該條審查意見"
+              placeholder={t('protocolPages.importReview.commentRows.contentPlaceholder')}
             />
           </div>
           <div className="grid gap-1">
-            <Label className="text-sm font-normal text-muted-foreground">申請人 / 客戶回覆（選填）</Label>
+            <Label className="text-sm font-normal text-muted-foreground">{t('protocolPages.importReview.commentRows.reply')}</Label>
             <Textarea
               rows={2}
               value={item.reply ?? ''}
               onChange={(e) => onItemChange({ ...item, reply: e.target.value })}
-              placeholder="輸入申請人對此意見的回覆"
+              placeholder={t('protocolPages.importReview.commentRows.replyPlaceholder')}
             />
           </div>
         </div>

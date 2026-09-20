@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -26,6 +27,7 @@ import { getErrorMessage } from '@/types/error'
  * 攻擊面有限。
  */
 export function MobileSignPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') ?? ''
@@ -38,30 +40,37 @@ export function MobileSignPage() {
   const [done, setDone] = useState(false)
 
   const purposeLabel = useMemo(() => {
-    if (!purpose) return '電子簽章'
+    if (!purpose) return t('mobileSign.purposeDefault')
     if (purpose.startsWith('role.')) {
       const op = purpose.split('.')[1]
-      return `角色變更：${
-        op === 'create' ? '建立' : op === 'update' ? '更新' : op === 'delete' ? '刪除' : op
-      }`
+      return t('mobileSign.purposeRole', {
+        op:
+          op === 'create'
+            ? t('mobileSign.roleOps.create')
+            : op === 'update'
+              ? t('mobileSign.roleOps.update')
+              : op === 'delete'
+                ? t('mobileSign.roleOps.delete')
+                : op,
+      })
     }
     return purpose
-  }, [purpose])
+  }, [purpose, t])
 
   const missing = !id || !token
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!id || !token) {
-      setError('簽名連結無效，請從桌機重新產生 QR')
+      setError(t('mobileSign.invalidLinkRegenerate'))
       return
     }
     if (!password.trim()) {
-      setError('請輸入密碼')
+      setError(t('auth.validation.passwordRequired'))
       return
     }
     if (!signature?.svg) {
-      setError('請完成手寫簽名')
+      setError(t('auth.validation.signatureRequired'))
       return
     }
     setError(null)
@@ -74,7 +83,7 @@ export function MobileSignPage() {
       })
       setDone(true)
     } catch (err) {
-      setError(getErrorMessage(err) || '簽章送出失敗，請確認密碼正確或 QR 是否已過期')
+      setError(getErrorMessage(err) || t('mobileSign.submitFailed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -84,9 +93,9 @@ export function MobileSignPage() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <div className="w-full max-w-md space-y-4 text-center">
-          <h1 className="text-2xl font-semibold">簽署完成</h1>
+          <h1 className="text-2xl font-semibold">{t('mobileSign.doneTitle')}</h1>
           <p className="text-muted-foreground">
-            請回到桌機，操作會在數秒內自動繼續。本頁可關閉。
+            {t('mobileSign.doneDescription')}
           </p>
         </div>
       </div>
@@ -97,9 +106,9 @@ export function MobileSignPage() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <div className="w-full max-w-md space-y-4 text-center">
-          <h1 className="text-2xl font-semibold text-destructive">連結無效</h1>
+          <h1 className="text-2xl font-semibold text-destructive">{t('mobileSign.invalidTitle')}</h1>
           <p className="text-muted-foreground">
-            缺少 session 或 token；請從桌機簽章視窗重新產生 QR。
+            {t('mobileSign.invalidDescription')}
           </p>
         </div>
       </div>
@@ -110,24 +119,24 @@ export function MobileSignPage() {
     <div className="min-h-screen flex items-start justify-center p-4 bg-background">
       <div className="w-full max-w-md space-y-4 py-6">
         <div className="space-y-1">
-          <h1 className="text-xl font-semibold">手機簽名</h1>
+          <h1 className="text-xl font-semibold">{t('mobileSign.title')}</h1>
           <p className="text-sm text-muted-foreground">
-            操作項目：{purposeLabel}
+            {t('mobileSign.operationItem', { purpose: purposeLabel })}
           </p>
           <p className="text-xs text-muted-foreground">
-            此 QR 5 分鐘內單次有效；簽名與密碼會記錄到稽核軌跡。
+            {t('mobileSign.qrNotice')}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="mobile-sign-password">您的登入密碼</Label>
+            <Label htmlFor="mobile-sign-password">{t('auth.confirmPassword.passwordLabel')}</Label>
             <Input
               id="mobile-sign-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="請輸入密碼以確認身份"
+              placeholder={t('auth.confirmPassword.passwordPlaceholder')}
               disabled={isSubmitting}
               autoComplete="current-password"
               autoFocus
@@ -135,7 +144,7 @@ export function MobileSignPage() {
           </div>
 
           <div className="space-y-2">
-            <Label>手寫簽名</Label>
+            <Label>{t('signature.handwriting')}</Label>
             <HandwrittenSignaturePad
               onSignatureChange={setSignature}
               height={200}
@@ -146,7 +155,7 @@ export function MobileSignPage() {
 
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            送出簽章
+            {t('mobileSign.submit')}
           </Button>
         </form>
       </div>

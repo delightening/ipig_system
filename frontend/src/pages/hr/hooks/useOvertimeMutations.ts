@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api, { deleteResource } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -36,6 +37,7 @@ export const usePendingOvertime = () => {
 
 /** Hook for overtime mutations (CRUD operations) */
 export const useOvertimeMutations = () => {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
 
     const createOvertime = useMutation({
@@ -44,12 +46,12 @@ export const useOvertimeMutations = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.hr.myOvertime })
-            toast({ title: '成功', description: '已建立加班申請' })
+            toast({ title: t('common.success'), description: t('hrPages.overtime.toast.created') })
         },
         onError: (error: unknown) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '建立失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('hrPages.shared.toast.createFailed')),
                 variant: 'destructive',
             })
         },
@@ -61,7 +63,7 @@ export const useOvertimeMutations = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.hr.myOvertime })
-            toast({ title: '成功', description: '已送出審核' })
+            toast({ title: t('common.success'), description: t('hrPages.shared.toast.submittedForReview') })
         },
     })
 
@@ -74,7 +76,7 @@ export const useOvertimeMutations = () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.hr.myOvertime })
             // 全部加班紀錄分頁用 ['hr-all-overtime', filters]；缺這個 → 該分頁狀態不刷新。
             queryClient.invalidateQueries({ queryKey: ['hr-all-overtime'] })
-            toast({ title: '成功', description: '已核准' })
+            toast({ title: t('common.success'), description: t('hrPages.shared.toast.approved') })
         },
     })
 
@@ -86,7 +88,7 @@ export const useOvertimeMutations = () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.hr.pendingOvertime })
             queryClient.invalidateQueries({ queryKey: queryKeys.hr.myOvertime })
             queryClient.invalidateQueries({ queryKey: ['hr-all-overtime'] })
-            toast({ title: '已駁回', description: '加班已被駁回' })
+            toast({ title: t('hrPages.shared.toast.rejectedTitle'), description: t('hrPages.overtime.toast.rejected') })
         },
     })
 
@@ -102,12 +104,12 @@ export const useOvertimeMutations = () => {
             // 否則畫面上的補休時數還停在作廢前的數字。
             queryClient.invalidateQueries({ queryKey: queryKeys.hr.balanceSummary })
             queryClient.invalidateQueries({ queryKey: queryKeys.hr.balanceSummaryExpiring })
-            toast({ title: '已作廢', description: '加班單已作廢，補休餘額同步收回' })
+            toast({ title: t('hrPages.overtime.toast.voidedTitle'), description: t('hrPages.overtime.toast.voided') })
         },
         onError: (error: unknown) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '作廢失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('hrPages.overtime.toast.voidFailed')),
                 variant: 'destructive',
             })
         },
@@ -119,7 +121,7 @@ export const useOvertimeMutations = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.hr.myOvertime })
-            toast({ title: '成功', description: '已刪除加班申請' })
+            toast({ title: t('common.success'), description: t('hrPages.overtime.toast.deleted') })
         },
     })
 

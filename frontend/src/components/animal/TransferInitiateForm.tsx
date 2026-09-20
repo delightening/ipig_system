@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { transferApi, transferTypeNames } from '@/lib/api'
+import { transferApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
@@ -37,11 +37,11 @@ export function TransferInitiateForm({ animalId, earTag, onClose }: TransferInit
             transfer_type: transferType,
         }),
         onSuccess: () => {
-            toast({ title: '成功', description: '已發起轉讓申請' })
+            toast({ title: t('common.success'), description: t('animalActions.transfer.initiate.submitted') })
             onClose()
             invalidate()
         },
-        onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '發起失敗'), variant: 'destructive' }),
+        onError: (e: unknown) => toast({ title: t('common.error'), description: getApiErrorMessage(e, t('animalActions.transfer.initiate.failed')), variant: 'destructive' }),
     })
 
     return (
@@ -49,45 +49,45 @@ export function TransferInitiateForm({ animalId, earTag, onClose }: TransferInit
             <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                     <ArrowRightLeft className="h-5 w-5 text-status-info-text" />
-                    發起轉讓 — {earTag}
+                    {t('animalActions.transfer.initiate.title', { earTag })}
                 </CardTitle>
                 <CardDescription>
-                    請說明轉讓原因。發起後動物狀態將變為「已轉讓」，等待獸醫評估。
+                    {t('animalActions.transfer.initiate.description')}
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
-                    <Label htmlFor="transfer-reason">轉讓原因 *</Label>
+                    <Label htmlFor="transfer-reason">{t('animalActions.transfer.initiate.reasonLabel')}</Label>
                     <Textarea
                         id="transfer-reason"
                         value={reason}
                         onChange={e => setReason(e.target.value)}
-                        placeholder="說明轉讓原因..."
+                        placeholder={t('animalActions.transfer.initiate.reasonHint')}
                         className="min-h-[80px]"
                     />
                 </div>
                 <div className="space-y-2">
-                    <Label>轉讓類型</Label>
+                    <Label>{t('animalActions.transfer.typeLabel')}</Label>
                     <Select value={transferType} onValueChange={(v: 'external' | 'internal') => setTransferType(v)}>
                         <SelectTrigger>
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="internal">{transferTypeNames.internal}</SelectItem>
-                            <SelectItem value="external">{transferTypeNames.external}</SelectItem>
+                            <SelectItem value="internal">{t('animalActions.transfer.type.internal')}</SelectItem>
+                            <SelectItem value="external">{t('animalActions.transfer.type.external')}</SelectItem>
                         </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                        {transferType === 'external' ? '轉給其他機構：完成轉讓後將清空欄位。' : '仍在機構內：完成轉讓後保留欄位，僅移出原計劃。'}
+                        {transferType === 'external' ? t('animalActions.transfer.initiate.externalHint') : t('animalActions.transfer.initiate.internalHint')}
                     </p>
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="transfer-remark">備註</Label>
+                    <Label htmlFor="transfer-remark">{t('animalActions.common.notes')}</Label>
                     <Input
                         id="transfer-remark"
                         value={remark}
                         onChange={e => setRemark(e.target.value)}
-                        placeholder="可選備註"
+                        placeholder={t('animalActions.transfer.initiate.remarkHint')}
                     />
                 </div>
                 <div className="flex gap-2">
@@ -97,7 +97,7 @@ export function TransferInitiateForm({ animalId, earTag, onClose }: TransferInit
                         className="bg-primary hover:bg-primary/90"
                     >
                         {initiateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                        確認發起
+                        {t('animalActions.transfer.initiate.confirm')}
                     </Button>
                     <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
                 </div>

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import type { ProtocolStatus } from '@/types/aup'
@@ -7,17 +9,18 @@ interface ProtocolTimelineProps {
 }
 
 interface TimelineNode {
-    label: string
+    // i18n 鍵；渲染時才 t(labelKey)（模組頂層不可存翻譯後字串）
+    labelKey: string
     statuses: ProtocolStatus[]
 }
 
 const TIMELINE_NODES: TimelineNode[] = [
-    { label: '草稿', statuses: ['DRAFT'] },
-    { label: '已提交', statuses: ['SUBMITTED'] },
-    { label: '初審', statuses: ['PRE_REVIEW', 'PRE_REVIEW_REVISION_REQUIRED'] },
-    { label: '獸醫審查', statuses: ['VET_REVIEW', 'VET_REVISION_REQUIRED'] },
-    { label: '委員會', statuses: ['UNDER_REVIEW', 'REVISION_REQUIRED', 'RESUBMITTED'] },
-    { label: '核准', statuses: ['APPROVED', 'APPROVED_WITH_CONDITIONS'] },
+    { labelKey: 'protocols.status.DRAFT', statuses: ['DRAFT'] },
+    { labelKey: 'protocolComponents.timeline.submitted', statuses: ['SUBMITTED'] },
+    { labelKey: 'protocolComponents.timeline.preReview', statuses: ['PRE_REVIEW', 'PRE_REVIEW_REVISION_REQUIRED'] },
+    { labelKey: 'protocols.status.VET_REVIEW', statuses: ['VET_REVIEW', 'VET_REVISION_REQUIRED'] },
+    { labelKey: 'protocolComponents.timeline.committee', statuses: ['UNDER_REVIEW', 'REVISION_REQUIRED', 'RESUBMITTED'] },
+    { labelKey: 'protocolComponents.timeline.approved', statuses: ['APPROVED', 'APPROVED_WITH_CONDITIONS'] },
 ]
 
 const SPECIAL_STATUSES: ProtocolStatus[] = ['REJECTED', 'SUSPENDED', 'CLOSED', 'DELETED', 'DEFERRED']
@@ -29,15 +32,17 @@ function getNodeIndex(status: ProtocolStatus): number {
     return TIMELINE_NODES.findIndex(node => node.statuses.includes(status))
 }
 
-const specialStatusLabels: Partial<Record<ProtocolStatus, string>> = {
-    REJECTED: '已否決',
-    SUSPENDED: '已暫停',
-    CLOSED: '已結案',
-    DELETED: '已刪除',
-    DEFERRED: '延後審議',
+// 值為 i18n 鍵；渲染時才 t(key)
+const specialStatusLabelKeys: Partial<Record<ProtocolStatus, string>> = {
+    REJECTED: 'protocolComponents.timeline.rejected',
+    SUSPENDED: 'protocols.status.SUSPENDED',
+    CLOSED: 'protocols.status.CLOSED',
+    DELETED: 'protocols.status.DELETED',
+    DEFERRED: 'protocolComponents.timeline.deferred',
 }
 
 export function ProtocolTimeline({ status }: ProtocolTimelineProps) {
+    const { t } = useTranslation()
     const isSpecial = SPECIAL_STATUSES.includes(status)
     const isRevision = REVISION_STATUSES.includes(status)
     const currentIndex = getNodeIndex(status)
@@ -45,8 +50,8 @@ export function ProtocolTimeline({ status }: ProtocolTimelineProps) {
     if (isSpecial) {
         return (
             <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">計畫狀態：</span>
-                <Badge variant="destructive">{specialStatusLabels[status] || status}</Badge>
+                <span className="text-sm text-muted-foreground">{t('protocolComponents.timeline.statusLabel')}</span>
+                <Badge variant="destructive">{specialStatusLabelKeys[status] ? t(specialStatusLabelKeys[status]) : status}</Badge>
             </div>
         )
     }
@@ -60,7 +65,7 @@ export function ProtocolTimeline({ status }: ProtocolTimelineProps) {
                     const isRevisionNode = isCurrent && isRevision
 
                     return (
-                        <div key={node.label} className="flex items-center flex-1 last:flex-none">
+                        <div key={node.labelKey} className="flex items-center flex-1 last:flex-none">
                             {/* Node */}
                             <div className="flex flex-col items-center gap-1.5">
                                 <div
@@ -81,10 +86,10 @@ export function ProtocolTimeline({ status }: ProtocolTimelineProps) {
                                         !isCompleted && !isCurrent && 'text-muted-foreground',
                                     )}
                                 >
-                                    {node.label}
+                                    {t(node.labelKey)}
                                 </span>
                                 {isRevisionNode && (
-                                    <span className="text-[10px] text-status-warning-text">退回修改</span>
+                                    <span className="text-[10px] text-status-warning-text">{t('protocolComponents.timeline.returnedForRevision')}</span>
                                 )}
                             </div>
 

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api, { SalesLinesReport } from '@/lib/api'
 import { formatNumber, formatDate } from '@/lib/utils'
@@ -32,7 +33,7 @@ import { Download, ShoppingCart } from 'lucide-react'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { GuestDateNotice } from '@/components/ui/guest-date-notice'
 
-// 客戶分類對照表
+// 客戶分類對照表（僅供 CSV 匯出使用：匯出檔案內容為正式報表產出，維持中文；畫面顯示走 i18n）
 const CUSTOMER_CATEGORY_MAP: Record<string, string> = {
   internal: '內部單位',
   external: '外部客戶',
@@ -40,13 +41,27 @@ const CUSTOMER_CATEGORY_MAP: Record<string, string> = {
   other: '其他',
 }
 
-// 格式化客戶分類
+// 格式化客戶分類（CSV 匯出用）
 const formatCustomerCategory = (cat?: string): string => {
   if (!cat) return '-'
   return CUSTOMER_CATEGORY_MAP[cat] || cat
 }
 
+// 客戶分類 → 畫面顯示用 i18n 鍵（未知分類原樣顯示）
+const CUSTOMER_CATEGORY_LABEL_KEYS: Record<string, string> = {
+  internal: 'reportsPages.salesLines.categories.internal',
+  external: 'reportsPages.salesLines.categories.external',
+  research: 'reportsPages.salesLines.categories.research',
+  other: 'reportsPages.salesLines.categories.other',
+}
+
 export function SalesLinesReportPage() {
+  const { t } = useTranslation()
+  const getCustomerCategoryLabel = (cat?: string): string => {
+    if (!cat) return '-'
+    const key = CUSTOMER_CATEGORY_LABEL_KEYS[cat]
+    return key ? t(key) : cat
+  }
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [partnerId, setPartnerId] = useState<string>('all')
   const { from, to, setFrom, setTo } = useDateRangeFilter()
@@ -85,13 +100,13 @@ export function SalesLinesReportPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'draft':
-        return <Badge variant="secondary">草稿</Badge>
+        return <Badge variant="secondary">{t('reportsPages.shared.docStatus.draft')}</Badge>
       case 'submitted':
-        return <Badge variant="warning">待核准</Badge>
+        return <Badge variant="warning">{t('reportsPages.shared.docStatus.submitted')}</Badge>
       case 'approved':
-        return <Badge variant="success">已核准</Badge>
+        return <Badge variant="success">{t('reportsPages.shared.docStatus.approved')}</Badge>
       case 'cancelled':
-        return <Badge variant="destructive">已作廢</Badge>
+        return <Badge variant="destructive">{t('reportsPages.shared.docStatus.cancelled')}</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -135,12 +150,12 @@ export function SalesLinesReportPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="銷貨明細報表"
-        description="銷貨單、銷貨出庫明細"
+        title={t('reportsPages.salesLines.title')}
+        description={t('reportsPages.salesLines.description')}
         actions={
           <Button size="sm" onClick={exportToCSV} disabled={!report?.length}>
             <Download className="mr-2 h-4 w-4" />
-            匯出 CSV
+            {t('reportsPages.shared.exportCsv')}
           </Button>
         }
       />
@@ -148,21 +163,21 @@ export function SalesLinesReportPage() {
       {/* 篩選列 */}
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-1">
-          <Label>起始日期</Label>
-          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" aria-label="起始日期" />
+          <Label>{t('reportsPages.shared.startDate')}</Label>
+          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" aria-label={t('reportsPages.shared.startDate')} />
         </div>
         <div className="space-y-1">
-          <Label>結束日期</Label>
-          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" aria-label="結束日期" />
+          <Label>{t('reportsPages.shared.endDate')}</Label>
+          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" aria-label={t('reportsPages.shared.endDate')} />
         </div>
         <div className="space-y-1">
-          <Label>客戶</Label>
+          <Label>{t('reportsPages.shared.customer')}</Label>
           <Select value={partnerId} onValueChange={setPartnerId}>
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="全部客戶" />
+              <SelectValue placeholder={t('reportsPages.shared.allCustomers')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部客戶</SelectItem>
+              <SelectItem value="all">{t('reportsPages.shared.allCustomers')}</SelectItem>
               {partners?.map(p => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
@@ -172,17 +187,17 @@ export function SalesLinesReportPage() {
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>客戶分類</Label>
+          <Label>{t('reportsPages.salesLines.customerCategory')}</Label>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="全部分類" />
+              <SelectValue placeholder={t('reportsPages.salesLines.allCategories')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部分類</SelectItem>
-              <SelectItem value="internal">內部單位</SelectItem>
-              <SelectItem value="external">外部客戶</SelectItem>
-              <SelectItem value="research">研究計畫</SelectItem>
-              <SelectItem value="other">其他</SelectItem>
+              <SelectItem value="all">{t('reportsPages.salesLines.allCategories')}</SelectItem>
+              <SelectItem value="internal">{t('reportsPages.salesLines.categories.internal')}</SelectItem>
+              <SelectItem value="external">{t('reportsPages.salesLines.categories.external')}</SelectItem>
+              <SelectItem value="research">{t('reportsPages.salesLines.categories.research')}</SelectItem>
+              <SelectItem value="other">{t('reportsPages.salesLines.categories.other')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -193,17 +208,17 @@ export function SalesLinesReportPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortableTableHead sortKey="doc_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據日期</SortableTableHead>
-              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據編號</SortableTableHead>
-              <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>狀態</SortableTableHead>
-              <SortableTableHead sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>客戶</SortableTableHead>
-              <SortableTableHead sortKey="customer_category" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>客戶分類</SortableTableHead>
-              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
-              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品</SortableTableHead>
-              <SortableTableHead sortKey="qty" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">數量</SortableTableHead>
-              <SortableTableHead sortKey="unit_price" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">單價</SortableTableHead>
-              <SortableTableHead sortKey="line_total" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">金額</SortableTableHead>
-              <SortableTableHead sortKey="created_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>建立者</SortableTableHead>
+              <SortableTableHead sortKey="doc_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.docDate')}</SortableTableHead>
+              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.docNo')}</SortableTableHead>
+              <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.status')}</SortableTableHead>
+              <SortableTableHead sortKey="partner_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.customer')}</SortableTableHead>
+              <SortableTableHead sortKey="customer_category" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.salesLines.customerCategory')}</SortableTableHead>
+              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.warehouse')}</SortableTableHead>
+              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.product')}</SortableTableHead>
+              <SortableTableHead sortKey="qty" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.quantity')}</SortableTableHead>
+              <SortableTableHead sortKey="unit_price" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.unitPrice')}</SortableTableHead>
+              <SortableTableHead sortKey="line_total" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.amount')}</SortableTableHead>
+              <SortableTableHead sortKey="created_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.createdBy')}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -234,7 +249,7 @@ export function SalesLinesReportPage() {
                     </TableCell>
                     <TableCell>
                       {row.customer_category ? (
-                        <Badge variant="outline">{formatCustomerCategory(row.customer_category)}</Badge>
+                        <Badge variant="outline">{getCustomerCategoryLabel(row.customer_category)}</Badge>
                       ) : '-'}
                     </TableCell>
                     <TableCell>{row.warehouse_name || '-'}</TableCell>
@@ -258,7 +273,7 @@ export function SalesLinesReportPage() {
                 ))}
                 {summary && (
                   <TableRow className="bg-muted/50 font-semibold">
-                    <TableCell colSpan={7} className="text-right">合計</TableCell>
+                    <TableCell colSpan={7} className="text-right">{t('reportsPages.shared.total')}</TableCell>
                     <TableCell className="text-right">{formatNumber(summary.totalQty, 0)}</TableCell>
                     <TableCell />
                     <TableCell className="text-right">${formatNumber(summary.totalAmount, 2)}</TableCell>
@@ -267,7 +282,7 @@ export function SalesLinesReportPage() {
                 )}
               </>
             ) : (
-              <TableEmptyRow colSpan={11} icon={ShoppingCart} title="尚無銷貨資料" />
+              <TableEmptyRow colSpan={11} icon={ShoppingCart} title={t('reportsPages.salesLines.emptyTitle')} />
             )}
           </TableBody>
         </Table>

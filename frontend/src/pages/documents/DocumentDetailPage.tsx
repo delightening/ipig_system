@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import api, { Document, adminApproveDocument, adminRejectDocument, createGrnFromPo, reverseDocument, reverseApproveDocument } from '@/lib/api'
 import { useAuthHasRole, useAuthHasPermission, useAuthUser } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
@@ -34,34 +36,34 @@ import { PendingOwnerBadge, PendingOwnerInline } from '@/components/PendingOwner
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { documentChangeQueryKeys } from './queryInvalidation'
 import { ReversalNotice } from './components/ReversalNotice'
+import { DOC_STATUS_NAMES, DOC_TYPE_NAMES } from './types'
 
-const docTypeNames: Record<string, string> = {
-  PO: '採購單',
-  GRN: '採購入庫',
-  PR: '採購退貨',
-  SO: '銷貨單',
-  SR: '銷貨退貨',
-  RTN: '退貨單',
-  TR: '調撥單',
-  STK: '盤點單',
-  ADJ: '調整單',
+const statusNames = DOC_STATUS_NAMES
+
+/** 單據類型顯示名稱；SR／RTN 已從 DocType 移除，僅舊單據可能出現，故在此個別處理。 */
+function docTypeLabel(t: TFunction, docType: string): string | undefined {
+  if (docType === 'SR') return t('erpDocs.documents.docType.SR')
+  if (docType === 'RTN') return t('erpDocs.documents.docType.RTN')
+  return (DOC_TYPE_NAMES as Record<string, string>)[docType]
 }
 
-const statusNames: Record<string, string> = {
-  draft: '草稿',
-  submitted: '待核准',
-  approved: '已核准',
-  cancelled: '已作廢',
-}
-
-const managerApprovalLabels: Record<string, string> = {
-  pending: '待倉庫核准',
-  wm_approved: '倉庫已核准，待管理員核准',
-  approved: '管理員已核准',
-  rejected: '管理員已駁回',
+function managerApprovalLabel(t: TFunction, status: string): string | undefined {
+  switch (status) {
+    case 'pending':
+      return t('erpDocs.documents.detail.managerApproval.pending')
+    case 'wm_approved':
+      return t('erpDocs.documents.detail.managerApproval.wmApproved')
+    case 'approved':
+      return t('erpDocs.documents.detail.managerApproval.approved')
+    case 'rejected':
+      return t('erpDocs.documents.detail.managerApproval.rejected')
+    default:
+      return undefined
+  }
 }
 
 function AdjApprovalProgress({ document }: { document: Document }) {
+  const { t } = useTranslation()
   if (!document.requires_manager_approval) return null
 
   const status = document.manager_approval_status || 'pending'
@@ -76,7 +78,7 @@ function AdjApprovalProgress({ document }: { document: Document }) {
           ) : (
             <ShieldCheck className="h-4 w-4 text-primary" />
           )}
-          大金額調整單審批進度
+          {t('erpDocs.documents.detail.adjProgress.title')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -87,11 +89,11 @@ function AdjApprovalProgress({ document }: { document: Document }) {
             : status === 'approved' ? 'success'
             : 'destructive'
           }>
-            {managerApprovalLabels[status] || status}
+            {managerApprovalLabel(t, status) || status}
           </Badge>
           {document.scrap_total_amount && (
             <span className="text-xs text-muted-foreground">
-              調整金額：{formatCurrency(document.scrap_total_amount)}
+              {t('erpDocs.documents.detail.adjProgress.amount', { amount: formatCurrency(document.scrap_total_amount) })}
             </span>
           )}
         </div>
@@ -99,13 +101,13 @@ function AdjApprovalProgress({ document }: { document: Document }) {
         {/* 審批步驟 */}
         <div className="flex items-center gap-2 text-xs">
           <StepIndicator
-            label="倉庫核准"
+            label={t('erpDocs.documents.detail.warehouseApprove')}
             done={status !== 'pending'}
             active={status === 'pending'}
           />
           <span className="text-muted-foreground">→</span>
           <StepIndicator
-            label="管理員核准"
+            label={t('erpDocs.documents.detail.adjProgress.stepAdmin')}
             done={status === 'approved'}
             active={status === 'wm_approved'}
             rejected={isRejected}
@@ -114,7 +116,7 @@ function AdjApprovalProgress({ document }: { document: Document }) {
 
         {isRejected && document.manager_reject_reason && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm">
-            <span className="font-medium text-destructive">駁回原因：</span>
+            <span className="font-medium text-destructive">{t('erpDocs.documents.detail.adjProgress.rejectReason')}</span>
             <span>{document.manager_reject_reason}</span>
           </div>
         )}
@@ -144,6 +146,7 @@ function StepIndicator({ label, done, active, rejected }: {
 }
 
 export function DocumentDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -197,12 +200,12 @@ export function DocumentDetailPage() {
     mutationFn: () => api.post(`/documents/${id}/submit`),
     onSuccess: () => {
       invalidateAfterDocChange(false)
-      toast({ title: '成功', description: '單據已送審' })
+      toast({ title: t('common.success'), description: t('erpDocs.documents.toast.submitted') })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '送審失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpDocs.documents.toast.submitFailed')),
         variant: 'destructive',
       })
     },
@@ -212,12 +215,12 @@ export function DocumentDetailPage() {
     mutationFn: () => api.post(`/documents/${id}/approve`),
     onSuccess: () => {
       invalidateAfterDocChange(true)
-      toast({ title: '成功', description: '單據已核准' })
+      toast({ title: t('common.success'), description: t('erpDocs.documents.detail.toast.approved') })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '核准失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpDocs.documents.detail.toast.approveFailed')),
         variant: 'destructive',
       })
     },
@@ -227,12 +230,12 @@ export function DocumentDetailPage() {
     mutationFn: () => api.post(`/documents/${id}/cancel`),
     onSuccess: () => {
       invalidateAfterDocChange(false)
-      toast({ title: '成功', description: '單據已作廢' })
+      toast({ title: t('common.success'), description: t('erpDocs.documents.detail.toast.cancelled') })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '作廢失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpDocs.documents.detail.toast.cancelFailed')),
         variant: 'destructive',
       })
     },
@@ -241,13 +244,13 @@ export function DocumentDetailPage() {
   const createGrnMutation = useMutation({
     mutationFn: () => createGrnFromPo(id!),
     onSuccess: (data) => {
-      toast({ title: '成功', description: '已建立採購入庫單，請選擇倉庫並送審' })
+      toast({ title: t('common.success'), description: t('erpDocs.documents.detail.toast.grnCreated') })
       navigate(`/documents/${data.id}/edit`)
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '建立採購入庫失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpDocs.documents.detail.toast.createGrnFailed')),
         variant: 'destructive',
       })
     },
@@ -257,12 +260,12 @@ export function DocumentDetailPage() {
     mutationFn: () => adminApproveDocument(id!),
     onSuccess: () => {
       invalidateAfterDocChange(true)
-      toast({ title: '成功', description: '管理員已完成最終核准' })
+      toast({ title: t('common.success'), description: t('erpDocs.documents.detail.toast.adminApproved') })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '管理員核准失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpDocs.documents.detail.toast.adminApproveFailed')),
         variant: 'destructive',
       })
     },
@@ -273,13 +276,16 @@ export function DocumentDetailPage() {
     mutationFn: () => reverseDocument(id!),
     onSuccess: (data: { id?: string }) => {
       invalidateAfterDocChange(false)
-      toast({ title: '已建立沖銷單', description: '沖銷單已送出，待管理員最終核准後才會生效' })
+      toast({
+        title: t('erpDocs.documents.detail.toast.reverseCreatedTitle'),
+        description: t('erpDocs.documents.detail.toast.reverseCreatedDesc'),
+      })
       if (data?.id) navigate(`/documents/${data.id}`)
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '發起沖銷失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpDocs.documents.detail.toast.reverseFailed')),
         variant: 'destructive',
       })
     },
@@ -290,12 +296,15 @@ export function DocumentDetailPage() {
     mutationFn: () => reverseApproveDocument(id!),
     onSuccess: () => {
       invalidateAfterDocChange(true)
-      toast({ title: '沖銷完成', description: '庫存與會計已反向沖銷' })
+      toast({
+        title: t('erpDocs.documents.detail.toast.reverseApprovedTitle'),
+        description: t('erpDocs.documents.detail.toast.reverseApprovedDesc'),
+      })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '沖銷核准失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpDocs.documents.detail.toast.reverseApproveFailed')),
         variant: 'destructive',
       })
     },
@@ -307,12 +316,12 @@ export function DocumentDetailPage() {
       invalidateAfterDocChange(false)
       setRejectDialogOpen(false)
       setRejectReason('')
-      toast({ title: '成功', description: '單據已駁回，退回草稿' })
+      toast({ title: t('common.success'), description: t('erpDocs.documents.detail.toast.rejected') })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '駁回失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpDocs.documents.detail.toast.rejectFailed')),
         variant: 'destructive',
       })
     },
@@ -348,9 +357,9 @@ export function DocumentDetailPage() {
   if (!document) {
     return (
       <div className="text-center py-8">
-        <p className="text-muted-foreground">找不到此單據</p>
+        <p className="text-muted-foreground">{t('erpDocs.documents.detail.notFound')}</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>
-          返回
+          {t('erpDocs.shared.back')}
         </Button>
       </div>
     )
@@ -473,9 +482,9 @@ export function DocumentDetailPage() {
   // R71-10：最終核准（admin）為單據生效的關鍵動作，送出前加二次確認。
   const handleAdminApprove = async () => {
     const ok = await confirm({
-      title: '確認最終核准',
-      description: '最終核准後此單據將正式生效並完成核准流程。確認核准？',
-      confirmLabel: '確認核准',
+      title: t('erpDocs.documents.detail.confirm.adminApproveTitle'),
+      description: t('erpDocs.documents.detail.confirm.adminApproveDescription'),
+      confirmLabel: t('erpDocs.documents.detail.confirm.adminApproveLabel'),
     })
     if (ok) adminApproveMutation.mutate()
   }
@@ -483,18 +492,18 @@ export function DocumentDetailPage() {
   // R84-5：沖銷會反向動庫存與會計帳，且一張單只能沖銷一次，送出前二次確認。
   const handleReverse = async () => {
     const ok = await confirm({
-      title: '確認發起沖銷',
-      description: `將對 ${document.doc_no} 建立沖銷單。此階段尚不影響庫存，須經管理員最終核准後才會反向沖銷庫存與會計帳。一張單據只能沖銷一次。`,
-      confirmLabel: '建立沖銷單',
+      title: t('erpDocs.documents.detail.confirm.reverseTitle'),
+      description: t('erpDocs.documents.detail.confirm.reverseDescription', { docNo: document.doc_no }),
+      confirmLabel: t('erpDocs.documents.detail.confirm.reverseLabel'),
     })
     if (ok) reverseMutation.mutate()
   }
 
   const handleReverseApprove = async () => {
     const ok = await confirm({
-      title: '確認核准沖銷',
-      description: '核准後將立即反向沖銷原單的庫存與會計帳，且無法復原。確認核准？',
-      confirmLabel: '確認沖銷',
+      title: t('erpDocs.documents.detail.confirm.reverseApproveTitle'),
+      description: t('erpDocs.documents.detail.confirm.reverseApproveDescription'),
+      confirmLabel: t('erpDocs.documents.detail.confirm.reverseApproveLabel'),
     })
     if (ok) reverseApproveMutation.mutate()
   }
@@ -508,9 +517,9 @@ export function DocumentDetailPage() {
         : 0
     if (unshelvedCount > 0) {
       const ok = await confirm({
-        title: '有品項尚未指定儲位',
-        description: `本採購入庫單有 ${unshelvedCount} 行未指定儲位。核准後這些庫存會列為「未分配」，需稍後於倉庫頁分配上架。確定核准？`,
-        confirmLabel: '仍要核准',
+        title: t('erpDocs.documents.detail.confirm.unshelvedTitle'),
+        description: t('erpDocs.documents.detail.confirm.unshelvedDescription', { count: unshelvedCount }),
+        confirmLabel: t('erpDocs.documents.detail.confirm.unshelvedLabel'),
       })
       if (!ok) return
     }
@@ -521,7 +530,7 @@ export function DocumentDetailPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => navigate(-1)} aria-label="返回">
+          <Button variant="outline" size="icon" onClick={() => navigate(-1)} aria-label={t('erpDocs.shared.back')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -530,7 +539,10 @@ export function DocumentDetailPage() {
               {getStatusBadge(document.status)}
             </div>
             <p className="text-muted-foreground">
-              {docTypeNames[document.doc_type]} · 建立於 {formatDate(document.created_at)}
+              {t('erpDocs.documents.detail.createdOn', {
+                type: docTypeLabel(t, document.doc_type) ?? document.doc_type,
+                date: formatDate(document.created_at),
+              })}
             </p>
             {/* 詳情頁不把「卡在誰」藏在 hover 後面：這裡是使用者來查進度的地方 */}
             <PendingOwnerInline
@@ -543,7 +555,7 @@ export function DocumentDetailPage() {
           {canCreateDoc && (
             <Button variant="outline" onClick={handleCopyDocument}>
               <Copy className="mr-2 h-4 w-4" />
-              複製單據
+              {t('erpDocs.documents.detail.copyDocument')}
             </Button>
           )}
           {showCreateGrn && (
@@ -553,7 +565,7 @@ export function DocumentDetailPage() {
               ) : (
                 <PackagePlus className="mr-2 h-4 w-4" />
               )}
-              採購入庫
+              {t('erpDocs.documents.docType.GRN')}
             </Button>
           )}
           {document.status === 'draft' && canSubmitDoc && (
@@ -563,7 +575,7 @@ export function DocumentDetailPage() {
               ) : (
                 <Send className="mr-2 h-4 w-4" />
               )}
-              送審
+              {t('erpDocs.documents.detail.submit')}
             </Button>
           )}
           {showWmApprove && (
@@ -573,7 +585,7 @@ export function DocumentDetailPage() {
               ) : (
                 <CheckCircle className="mr-2 h-4 w-4" />
               )}
-              {isAdjNeedsAdmin ? '倉庫核准' : '核准'}
+              {isAdjNeedsAdmin ? t('erpDocs.documents.detail.warehouseApprove') : t('erpDocs.documents.detail.approve')}
             </Button>
           )}
           {showAdminApprove && (
@@ -583,7 +595,7 @@ export function DocumentDetailPage() {
               ) : (
                 <ShieldCheck className="mr-2 h-4 w-4" />
               )}
-              最終核准
+              {t('erpDocs.documents.detail.finalApprove')}
             </Button>
           )}
           {showAdminReject && (
@@ -592,7 +604,7 @@ export function DocumentDetailPage() {
               onClick={() => setRejectDialogOpen(true)}
             >
               <ShieldX className="mr-2 h-4 w-4" />
-              駁回
+              {t('erpDocs.documents.detail.reject')}
             </Button>
           )}
           {showReverse && (
@@ -602,7 +614,7 @@ export function DocumentDetailPage() {
               ) : (
                 <Undo2 className="mr-2 h-4 w-4" />
               )}
-              發起沖銷
+              {t('erpDocs.documents.detail.initiateReversal')}
             </Button>
           )}
           {showReversalApprove && (
@@ -612,7 +624,7 @@ export function DocumentDetailPage() {
               ) : (
                 <ShieldCheck className="mr-2 h-4 w-4" />
               )}
-              核准沖銷
+              {t('erpDocs.documents.detail.approveReversal')}
             </Button>
           )}
           {showCancel && (
@@ -626,7 +638,7 @@ export function DocumentDetailPage() {
               ) : (
                 <XCircle className="mr-2 h-4 w-4" />
               )}
-              作廢
+              {t('erpDocs.documents.detail.voidDocument')}
             </Button>
           )}
         </div>
@@ -643,44 +655,44 @@ export function DocumentDetailPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>單據資訊</CardTitle>
+            <CardTitle>{t('erpDocs.shared.docInfo')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">單據類型</span>
-              <span>{docTypeNames[document.doc_type]}</span>
+              <span className="text-muted-foreground">{t('erpDocs.shared.docType')}</span>
+              <span>{docTypeLabel(t, document.doc_type)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">單據日期</span>
+              <span className="text-muted-foreground">{t('erpDocs.shared.docDate')}</span>
               <span>{formatDate(document.doc_date)}</span>
             </div>
             {document.warehouse_name && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">倉庫</span>
+                <span className="text-muted-foreground">{t('erpDocs.shared.warehouse')}</span>
                 <span>{document.warehouse_name}</span>
               </div>
             )}
             {document.warehouse_from_name && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">來源倉庫</span>
+                <span className="text-muted-foreground">{t('erpDocs.shared.sourceWarehouse')}</span>
                 <span>{document.warehouse_from_name}</span>
               </div>
             )}
             {document.warehouse_to_name && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">目標倉庫</span>
+                <span className="text-muted-foreground">{t('erpDocs.shared.targetWarehouse')}</span>
                 <span>{document.warehouse_to_name}</span>
               </div>
             )}
             {document.partner_name && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">對象</span>
+                <span className="text-muted-foreground">{t('erpDocs.shared.partner')}</span>
                 <span>{document.partner_name}</span>
               </div>
             )}
             {document.remark && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">備註</span>
+                <span className="text-muted-foreground">{t('erpDocs.shared.remark')}</span>
                 <span>{document.remark}</span>
               </div>
             )}
@@ -689,25 +701,25 @@ export function DocumentDetailPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>處理資訊</CardTitle>
+            <CardTitle>{t('erpDocs.documents.detail.processingInfo')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">建立人</span>
+              <span className="text-muted-foreground">{t('erpDocs.shared.createdBy')}</span>
               <span>{document.created_by_name}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">建立時間</span>
+              <span className="text-muted-foreground">{t('erpDocs.documents.detail.createdAt')}</span>
               <span>{formatDate(document.created_at)}</span>
             </div>
             {document.approved_by_name && (
               <>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">核准人</span>
+                  <span className="text-muted-foreground">{t('erpDocs.documents.detail.approvedBy')}</span>
                   <span>{document.approved_by_name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">核准時間</span>
+                  <span className="text-muted-foreground">{t('erpDocs.documents.detail.approvedAt')}</span>
                   <span>{document.approved_at ? formatDate(document.approved_at) : '-'}</span>
                 </div>
               </>
@@ -718,7 +730,7 @@ export function DocumentDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>單據明細</CardTitle>
+          <CardTitle>{t('erpDocs.shared.docLines')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="@container">
@@ -726,14 +738,14 @@ export function DocumentDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <SortableTableHead className="w-16" sortKey="line_no" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>項次</SortableTableHead>
-                    <SortableTableHead sortKey="product_name" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>品項</SortableTableHead>
-                    <SortableTableHead className="text-right" sortKey="qty" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>數量</SortableTableHead>
-                    <SortableTableHead sortKey="uom" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>單位</SortableTableHead>
-                    <SortableTableHead className="text-right hidden @[750px]:table-cell" sortKey="unit_price" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>單價</SortableTableHead>
-                    <TableHead className="text-right hidden @[750px]:table-cell">金額</TableHead>
-                    <SortableTableHead className="hidden @[900px]:table-cell" sortKey="batch_no" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>批號</SortableTableHead>
-                    <SortableTableHead className="hidden @[900px]:table-cell" sortKey="expiry_date" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>效期</SortableTableHead>
+                    <SortableTableHead className="w-16" sortKey="line_no" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>{t('erpDocs.shared.lineNo')}</SortableTableHead>
+                    <SortableTableHead sortKey="product_name" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>{t('erpDocs.shared.item')}</SortableTableHead>
+                    <SortableTableHead className="text-right" sortKey="qty" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>{t('erpDocs.shared.quantity')}</SortableTableHead>
+                    <SortableTableHead sortKey="uom" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>{t('erpDocs.shared.unit')}</SortableTableHead>
+                    <SortableTableHead className="text-right hidden @[750px]:table-cell" sortKey="unit_price" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>{t('erpDocs.shared.unitPrice')}</SortableTableHead>
+                    <TableHead className="text-right hidden @[750px]:table-cell">{t('erpDocs.shared.amount')}</TableHead>
+                    <SortableTableHead className="hidden @[900px]:table-cell" sortKey="batch_no" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>{t('erpDocs.shared.batchNo')}</SortableTableHead>
+                    <SortableTableHead className="hidden @[900px]:table-cell" sortKey="expiry_date" currentSort={lineSort.column} currentDirection={lineSort.direction} onSort={toggleLineSort}>{t('erpDocs.shared.expiryDate')}</SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -786,9 +798,9 @@ export function DocumentDetailPage() {
                   </div>
                   {(line.batch_no || line.expiry_date) && (
                     <div className="text-xs text-muted-foreground">
-                      {line.batch_no && `批號: ${line.batch_no}`}
+                      {line.batch_no && t('erpDocs.documents.detail.batchColon', { value: line.batch_no })}
                       {line.batch_no && line.expiry_date && ' · '}
-                      {line.expiry_date && `效期: ${formatDate(line.expiry_date)}`}
+                      {line.expiry_date && t('erpDocs.documents.detail.expiryColon', { value: formatDate(line.expiry_date) })}
                     </div>
                   )}
                 </div>
@@ -804,21 +816,21 @@ export function DocumentDetailPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              駁回調整單
+              {t('erpDocs.documents.detail.rejectDialog.title')}
             </DialogTitle>
             <DialogDescription>
-              駁回後單據將退回草稿狀態，建立者可修改後重新提交。
+              {t('erpDocs.documents.detail.rejectDialog.description')}
             </DialogDescription>
           </DialogHeader>
           <Textarea
-            placeholder="請輸入駁回原因..."
+            placeholder={t('erpDocs.documents.detail.rejectDialog.placeholder')}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             rows={3}
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -830,7 +842,7 @@ export function DocumentDetailPage() {
               ) : (
                 <ShieldX className="mr-2 h-4 w-4" />
               )}
-              確認駁回
+              {t('erpDocs.documents.detail.rejectDialog.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

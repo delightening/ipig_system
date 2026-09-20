@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
+import i18n from '@/lib/i18n'
 import {
   cn,
   formatDate,
@@ -217,15 +218,37 @@ describe('formatUnitPrice', () => {
 })
 
 describe('formatUom', () => {
-  it('maps known codes to Chinese', () => {
+  // formatUom 走 i18n（`uom.<code>`），期望值依語系而定；測完把語系還原，避免影響同檔其他測試
+  const originalLanguage = i18n.language
+  afterEach(async () => {
+    await i18n.changeLanguage(originalLanguage)
+  })
+
+  it('maps known codes to Chinese under zh-TW', async () => {
+    await i18n.changeLanguage('zh-TW')
     expect(formatUom('EA')).toBe('個')
     expect(formatUom('BT')).toBe('瓶')
     expect(formatUom('KG')).toBe('kg')
     expect(formatUom('ML')).toBe('mL')
   })
 
-  it('returns code as-is for unknown codes', () => {
-    expect(formatUom('UNKNOWN')).toBe('UNKNOWN')
+  it('maps known codes to English under en', async () => {
+    await i18n.changeLanguage('en')
+    expect(formatUom('EA')).toBe('pcs')
+    expect(formatUom('BT')).toBe('bottle')
+    expect(formatUom('KG')).toBe('kg')
+    expect(formatUom('ML')).toBe('mL')
+  })
+
+  it('returns code as-is for unknown codes in every language', async () => {
+    for (const lng of ['zh-TW', 'en']) {
+      await i18n.changeLanguage(lng)
+      expect(formatUom('UNKNOWN')).toBe('UNKNOWN')
+    }
+  })
+
+  it('returns empty input as-is', () => {
+    expect(formatUom('')).toBe('')
   })
 })
 
@@ -234,5 +257,19 @@ describe('UOM_MAP', () => {
     expect(Object.keys(UOM_MAP).length).toBeGreaterThan(10)
     expect(UOM_MAP['EA']).toBeDefined()
     expect(UOM_MAP['pcs']).toBeDefined()
+  })
+
+  // UOM_MAP 是「固定 zh-TW 名稱」，供舊資料（曾把中文單位名直接存進 base_uom）反查代碼；
+  // 它必須和 locales 的 uom.<code>（zh-TW）保持一致，否則反查與顯示會各說各話。
+  it('stays in sync with the zh-TW uom.<code> labels', () => {
+    for (const [code, name] of Object.entries(UOM_MAP)) {
+      expect(i18n.getResource('zh-TW', 'translation', `uom.${code}`)).toBe(name)
+    }
+  })
+
+  it('has an English uom.<code> label for every code', () => {
+    for (const code of Object.keys(UOM_MAP)) {
+      expect(i18n.getResource('en', 'translation', `uom.${code}`)).toEqual(expect.any(String))
+    }
   })
 })

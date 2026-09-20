@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -38,6 +39,7 @@ export function BloodTestTemplateTable({
   onEdit,
   onToggle,
 }: BloodTestTemplateTableProps) {
+  const { t } = useTranslation()
   // 預設全部收合；key 為 group.panel?.key ?? '__uncategorized__'
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
@@ -75,9 +77,9 @@ export function BloodTestTemplateTable({
       </TableCell>
       <TableCell className="text-center">
         {template.is_active ? (
-          <Badge variant="success">啟用</Badge>
+          <Badge variant="success">{t('erpMaster.common.active')}</Badge>
         ) : (
-          <Badge variant="secondary">停用</Badge>
+          <Badge variant="secondary">{t('erpMaster.common.inactive')}</Badge>
         )}
       </TableCell>
       <TableCell className="text-right">
@@ -86,8 +88,8 @@ export function BloodTestTemplateTable({
             variant="ghost"
             size="icon"
             onClick={() => onEdit(template)}
-            title="編輯"
-            aria-label="編輯"
+            title={t('common.edit')}
+            aria-label={t('common.edit')}
           >
             <Edit className="h-4 w-4" />
           </Button>
@@ -95,8 +97,8 @@ export function BloodTestTemplateTable({
             variant="ghost"
             size="icon"
             onClick={() => onToggle(template)}
-            title={template.is_active ? '停用' : '恢復'}
-            aria-label={template.is_active ? '停用' : '恢復'}
+            title={template.is_active ? t('erpMaster.products.actions.deactivate') : t('erpMaster.bloodTest.table.restore')}
+            aria-label={template.is_active ? t('erpMaster.products.actions.deactivate') : t('erpMaster.bloodTest.table.restore')}
           >
             {template.is_active ? (
               <PowerOff className="h-4 w-4 text-status-warning-text" />
@@ -115,23 +117,23 @@ export function BloodTestTemplateTable({
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
             <TableHead className="w-[120px] cursor-pointer" onClick={() => onSort('code')}>
-              代碼 <SortIndicator field="code" />
+              {t('erpMaster.common.code')} <SortIndicator field="code" />
             </TableHead>
             <TableHead className="cursor-pointer" onClick={() => onSort('name')}>
-              名稱 <SortIndicator field="name" />
+              {t('erpMaster.common.name')} <SortIndicator field="name" />
             </TableHead>
             <TableHead className="w-[100px] cursor-pointer" onClick={() => onSort('default_unit')}>
-              單位 <SortIndicator field="default_unit" />
+              {t('erpMaster.common.unit')} <SortIndicator field="default_unit" />
             </TableHead>
-            <TableHead className="w-[140px]">參考範圍</TableHead>
+            <TableHead className="w-[140px]">{t('erpMaster.bloodTest.referenceRange')}</TableHead>
             <TableHead
               className="w-[100px] cursor-pointer text-right"
               onClick={() => onSort('default_price')}
             >
-              價格 <SortIndicator field="default_price" />
+              {t('erpMaster.bloodTest.table.price')} <SortIndicator field="default_price" />
             </TableHead>
-            <TableHead className="w-[80px] text-center">狀態</TableHead>
-            <TableHead className="w-[120px] text-right">操作</TableHead>
+            <TableHead className="w-[80px] text-center">{t('erpMaster.common.status')}</TableHead>
+            <TableHead className="w-[120px] text-right">{t('common.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -167,15 +169,15 @@ export function BloodTestTemplateTable({
                               <PanelIcon icon={group.panel.icon} className="text-base" />
                               <span>{group.panel.name}</span>
                               <Badge variant="outline" className="ml-1 text-xs">
-                                {group.items.length} 項
+                                {t('erpMaster.bloodTest.table.itemCount', { count: group.items.length })}
                               </Badge>
                             </>
                           ) : (
                             <>
                               <span className="text-base">📦</span>
-                              <span>未分類</span>
+                              <span>{t('erpMaster.bloodTest.uncategorized')}</span>
                               <Badge variant="outline" className="ml-1 text-xs">
-                                {group.items.length} 項
+                                {t('erpMaster.bloodTest.table.itemCount', { count: group.items.length })}
                               </Badge>
                             </>
                           )}
@@ -191,7 +193,7 @@ export function BloodTestTemplateTable({
             <TableEmptyRow
               colSpan={7}
               icon={Droplets}
-              title={search ? '找不到符合的檢查項目' : '尚無檢查項目資料'}
+              title={search ? t('erpMaster.bloodTest.table.noMatch') : t('erpMaster.bloodTest.table.empty')}
             />
           )}
         </TableBody>

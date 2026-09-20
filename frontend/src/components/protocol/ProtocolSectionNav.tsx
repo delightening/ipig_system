@@ -23,7 +23,7 @@ export function ProtocolSectionNav({ sections, currentSection }: ProtocolSection
   return (
     <nav className="sticky top-20 space-y-1">
       <h3 className="text-sm font-semibold text-muted-foreground mb-2 px-2">
-        {t('protocols.content.toc', '目錄')}
+        {t('protocols.content.toc')}
       </h3>
       <ul className="space-y-0.5">
         {sections.map((section) => {

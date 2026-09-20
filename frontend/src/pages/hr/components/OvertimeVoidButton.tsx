@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Ban } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ import { useOvertimeMutations } from '../hooks/useOvertimeMutations'
  * 「補休已被使用」兩種情形——這裡只負責不顯示注定失敗的按鈕。
  */
 export function OvertimeVoidButton({ overtime }: { overtime: OvertimeWithUser }) {
+    const { t } = useTranslation()
     const [open, setOpen] = useState(false)
     const isAdmin = useAuthIsAdmin()
     const currentUser = useAuthUser()
@@ -34,16 +36,17 @@ export function OvertimeVoidButton({ overtime }: { overtime: OvertimeWithUser })
                 disabled={voidOvertime.isPending}
             >
                 <Ban className="h-4 w-4 mr-1" />
-                作廢
+                {t('hrPages.overtime.void.button')}
             </Button>
             <DeleteReasonDialog
                 open={open}
                 onOpenChange={setOpen}
                 copy={{
-                    title: '作廢加班單',
-                    description:
-                        '作廢後此加班單不再生效，已授出的補休餘額會一併收回。原始紀錄保留，不會被刪除。',
-                    actionNoun: '作廢',
+                    title: t('hrPages.overtime.void.title'),
+                    description: t('hrPages.overtime.void.description'),
+                    // 小寫名詞：DeleteReasonDialog 會把它內插進 "Confirm {{noun}}"、
+                    // "Reason for {{noun}}"、"The {{noun}} will be recorded…" 等句子
+                    actionNoun: t('hrPages.overtime.void.actionNoun'),
                 }}
                 isPending={voidOvertime.isPending}
                 onConfirm={(reason) =>

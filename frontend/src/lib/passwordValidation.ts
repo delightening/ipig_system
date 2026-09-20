@@ -7,6 +7,8 @@
  * - 不得使用常見弱密碼
  */
 
+import i18n from '@/lib/i18n'
+
 /** 常見弱密碼黑名單（小寫比較） */
 const COMMON_WEAK_PASSWORDS: ReadonlySet<string> = new Set([
   '123456',
@@ -77,11 +79,11 @@ export function isPasswordValid(password: string): boolean {
 /** 取得密碼第一個不通過的中文錯誤訊息，全部通過回傳 null */
 export function getPasswordError(password: string): string | null {
   const checks = checkPasswordComplexity(password)
-  if (!checks.length) return `密碼至少需要 ${PASSWORD_MIN_LENGTH} 個字元`
-  if (!checks.uppercase) return '密碼必須包含至少一個大寫英文字母'
-  if (!checks.lowercase) return '密碼必須包含至少一個小寫英文字母'
-  if (!checks.number) return '密碼必須包含至少一個數字'
-  if (!checks.notCommon) return '此密碼過於簡單，請使用更複雜的密碼'
+  if (!checks.length) return i18n.t('auth.passwordRules.minLength', { min: PASSWORD_MIN_LENGTH })
+  if (!checks.uppercase) return i18n.t('auth.passwordRules.needUppercase')
+  if (!checks.lowercase) return i18n.t('auth.passwordRules.needLowercase')
+  if (!checks.number) return i18n.t('auth.passwordRules.needNumber')
+  if (!checks.notCommon) return i18n.t('auth.passwordRules.tooCommon')
   return null
 }
 
@@ -96,11 +98,11 @@ export function getPasswordStrength(password: string): number {
 
 /** 密碼強度等級標籤 */
 export function getStrengthLabel(strength: number): string {
-  if (strength <= 1) return '非常弱'
-  if (strength <= 2) return '弱'
-  if (strength <= 3) return '中等'
-  if (strength <= 4) return '強'
-  return '非常強'
+  if (strength <= 1) return i18n.t('auth.passwordStrength.veryWeak')
+  if (strength <= 2) return i18n.t('auth.passwordStrength.weak')
+  if (strength <= 3) return i18n.t('auth.passwordStrength.medium')
+  if (strength <= 4) return i18n.t('auth.passwordStrength.strong')
+  return i18n.t('auth.passwordStrength.veryStrong')
 }
 
 /** 密碼強度對應顏色 class（Tailwind） */

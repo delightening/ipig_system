@@ -85,6 +85,8 @@ function CollapsedPanel({
   user,
   setSidebarOpen,
 }: Pick<SidebarUserPanelProps, 'user' | 'setSidebarOpen'>) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex flex-col items-center space-y-2">
       <UserAvatar user={user} size="sm" />
@@ -93,7 +95,7 @@ function CollapsedPanel({
         size="icon"
         onClick={() => setSidebarOpen(true)}
         className="text-muted-foreground hover:text-white hover:bg-slate-800"
-        aria-label="展開側邊欄"
+        aria-label={t('nav.expandSidebar')}
       >
         <Menu className="h-5 w-5" />
       </Button>

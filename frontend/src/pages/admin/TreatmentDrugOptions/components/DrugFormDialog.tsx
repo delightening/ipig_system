@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { CreateTreatmentDrugRequest } from '@/types/treatment-drug'
 import { DRUG_CATEGORIES, DOSAGE_UNITS } from '@/types/treatment-drug'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,8 @@ import {
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+import { drugCategoryLabel } from '../constants'
+
 interface DrugFormDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
@@ -42,49 +45,50 @@ export function DrugFormDialog({
     isLoading,
     toggleUnit,
 }: DrugFormDialogProps) {
+    const { t } = useTranslation()
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent size="sm">
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
-                    <DialogDescription>設定藥物名稱、預設單位和分類</DialogDescription>
+                    <DialogDescription>{t('adminOps.treatmentDrugs.form.description')}</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
                     <div>
-                        <Label>藥品名稱 *</Label>
+                        <Label>{t('adminOps.treatmentDrugs.form.nameLabel')}</Label>
                         <Input
                             value={form.name}
                             onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                            placeholder="例：Meloxicam"
+                            placeholder={t('adminOps.treatmentDrugs.form.namePlaceholder')}
                         />
-                        <p className="text-xs text-muted-foreground mt-1">同一「藥物名稱＋分類」僅能有一筆啟用項目，重複時請改為編輯既有項目。</p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('adminOps.treatmentDrugs.form.nameHint')}</p>
                     </div>
                     <div>
-                        <Label>顯示名稱</Label>
+                        <Label>{t('adminOps.treatmentDrugs.form.displayNameLabel')}</Label>
                         <Input
                             value={form.display_name || ''}
                             onChange={(e) => setForm((prev) => ({ ...prev, display_name: e.target.value }))}
-                            placeholder="例：Meloxicam（美洛昔康）"
+                            placeholder={t('adminOps.treatmentDrugs.form.displayNamePlaceholder')}
                         />
                     </div>
                     <div>
-                        <Label>分類</Label>
+                        <Label>{t('adminOps.treatmentDrugs.form.categoryLabel')}</Label>
                         <Select
                             value={form.category || ''}
                             onValueChange={(v) => setForm((prev) => ({ ...prev, category: v }))}
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder="選擇分類" />
+                                <SelectValue placeholder={t('adminOps.treatmentDrugs.form.categoryPlaceholder')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {DRUG_CATEGORIES.map((cat) => (
-                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                    <SelectItem key={cat} value={cat}>{drugCategoryLabel(cat, t)}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
                     <div>
-                        <Label>可用單位（多選）</Label>
+                        <Label>{t('adminOps.treatmentDrugs.form.availableUnitsLabel')}</Label>
                         <div className="flex flex-wrap gap-2 mt-1">
                             {DOSAGE_UNITS.map((unit) => (
                                 <button
@@ -104,7 +108,7 @@ export function DrugFormDialog({
                         </div>
                     </div>
                     <div>
-                        <Label>預設劑量單位</Label>
+                        <Label>{t('adminOps.treatmentDrugs.form.defaultUnitLabel')}</Label>
                         {/* 選項收斂自上方已勾選的可用單位，結構上不可能選出清單外的值 */}
                         <Select
                             value={form.default_dosage_unit || ''}
@@ -112,7 +116,7 @@ export function DrugFormDialog({
                             disabled={!form.available_units?.length}
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder={form.available_units?.length ? '選擇單位' : '請先勾選可用單位'} />
+                                <SelectValue placeholder={form.available_units?.length ? t('adminOps.treatmentDrugs.form.unitPlaceholder') : t('adminOps.treatmentDrugs.form.unitPlaceholderDisabled')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {(form.available_units || []).map((unit) => (
@@ -122,7 +126,7 @@ export function DrugFormDialog({
                         </Select>
                     </div>
                     <div>
-                        <Label>排序（數字越小越前面）</Label>
+                        <Label>{t('adminOps.treatmentDrugs.form.sortOrderLabel')}</Label>
                         <Input
                             type="number"
                             value={form.sort_order || 0}
@@ -132,11 +136,11 @@ export function DrugFormDialog({
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        取消
+                        {t('common.cancel')}
                     </Button>
                     <Button onClick={onSubmit} disabled={isLoading}>
                         {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                        儲存
+                        {t('common.save')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

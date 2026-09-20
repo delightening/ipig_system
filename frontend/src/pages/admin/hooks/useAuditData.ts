@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
@@ -46,6 +47,7 @@ function getDefaultDateTo() {
 }
 
 export function useAuditData() {
+    const { t } = useTranslation()
     const { user: currentUser, logout } = useAuthStore()
     const queryClient = useQueryClient()
     const [searchParams] = useSearchParams()
@@ -207,12 +209,12 @@ export function useAuditData() {
         onSuccess: (_data, sessionId) => {
             const loggedOutSession = sessions?.data?.find(s => s.id === sessionId)
             if (loggedOutSession && currentUser && loggedOutSession.user_id === currentUser.id) {
-                toast({ title: '已登出', description: '您的 Session 已被強制登出，即將返回登入頁面' })
+                toast({ title: t('adminUsers.audit.data.loggedOutTitle'), description: t('adminUsers.audit.data.selfForceLogoutDescription') })
                 logout()
                 return
             }
             queryClient.invalidateQueries({ queryKey: ['audit-sessions'] })
-            toast({ title: '成功', description: '已強制登出該 Session' })
+            toast({ title: t('common.success'), description: t('adminUsers.audit.data.sessionForceLoggedOut') })
         },
     })
 
@@ -227,7 +229,7 @@ export function useAuditData() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['audit-alerts'] })
             queryClient.invalidateQueries({ queryKey: ['audit-dashboard'] })
-            toast({ title: '成功', description: '已解決警報' })
+            toast({ title: t('common.success'), description: t('adminUsers.audit.data.alertResolved') })
         },
     })
 
@@ -243,7 +245,7 @@ export function useAuditData() {
             setSelectedAlertIds([])
             queryClient.invalidateQueries({ queryKey: ['audit-alerts'] })
             queryClient.invalidateQueries({ queryKey: ['audit-dashboard'] })
-            toast({ title: '成功', description: `已解決 ${ids.length} 筆警報` })
+            toast({ title: t('common.success'), description: t('adminUsers.audit.data.alertsResolvedCount', { count: ids.length }) })
         },
     })
 

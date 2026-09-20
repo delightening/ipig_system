@@ -11,6 +11,8 @@
  *   不得把 F 當終態寫死。
  */
 
+import { createLabelMap } from '@/lib/i18nLabels'
+
 export type ProtocolFormVersion = 'C' | 'D' | 'E' | 'F'
 
 /** 版本序（舊 → 新）。C 與 D 欄位結構相同（皆印 AD-04-01-01C），共用同一名冊。 */
@@ -19,13 +21,15 @@ export const PROTOCOL_FORM_VERSIONS: readonly ProtocolFormVersion[] = ['C', 'D',
 /** 目前最新版（動態語意：新增版本時改此值）。 */
 export const LATEST_PROTOCOL_FORM_VERSION: ProtocolFormVersion = 'F'
 
-/** 「先選版本」下拉標籤（範本頁登記簿對齊；此處為顯示用途）。 */
-export const PROTOCOL_FORM_VERSION_LABELS: Record<ProtocolFormVersion, string> = {
-  C: 'C 版（AD-04-01-01C）',
-  D: 'D 版（AD-04-01-01C，欄位同 C）',
-  E: 'E 版（AD-04-01-01E）',
-  F: 'F 版（AD-04-01-01F，現行）',
-}
+/**
+ * 「先選版本」下拉標籤（範本頁登記簿對齊；此處為顯示用途）。
+ * getter 版：每次讀取才依當下語言翻譯（`typesLabels.protocolFormVersion.*`），見 `@/lib/i18nLabels`。
+ * 代碼集合取自 PROTOCOL_FORM_VERSIONS——追加新版本時，記得在 zh-TW／en 語言包補上同代碼的鍵。
+ */
+export const PROTOCOL_FORM_VERSION_LABELS: Record<ProtocolFormVersion, string> = createLabelMap(
+  'typesLabels.protocolFormVersion',
+  PROTOCOL_FORM_VERSIONS,
+)
 
 /**
  * 版本相依欄位鍵 → 該欄位存在於哪些版本。

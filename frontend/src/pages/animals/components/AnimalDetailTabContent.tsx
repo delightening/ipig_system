@@ -63,7 +63,7 @@ export function TabBar({ activeTab, setActiveTab, animalStatus }: TabBarProps) {
       { id: 'sacrifice' as const, label: t('animalDetail.tabs.sacrifice', '\u72A7\u7272/\u63A1\u6A23\u7D00\u9304'), icon: Heart },
       { id: 'blood_tests' as const, label: t('animalDetail.tabs.bloodTests', '\u8840\u6DB2\u6AA2\u67E5'), icon: Droplets },
       { id: 'pain_assessment' as const, label: t('animalDetail.tabs.painAssessment', '\u75BC\u75DB\u8A55\u4F30'), icon: Stethoscope },
-      { id: 'vet_recommendations' as const, label: t('animalDetail.tabs.vetRecommendations', '獸醫師建議'), icon: Stethoscope, className: 'text-status-success-solid' },
+      { id: 'vet_recommendations' as const, label: t('animalDetail.tabs.vetRecommendations'), icon: Stethoscope, className: 'text-status-success-solid' },
       { id: 'info' as const, label: t('animalDetail.tabs.info', '\u52D5\u7269\u8CC7\u6599'), icon: FileText },
       { id: 'pathology' as const, label: t('animalDetail.tabs.pathology', '\u75C5\u7406\u7D44\u7E54\u5831\u544A'), icon: FileText },
       ...((animalStatus === 'completed' || animalStatus === 'transferred')

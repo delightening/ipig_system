@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, FileDown } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -26,6 +27,7 @@ import {
  * 詳見 docs/plans/r47-available-pigs-query.md。
  */
 export function AvailablePigsPage() {
+  const { t } = useTranslation()
   const [sex, setSex] = useState<'' | 'male' | 'female'>('')
   const [ageMin, setAgeMin] = useState<string>('')
   const [ageMax, setAgeMax] = useState<string>('')
@@ -72,11 +74,14 @@ export function AvailablePigsPage() {
   const handleExport = async () => {
     try {
       await availablePigsApi.exportXlsx(queryParams)
-      toast({ title: '已開始下載', description: '可用豬隻 Excel 已產生' })
+      toast({
+        title: t('animalPages.availablePigs.toast.downloadStarted'),
+        description: t('animalPages.availablePigs.toast.excelGenerated'),
+      })
     } catch (err) {
       toast({
-        title: '匯出失敗',
-        description: err instanceof Error ? err.message : '請稍後再試',
+        title: t('common.exportFailed'),
+        description: err instanceof Error ? err.message : t('animalPages.availablePigs.toast.retryLater'),
         variant: 'destructive',
       })
     }
@@ -92,55 +97,58 @@ export function AvailablePigsPage() {
         <Link to="/animals">
           <Button variant="ghost" size="sm">
             <ArrowLeft className="size-4 mr-1" />
-            返回動物列表
+            {t('animalPages.availablePigs.backToList')}
           </Button>
         </Link>
       </div>
 
-      <PageHeader title="可用豬隻快速查詢" description="規劃 protocol 前的庫存盤點 — 依月齡 / 體重 / 性別篩選，即時統計可用豬。" />
+      <PageHeader
+        title={t('animalPages.availablePigs.title')}
+        description={t('animalPages.availablePigs.description')}
+      />
 
       {/* 進階篩選 */}
       <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
-        <div className="text-sm font-semibold">進階篩選</div>
+        <div className="text-sm font-semibold">{t('animalPages.availablePigs.advancedFilters')}</div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="space-y-1">
-            <Label htmlFor="sex">性別</Label>
+            <Label htmlFor="sex">{t('animals.gender')}</Label>
             <select
               id="sex"
               className="w-full border rounded-md px-2 py-1.5 text-sm bg-background"
               value={sex}
               onChange={(e) => setSex(e.target.value as '' | 'male' | 'female')}
             >
-              <option value="">全部</option>
-              <option value="male">公</option>
-              <option value="female">母</option>
+              <option value="">{t('animalPages.shared.all')}</option>
+              <option value="male">{t('animals.genderLabels.male')}</option>
+              <option value="female">{t('animals.genderLabels.female')}</option>
             </select>
           </div>
           <div className="space-y-1">
-            <Label>月齡（最小）</Label>
+            <Label>{t('animalPages.availablePigs.ageMin')}</Label>
             <Input
               type="number"
-              placeholder="例：24"
+              placeholder={t('animalPages.shared.example', { value: 24 })}
               value={ageMin}
               onChange={(e) => setAgeMin(e.target.value)}
               min={0}
             />
           </div>
           <div className="space-y-1">
-            <Label>月齡（最大）</Label>
+            <Label>{t('animalPages.availablePigs.ageMax')}</Label>
             <Input
               type="number"
-              placeholder="例：30"
+              placeholder={t('animalPages.shared.example', { value: 30 })}
               value={ageMax}
               onChange={(e) => setAgeMax(e.target.value)}
               min={0}
             />
           </div>
           <div className="space-y-1">
-            <Label>體重最小 (kg)</Label>
+            <Label>{t('animalPages.availablePigs.weightMin')}</Label>
             <Input
               type="number"
-              placeholder="例：20"
+              placeholder={t('animalPages.shared.example', { value: 20 })}
               value={weightMin}
               onChange={(e) => setWeightMin(e.target.value)}
               step="0.1"
@@ -148,10 +156,10 @@ export function AvailablePigsPage() {
             />
           </div>
           <div className="space-y-1">
-            <Label>體重最大 (kg)</Label>
+            <Label>{t('animalPages.availablePigs.weightMax')}</Label>
             <Input
               type="number"
-              placeholder="例：40"
+              placeholder={t('animalPages.shared.example', { value: 40 })}
               value={weightMax}
               onChange={(e) => setWeightMax(e.target.value)}
               step="0.1"
@@ -166,13 +174,13 @@ export function AvailablePigsPage() {
                 onChange={(e) => setIncludeBreeding(e.target.checked)}
                 className="size-4"
               />
-              包含飼養計畫 000 中的豬
+              {t('animalPages.availablePigs.includeBreeding')}
             </label>
           </div>
           <div className="flex items-end justify-end col-span-1 md:col-span-2 lg:col-span-1 ml-auto">
             <Button onClick={handleExport} disabled={summary.total === 0} variant="outline">
               <FileDown className="size-4 mr-1" />
-              匯出 Excel
+              {t('animalPages.availablePigs.exportExcel')}
             </Button>
           </div>
         </div>
@@ -181,7 +189,7 @@ export function AvailablePigsPage() {
       {/* 統計列 */}
       <div className="flex flex-wrap gap-2 items-center">
         <Badge variant="default">
-          符合 {summary.total} 頭 / ♂ {summary.male} / ♀ {summary.female}
+          {t('animalPages.availablePigs.summaryMatched', { total: summary.total, male: summary.male, female: summary.female })}
         </Badge>
         {Object.entries(summary.by_breed).map(([breed, count]) => (
           <Badge key={breed} variant="secondary">
@@ -190,7 +198,7 @@ export function AvailablePigsPage() {
         ))}
         {summary.excluded_weight_expired > 0 && (
           <span className="text-xs text-muted-foreground ml-2">
-            另有 {summary.excluded_weight_expired} 頭因體重資料 &gt; 40 天未列入
+            {t('animalPages.availablePigs.summaryExcluded', { count: summary.excluded_weight_expired })}
           </span>
         )}
       </div>
@@ -200,42 +208,42 @@ export function AvailablePigsPage() {
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr className="text-left">
-              <th className="px-3 py-2">品種</th>
-              <th className="px-3 py-2">耳號</th>
-              <th className="px-3 py-2">性別</th>
-              <th className="px-3 py-2">出生日</th>
-              <th className="px-3 py-2 text-right">月齡</th>
-              <th className="px-3 py-2 text-right">最近體重(kg)</th>
-              <th className="px-3 py-2">量測日</th>
-              <th className="px-3 py-2">位置</th>
-              <th className="px-3 py-2">備註</th>
+              <th className="px-3 py-2">{t('animals.breed')}</th>
+              <th className="px-3 py-2">{t('animals.earTag')}</th>
+              <th className="px-3 py-2">{t('animals.gender')}</th>
+              <th className="px-3 py-2">{t('animalPages.availablePigs.columns.birthDay')}</th>
+              <th className="px-3 py-2 text-right">{t('animalPages.shared.ageMonths')}</th>
+              <th className="px-3 py-2 text-right">{t('animalPages.availablePigs.columns.latestWeight')}</th>
+              <th className="px-3 py-2">{t('animalPages.availablePigs.columns.measuredOn')}</th>
+              <th className="px-3 py-2">{t('animalPages.availablePigs.columns.location')}</th>
+              <th className="px-3 py-2">{t('animalPages.shared.remark')}</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
                 <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
-                  載入中…
+                  {t('animalPages.shared.loadingEllipsis')}
                 </td>
               </tr>
             ) : error ? (
               <tr>
                 <td colSpan={9} className="px-3 py-8 text-center text-destructive">
-                  載入失敗
+                  {t('animalPages.availablePigs.loadFailed')}
                 </td>
               </tr>
             ) : animals.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
-                  無符合條件的可用豬隻
+                  {t('animalPages.availablePigs.empty')}
                 </td>
               </tr>
             ) : (
               animals.map((a) => (
                 <tr key={a.id} className="border-t hover:bg-muted/30">
-                  <td className="px-3 py-2">{breedLabel(a.breed)}</td>
+                  <td className="px-3 py-2">{t(`animals.breedLabels.${a.breed}`)}</td>
                   <td className="px-3 py-2 font-mono">{a.ear_tag}</td>
-                  <td className="px-3 py-2">{a.gender === 'male' ? '公' : '母'}</td>
+                  <td className="px-3 py-2">{a.gender === 'male' ? t('animals.genderLabels.male') : t('animals.genderLabels.female')}</td>
                   <td className="px-3 py-2">{a.birth_date}</td>
                   <td className="px-3 py-2 text-right">{a.age_months}</td>
                   <td className="px-3 py-2 text-right">{Number(a.latest_weight_kg).toFixed(1)}</td>
@@ -258,10 +266,10 @@ export function AvailablePigsPage() {
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
           >
-            上一頁
+            {t('common.previous')}
           </Button>
           <span className="text-sm text-muted-foreground">
-            第 {page} / {totalPages} 頁
+            {t('animalPages.availablePigs.pagination.pageOf', { page, total: totalPages })}
             {isFetching && <span className="ml-2">…</span>}
           </span>
           <Button
@@ -270,23 +278,10 @@ export function AvailablePigsPage() {
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
           >
-            下一頁
+            {t('common.next')}
           </Button>
         </div>
       )}
     </div>
   )
-}
-
-function breedLabel(breed: 'minipig' | 'white' | 'lyd' | 'other'): string {
-  switch (breed) {
-    case 'minipig':
-      return '迷你豬'
-    case 'white':
-      return '白豬'
-    case 'lyd':
-      return 'LYD'
-    case 'other':
-      return '其他'
-  }
 }

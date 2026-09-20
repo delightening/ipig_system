@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { AlertCircle, CheckCircle2, Loader2, Syringe, Trash2, X, XCircle } from 'lucide-react'
 import api from '@/lib/api'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useDebounce } from '@/hooks/useDebounce'
 import { lookupAliveAnimalByEarTag } from '@/lib/api'
-import { animalStatusNames, type AnimalStatus } from '@/types/animal'
 import { animalSpeciesLabel } from '@/lib/animalSpecies'
 import type { AnimalListItem, AnimalWeight } from '@/types'
 import { DrugCombobox } from '@/components/animal/DrugCombobox'
@@ -59,34 +60,35 @@ const MED_SELECT_CLASS =
 function MedicationFields({
   value, onChange,
 }: { value: WeightMedication; onChange: (v: WeightMedication) => void }) {
+  const { t } = useTranslation()
   return (
     <div className="mt-3 space-y-2 border-t border-dashed pt-3">
       <div className="grid grid-cols-1 gap-2 @[520px]:grid-cols-[130px_1fr_120px]">
-        <select aria-label="藥品類別" value={value.category} className={MED_SELECT_CLASS}
+        <select aria-label={t('animalRecords.treatment.categoryLabel')} value={value.category} className={MED_SELECT_CLASS}
           onChange={(e) => onChange({
             ...value, category: e.target.value,
             // 換類別時清掉已選藥物，避免殘留上一個類別選的藥物與新類別不一致
             drug: '', drug_option_id: undefined, dosage: '', dosage_unit: '',
           })}>
-          <option value="" disabled>藥品類別</option>
-          {TREATMENT_CATEGORY_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+          <option value="" disabled>{t('animalRecords.treatment.categoryLabel')}</option>
+          {TREATMENT_CATEGORY_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{t(o.labelKey)}</option>))}
         </select>
         <DrugCombobox
           categoryFilter={value.category || undefined}
           value={{ drug_option_id: value.drug_option_id, drug_name: value.drug, dosage_value: value.dosage, dosage_unit: value.dosage_unit }}
           onChange={(sel) => onChange({ ...value, drug: sel.drug_name, drug_option_id: sel.drug_option_id, dosage: sel.dosage_value, dosage_unit: sel.dosage_unit })}
         />
-        <select aria-label="施打途徑" value={value.route} className={MED_SELECT_CLASS}
+        <select aria-label={t('animalRecords.treatment.routeLabel')} value={value.route} className={MED_SELECT_CLASS}
           onChange={(e) => onChange({ ...value, route: e.target.value })}>
-          <option value="">施打途徑</option>
-          {TREATMENT_ROUTE_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+          <option value="">{t('animalRecords.treatment.routeLabel')}</option>
+          {TREATMENT_ROUTE_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{t(o.labelKey)}</option>))}
         </select>
       </div>
       {(() => {
         const anyFilled = !!(value.drug.trim() || value.dosage.trim() || value.category || value.route)
         const complete = !!(value.drug.trim() && value.dosage.trim())
         return anyFilled && !complete ? (
-          <p className="text-xs text-status-error-text">施打需完整填寫藥品名稱與劑量（或按「清除施打」取消）</p>
+          <p className="text-xs text-status-error-text">{t('animalRecords.weights.entry.medIncomplete')}</p>
         ) : null
       })()}
     </div>
@@ -98,7 +100,12 @@ function MedicationFields({
 function MedToggleButton({
   active, disabled, onClick, variant,
 }: { active: boolean; disabled: boolean; onClick: () => void; variant: 'mobile' | 'desktop' }) {
-  const title = disabled ? '請先輸入有效耳號才能登記施打' : active ? '施打中，點擊清除' : '施打（量體重順便，選填）'
+  const { t } = useTranslation()
+  const title = disabled
+    ? t('animalRecords.weights.entry.medToggleNeedEarTag')
+    : active
+      ? t('animalRecords.weights.entry.medToggleActive')
+      : t('animalRecords.weights.entry.medToggleOptional')
   const activeClass = active
     ? 'border-primary bg-primary text-primary-foreground'
     : 'border-dashed border-primary bg-status-info-bg text-primary hover:bg-status-info-bg/70'
@@ -110,7 +117,7 @@ function MedToggleButton({
         onClick={onClick}
         disabled={disabled}
         title={title}
-        aria-label="施打"
+        aria-label={t('animalRecords.weights.entry.medToggleLabel')}
         className={`hidden h-10 w-9 flex-none items-center justify-center rounded-lg border transition-colors disabled:cursor-not-allowed disabled:opacity-40 @[600px]:flex ${activeClass}`}
       >
         {active ? <X className="h-4 w-4" /> : <Syringe className="h-4 w-4" />}
@@ -125,7 +132,7 @@ function MedToggleButton({
       title={title}
       className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 @[600px]:hidden ${activeClass}`}
     >
-      {active ? <X className="h-3 w-3" /> : <Syringe className="h-3 w-3" />} 施打
+      {active ? <X className="h-3 w-3" /> : <Syringe className="h-3 w-3" />} {t('animalRecords.weights.entry.medToggleLabel')}
     </button>
   )
 }
@@ -138,25 +145,34 @@ interface ClientInfo {
   pi_name: string | null
 }
 
+const KNOWN_ANIMAL_STATUSES: ReadonlySet<string> = new Set([
+  'unassigned', 'in_experiment', 'completed', 'euthanized', 'sudden_death', 'transferred',
+])
+
+/** 動物狀態 → 顯示名稱（沿用既有 animals.statusLabels.*）；未知狀態回原字串 */
+function statusLabel(status: string, t: TFunction): string {
+  return KNOWN_ANIMAL_STATUSES.has(status) ? t(`animals.statusLabels.${status}`) : status
+}
+
 /** 狀態相依的客戶/委託摘要：實驗中/已完成帶案號+委託機構+PI；已轉讓帶接收方；未分配顯「未分配」 */
-function clientSummary(info: ClientInfo): string {
+function clientSummary(info: ClientInfo, t: TFunction): string {
   const client = [info.iacuc_no, info.sponsor_name, info.pi_name].filter(Boolean).join(' · ')
   switch (info.status) {
     case 'in_experiment':
-      return client ? `實驗中｜${client}` : '實驗中'
+      return client ? t('animalRecords.weights.entry.clientInExperiment', { client }) : t('animals.statusLabels.in_experiment')
     case 'completed':
-      return client ? `已完成｜${client}` : '實驗完成'
+      return client ? t('animalRecords.weights.entry.clientCompleted', { client }) : t('animals.statusLabels.completed')
     case 'transferred':
-      return client ? `已轉讓→接收 ${client}` : '已轉讓'
+      return client ? t('animalRecords.weights.entry.clientTransferred', { client }) : t('animals.statusLabels.transferred')
     default:
-      return animalStatusNames[info.status as AnimalStatus] ?? info.status
+      return statusLabel(info.status, t)
   }
 }
 
 /** 組合動物資訊摘要：編號 · 品系 · 客戶（狀態相依）· 欄位 */
-function animalDisplay(animal: AnimalListItem, info: ClientInfo | undefined): string {
-  const breed = animalSpeciesLabel(animal)
-  const clientPart = info ? clientSummary(info) : animalStatusNames[animal.status]
+function animalDisplay(animal: AnimalListItem, info: ClientInfo | undefined, t: TFunction): string {
+  const breed = animalSpeciesLabel(animal, (b) => t(`animals.breedLabels.${b}`))
+  const clientPart = info ? clientSummary(info, t) : statusLabel(animal.status, t)
   const parts = [animal.animal_no || '—', breed, clientPart]
   if (animal.pen_location) parts.push(animal.pen_location)
   return parts.join(' · ')
@@ -171,11 +187,12 @@ function shortDate(measureDate: string): string {
 
 /** 前 3 次測量（唯讀，左舊右新；不足 3 筆右側留空佔位） */
 function HistoryCells({ weights }: { weights: AnimalWeight[] | undefined }) {
+  const { t } = useTranslation()
   const ordered = [...(weights ?? []).slice(0, 3)].reverse() // 端點為 measure_date DESC → 反轉成左舊右新
   const cells: (AnimalWeight | null)[] = [...ordered, ...Array(Math.max(0, 3 - ordered.length)).fill(null)]
   return (
     <div>
-      <div className="text-[11px] text-muted-foreground @[600px]:hidden">前 3 次測量</div>
+      <div className="text-[11px] text-muted-foreground @[600px]:hidden">{t('animalRecords.weights.entry.last3')}</div>
       <div className="flex gap-6 @[600px]:gap-[18px]">
         {cells.map((c, i) => (
           <div key={i} className="min-w-[46px] text-left @[600px]:min-w-[50px] @[600px]:text-center">
@@ -191,6 +208,7 @@ function HistoryCells({ weights }: { weights: AnimalWeight[] | undefined }) {
 }
 
 export function WeightEntryRow({ id, canRemove, duplicate, weightSaved, onChange, onRemove }: Props) {
+  const { t } = useTranslation()
   const [earTag, setEarTag] = useState('')
   const [weight, setWeight] = useState('')
   const [showMed, setShowMed] = useState(false)
@@ -268,33 +286,33 @@ export function WeightEntryRow({ id, canRemove, duplicate, weightSaved, onChange
           <Input
             value={earTag}
             onChange={(e) => setEarTag(e.target.value)}
-            placeholder="耳號"
+            placeholder={t('animals.earTag')}
             className="font-mono"
             disabled={weightSaved}
           />
           {weightSaved && (
             <p className="mt-1 flex items-center gap-1 text-xs text-status-warning-text">
-              <AlertCircle className="h-3 w-3" /> 體重已登錄，僅可修改施打後重送
+              <AlertCircle className="h-3 w-3" /> {t('animalRecords.weights.entry.weightSavedNotice')}
             </p>
           )}
           {showChecking && (
             <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" /> 驗證中…
+              <Loader2 className="h-3 w-3 animate-spin" /> {t('animalRecords.weights.entry.validating')}
             </p>
           )}
           {showError && (
             <p className="mt-1 flex items-center gap-1 text-xs text-status-warning-text">
-              <AlertCircle className="h-3 w-3" /> 驗證失敗，請稍後重試
+              <AlertCircle className="h-3 w-3" /> {t('animalRecords.weights.entry.validationFailed')}
             </p>
           )}
           {animal && duplicate && (
             <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-status-error-text">
-              <XCircle className="h-3 w-3" /> 此耳號已在其他列輸入
+              <XCircle className="h-3 w-3" /> {t('animalRecords.weights.entry.duplicateEarTag')}
               {showMed && (
                 <>
-                  <span className="ml-1 font-semibold text-primary">施打紀錄</span>
+                  <span className="ml-1 font-semibold text-primary">{t('animalRecords.weights.entry.medRecord')}</span>
                   <button type="button" onClick={clearMedication}
-                    className="font-medium text-status-error-text hover:underline">清除施打</button>
+                    className="font-medium text-status-error-text hover:underline">{t('animalRecords.weights.entry.clearMedication')}</button>
                 </>
               )}
             </p>
@@ -302,20 +320,20 @@ export function WeightEntryRow({ id, canRemove, duplicate, weightSaved, onChange
           {animal && !duplicate && (
             <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-status-success-text">
               <CheckCircle2 className="h-3 w-3" />
-              <span className="font-medium">存在</span>
-              <span className="text-muted-foreground">· {animalDisplay(animal, clientInfo)}</span>
+              <span className="font-medium">{t('animalRecords.weights.entry.exists')}</span>
+              <span className="text-muted-foreground">· {animalDisplay(animal, clientInfo, t)}</span>
               {showMed && (
                 <>
-                  <span className="ml-1 font-semibold text-primary">施打紀錄</span>
+                  <span className="ml-1 font-semibold text-primary">{t('animalRecords.weights.entry.medRecord')}</span>
                   <button type="button" onClick={clearMedication}
-                    className="font-medium text-status-error-text hover:underline">清除施打</button>
+                    className="font-medium text-status-error-text hover:underline">{t('animalRecords.weights.entry.clearMedication')}</button>
                 </>
               )}
             </p>
           )}
           {showNotFound && (
             <p className="mt-1 flex items-center gap-1 text-xs text-status-error-text">
-              <XCircle className="h-3 w-3" /> 查無存活中的此耳號動物
+              <XCircle className="h-3 w-3" /> {t('animalRecords.weights.entry.notFoundAlive')}
             </p>
           )}
           <MedToggleButton
@@ -331,14 +349,14 @@ export function WeightEntryRow({ id, canRemove, duplicate, weightSaved, onChange
 
         {/* 今天體重輸入（卡片獨佔整排；桌面為固定欄，標籤僅卡片顯示避免與其他欄錯位） */}
         <div className="w-full @[600px]:w-24 @[600px]:flex-none">
-          <div className="text-[10px] text-muted-foreground @[600px]:hidden">今天 (kg)</div>
+          <div className="text-[10px] text-muted-foreground @[600px]:hidden">{t('animalRecords.weights.entry.todayKg')}</div>
           <Input
             type="number"
             step="0.01"
             min="0"
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
-            placeholder="體重 (kg)"
+            placeholder={t('animalRecords.weights.weightKg')}
             className="@[600px]:text-center"
             disabled={weightSaved}
           />
@@ -351,7 +369,7 @@ export function WeightEntryRow({ id, canRemove, duplicate, weightSaved, onChange
           size="icon"
           onClick={onRemove}
           disabled={!canRemove}
-          aria-label="刪除此列"
+          aria-label={t('animalRecords.weights.entry.removeRow')}
           className="absolute right-2 top-2 h-7 w-7 @[600px]:static @[600px]:h-8 @[600px]:w-8"
         >
           <Trash2 className="h-4 w-4" />

@@ -145,8 +145,7 @@ export const HistoryTab = React.memo(function HistoryTab({ protocolId }: History
             {totalActivityPages > 1 && (
               <div className="flex items-center justify-between mt-4 pt-4 border-t">
                 <p className="text-sm text-muted-foreground">
-                  共 {totalActivities} 筆，第 {activityPage} / {totalActivityPages}{' '}
-                  頁
+                  {t('protocolComponents.history.pagination', { total: totalActivities, page: activityPage, pages: totalActivityPages })}
                 </p>
                 <div className="flex items-center gap-2">
                   <Button
@@ -156,7 +155,7 @@ export const HistoryTab = React.memo(function HistoryTab({ protocolId }: History
                     onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
                   >
                     <ChevronLeft className="h-4 w-4 mr-1" />
-                    上一頁
+                    {t('protocolComponents.history.prevPage')}
                   </Button>
                   <Button
                     variant="outline"
@@ -166,7 +165,7 @@ export const HistoryTab = React.memo(function HistoryTab({ protocolId }: History
                       setActivityPage((p) => Math.min(totalActivityPages, p + 1))
                     }
                   >
-                    下一頁
+                    {t('protocolComponents.history.nextPage')}
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>

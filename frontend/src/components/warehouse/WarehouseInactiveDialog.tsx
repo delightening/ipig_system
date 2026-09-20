@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Archive, Loader2, RotateCcw } from 'lucide-react'
 
 import api, { Warehouse } from '@/lib/api'
@@ -34,6 +35,7 @@ export function WarehouseInactiveDialog({
     onOpenChange,
     warehouses,
 }: WarehouseInactiveDialogProps) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
 
     const restoreMutation = useMutation({
@@ -43,12 +45,12 @@ export function WarehouseInactiveDialog({
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['all-warehouses'] })
             queryClient.invalidateQueries({ queryKey: ['warehouses'] })
-            toast({ title: '成功', description: '倉庫已復原' })
+            toast({ title: t('common.success'), description: t('erpDocs.warehouse.inactive.restored') })
         },
         onError: (error: Error) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '復原失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('erpDocs.warehouse.inactive.restoreFailed')),
                 variant: 'destructive',
             })
         },
@@ -60,17 +62,17 @@ export function WarehouseInactiveDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Archive className="h-4 w-4" />
-                        已停用的倉庫
+                        {t('erpDocs.warehouse.inactive.title')}
                     </DialogTitle>
                     <DialogDescription>
-                        停用的倉庫不會出現在倉庫清單與庫存查詢，但資料與底下的儲位、庫存都還在。復原後立即恢復顯示。
+                        {t('erpDocs.warehouse.inactive.description')}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-2 py-2">
                     {warehouses.length === 0 ? (
                         <p className="text-sm text-muted-foreground py-4 text-center">
-                            目前沒有已停用的倉庫
+                            {t('erpDocs.warehouse.inactive.empty')}
                         </p>
                     ) : (
                         warehouses.map((w) => (
@@ -85,7 +87,7 @@ export function WarehouseInactiveDialog({
                                     {/* warehouses 沒有 deactivated_at 欄位；updated_at 是「最後一次
                                         任何更新」，停用後再改名稱也會動到它，故不寫成「停用於」 */}
                                     <span className="text-xs text-muted-foreground">
-                                        最後更新 {formatDateTime(w.updated_at)}
+                                        {t('erpDocs.warehouse.inactive.lastUpdated', { time: formatDateTime(w.updated_at) })}
                                     </span>
                                 </div>
                                 <Button
@@ -100,7 +102,7 @@ export function WarehouseInactiveDialog({
                                     ) : (
                                         <RotateCcw className="h-4 w-4 mr-1" />
                                     )}
-                                    復原
+                                    {t('erpDocs.warehouse.inactive.restore')}
                                 </Button>
                             </div>
                         ))
@@ -109,7 +111,7 @@ export function WarehouseInactiveDialog({
 
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        關閉
+                        {t('common.closeDialog')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

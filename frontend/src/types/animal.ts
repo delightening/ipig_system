@@ -2,49 +2,43 @@
  * 實驗動物管理型別
  */
 
+import { createLabelMap } from '@/lib/i18nLabels'
+
 // 基本列舉
 export type AnimalStatus = 'unassigned' | 'in_experiment' | 'completed' | 'euthanized' | 'sudden_death' | 'transferred'
 export type AnimalBreed = 'minipig' | 'white' | 'lyd' | 'other'
 export type AnimalGender = 'male' | 'female'
 export type RecordType = 'abnormal' | 'experiment' | 'observation'
 
-// 狀態名稱映射
-export const animalStatusNames: Record<AnimalStatus, string> = {
-    unassigned: '未分配',
-    in_experiment: '實驗中',
-    completed: '實驗完成',
-    euthanized: '已安樂死',
-    sudden_death: '猝死',
-    transferred: '已轉讓',
-}
+// 以下對照表皆為 getter 版（每次讀取才依當下語言翻譯，見 `@/lib/i18nLabels`），
+// 文字沿用既有語言包鍵，不另建重複翻譯。
+
+// 狀態名稱映射（`animals.statusLabels.*`）
+export const animalStatusNames: Record<AnimalStatus, string> = createLabelMap(
+    'animals.statusLabels',
+    ['unassigned', 'in_experiment', 'completed', 'euthanized', 'sudden_death', 'transferred'],
+)
 
 // 全部狀態名稱（保留向後相容性）
-export const allAnimalStatusNames: Record<AnimalStatus, string> = {
-    unassigned: '未分配',
-    in_experiment: '實驗中',
-    completed: '實驗完成',
-    euthanized: '已安樂死',
-    sudden_death: '猝死',
-    transferred: '已轉讓',
-}
+export const allAnimalStatusNames: Record<AnimalStatus, string> = createLabelMap(
+    'animals.statusLabels',
+    ['unassigned', 'in_experiment', 'completed', 'euthanized', 'sudden_death', 'transferred'],
+)
 
-export const animalBreedNames: Record<AnimalBreed, string> = {
-    minipig: '迷你豬',
-    white: '白豬',
-    lyd: 'LYD',
-    other: '其他',
-}
+export const animalBreedNames: Record<AnimalBreed, string> = createLabelMap(
+    'animals.breedLabels',
+    ['minipig', 'white', 'lyd', 'other'],
+)
 
-export const animalGenderNames: Record<AnimalGender, string> = {
-    male: '公',
-    female: '母',
-}
+export const animalGenderNames: Record<AnimalGender, string> = createLabelMap(
+    'animals.genderLabels',
+    ['male', 'female'],
+)
 
-export const recordTypeNames: Record<RecordType, string> = {
-    abnormal: '異常紀錄',
-    experiment: '試驗紀錄',
-    observation: '觀察紀錄',
-}
+export const recordTypeNames: Record<RecordType, string> = createLabelMap(
+    'animalActions.recordType',
+    ['abnormal', 'experiment', 'observation'],
+)
 
 // 動物來源
 export interface AnimalSource {
@@ -546,22 +540,20 @@ export interface BloodTestAnalysisRow {
 
 export type AnimalTransferStatus = 'pending' | 'vet_evaluated' | 'plan_assigned' | 'pi_approved' | 'completed' | 'rejected'
 
-export const transferStatusNames: Record<AnimalTransferStatus, string> = {
-    pending: '待審',
-    vet_evaluated: '獸醫已評估',
-    plan_assigned: '已指定新計劃',
-    pi_approved: 'PI 已同意',
-    completed: '轉讓完成',
-    rejected: '已拒絕',
-}
+/** 轉讓狀態名稱（getter 版；沿用 `animalActions.transfer.status.*`） */
+export const transferStatusNames: Record<AnimalTransferStatus, string> = createLabelMap(
+    'animalActions.transfer.status',
+    ['pending', 'vet_evaluated', 'plan_assigned', 'pi_approved', 'completed', 'rejected'],
+)
 
 /** 轉讓類型：external = 轉給其他機構（完成時清空欄位），internal = 仍在機構內（保留欄位） */
 export type TransferType = 'external' | 'internal'
 
-export const transferTypeNames: Record<TransferType, string> = {
-    external: '轉給其他機構',
-    internal: '仍在機構內',
-}
+/** 轉讓類型名稱（getter 版；沿用 `animalActions.transfer.type.*`） */
+export const transferTypeNames: Record<TransferType, string> = createLabelMap(
+    'animalActions.transfer.type',
+    ['external', 'internal'],
+)
 
 export interface AnimalTransfer {
     id: string

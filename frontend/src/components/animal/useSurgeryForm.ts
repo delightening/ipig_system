@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { AnimalSurgery } from '@/lib/api'
 import { FileInfo } from '@/components/ui/file-upload'
 import { toast } from '@/components/ui/use-toast'
@@ -7,6 +8,17 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import type { PainAssessmentEntry, MedicationItem } from './painAssessmentConstants'
 
 export type { MedicationItem }
+
+/**
+ * 固定姿勢選項。value 是存進資料庫（positioning 欄，逗號串接）的既有繁中值，不可改動
+ * （與歷史資料、後端匯出比對用）；顯示文字走 labelKey，渲染時才 t()。
+ */
+export const POSTURE_OPTIONS = [
+  { value: '正趴', labelKey: 'animalRecords.surgeries.posture.prone' },
+  { value: '左側躺', labelKey: 'animalRecords.surgeries.posture.leftLateral' },
+  { value: '右側躺', labelKey: 'animalRecords.surgeries.posture.rightLateral' },
+  { value: '仰躺', labelKey: 'animalRecords.surgeries.posture.supine' },
+] as const
 
 /** 誘導麻醉藥物項目 */
 export interface AnesthesiaDrug {
@@ -117,6 +129,7 @@ export function useSurgeryForm({
   animalId: string
   surgery?: AnimalSurgery
 }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const isEdit = !!surgery
 
@@ -271,13 +284,16 @@ export function useSurgeryForm({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-surgeries', animalId] })
       queryClient.invalidateQueries({ queryKey: ['animal-care-records', animalId] })
-      toast({ title: '成功', description: isEdit ? '手術紀錄已更新' : '手術紀錄已新增' })
+      toast({
+        title: t('common.success'),
+        description: isEdit ? t('animalRecords.surgeries.updated') : t('animalRecords.surgeries.created'),
+      })
       onOpenChange(false)
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '儲存失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('animalRecords.shared.saveFailed')),
         variant: 'destructive',
       })
     },
@@ -300,12 +316,12 @@ export function useSurgeryForm({
       const element = document.getElementById(nextEmpty.id)
       if (element) {
         element.focus()
-        toast({ title: '已跳轉', description: '跳轉至下一個空白欄位', duration: 2000 })
+        toast({ title: t('animalRecords.shared.jumped'), description: t('animalRecords.shared.jumpedToNextEmpty'), duration: 2000 })
         return
       }
     }
-    toast({ title: '完成', description: '主要欄位皆已填寫', duration: 2000 })
-  }, [formData])
+    toast({ title: t('animalRecords.shared.done'), description: t('animalRecords.surgeries.allKeyFieldsFilled'), duration: 2000 })
+  }, [formData, t])
 
   return { formData, setFormData, mutation, jumpToNextEmptyField }
 }

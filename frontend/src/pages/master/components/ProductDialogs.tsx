@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -33,19 +35,21 @@ export function StatusChangeDialog({
   onConfirm,
   onClose,
 }: StatusDialogProps) {
+  const { t } = useTranslation()
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {action === 'activate' && '啟用產品'}
-            {action === 'deactivate' && '停用產品'}
-            {action === 'discontinue' && '標記停產'}
+            {action === 'activate' && t('erpMaster.products.statusDialog.activateTitle')}
+            {action === 'deactivate' && t('erpMaster.products.statusDialog.deactivateTitle')}
+            {action === 'discontinue' && t('erpMaster.products.statusDialog.discontinueTitle')}
           </DialogTitle>
           <DialogDescription>
-            {action === 'activate' && '確定要啟用此產品嗎？啟用後可在採購、銷貨等模組中使用。'}
-            {action === 'deactivate' && '確定要停用此產品嗎？停用後將無法在新單據中選擇此產品。'}
-            {action === 'discontinue' && '確定要將此產品標記為停產嗎？停產後僅供歷史查詢，無法恢復為啟用狀態。'}
+            {action === 'activate' && t('erpMaster.products.statusDialog.activateDescription')}
+            {action === 'deactivate' && t('erpMaster.products.statusDialog.deactivateDescription')}
+            {action === 'discontinue' && t('erpMaster.products.statusDialog.discontinueDescription')}
           </DialogDescription>
         </DialogHeader>
         {product && (
@@ -63,7 +67,7 @@ export function StatusChangeDialog({
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isPending}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button
             variant={action === 'discontinue' ? 'destructive' : 'default'}
@@ -71,7 +75,7 @@ export function StatusChangeDialog({
             disabled={isPending}
           >
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            確認
+            {t('common.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -97,22 +101,24 @@ export function BatchStatusDialog({
   onConfirm,
   onClose,
 }: BatchStatusDialogProps) {
+  const { t } = useTranslation()
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>批次停用產品</DialogTitle>
+          <DialogTitle>{t('erpMaster.products.batchDialog.title')}</DialogTitle>
           <DialogDescription>
-            確定要停用選中的 {selectionSize} 個產品嗎？停用後將無法在新單據中選擇這些產品。
+            {t('erpMaster.products.batchDialog.description', { count: selectionSize })}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isPending}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button onClick={onConfirm} disabled={isPending}>
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            確認停用
+            {t('erpMaster.products.batchDialog.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -138,13 +144,15 @@ export function HardDeleteDialog({
   onConfirm,
   onClose,
 }: HardDeleteDialogProps) {
+  const { t } = useTranslation()
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-destructive">硬刪除產品</DialogTitle>
+          <DialogTitle className="text-destructive">{t('erpMaster.products.hardDeleteDialog.title')}</DialogTitle>
           <DialogDescription>
-            此操作將永久刪除產品資料，無法復原。若產品已有單據、庫存或藥物選單關聯則無法執行。確定要硬刪除此產品嗎？
+            {t('erpMaster.products.hardDeleteDialog.description')}
           </DialogDescription>
         </DialogHeader>
         {product && (
@@ -162,11 +170,11 @@ export function HardDeleteDialog({
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isPending}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            確認硬刪除
+            {t('erpMaster.products.hardDeleteDialog.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

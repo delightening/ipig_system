@@ -36,9 +36,9 @@ export function BatchAssignDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>分配動物至計畫</DialogTitle>
+          <DialogTitle>{t('animalPages.batchAssign.title')}</DialogTitle>
           <DialogDescription>
-            將選中的 {selectedCount} 隻動物分配至指定的 IACUC 計畫
+            {t('animalPages.batchAssign.description', { count: selectedCount })}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -48,7 +48,7 @@ export function BatchAssignDialog({
               id="iacuc_no"
               value={iacucNo}
               onChange={(e) => onIacucNoChange(e.target.value)}
-              placeholder="例如 PIG-114017"
+              placeholder={t('animalPages.batchAssign.placeholder')}
             />
           </div>
         </div>
@@ -56,7 +56,7 @@ export function BatchAssignDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
           <Button onClick={onSubmit} disabled={isPending || !iacucNo}>
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            確認分配
+            {t('animalPages.batchAssign.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

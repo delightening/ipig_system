@@ -9,6 +9,7 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, BookOpen, CheckCircle2, Download, Upload } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import api from '@/lib/api'
 import { useToast } from '@/components/ui/use-toast'
@@ -35,8 +36,11 @@ import {
   type SopStatus,
 } from '@/lib/api/qaPlan'
 
-const STATUS_LABELS: Record<SopStatus, string> = {
-  draft: '草稿', active: '生效中', obsolete: '已廢止',
+// 值為 i18n 鍵（渲染時才 t()），避免 module 級常數凍結語言。
+const STATUS_LABEL_KEYS: Record<SopStatus, string> = {
+  draft: 'adminGlp.shared.statusLabel.draft',
+  active: 'adminGlp.shared.statusLabel.active',
+  obsolete: 'adminGlp.shared.statusLabel.obsolete',
 }
 
 const STATUS_VARIANTS: Record<SopStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -60,6 +64,7 @@ const defaultForm = (): SopForm => ({
 })
 
 export function QASopPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const hasPermission = useAuthHasPermission()
@@ -161,19 +166,19 @@ export function QASopPage() {
       a.click()
       URL.revokeObjectURL(url)
     } catch {
-      toast({ variant: 'destructive', title: '下載失敗' })
+      toast({ variant: 'destructive', title: t('common.downloadFailed') })
     }
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="SOP 文件管理"
-        description="標準作業程序文件版本控制與閱讀確認"
+        title={t('adminGlp.qaSop.title')}
+        description={t('adminGlp.qaSop.description')}
         actions={canManage ? (
           <Button size="sm" onClick={openCreate}>
             <Plus className="h-4 w-4 mr-2" />
-            新增 SOP
+            {t('adminGlp.qaSop.create')}
           </Button>
         ) : undefined}
       />
@@ -181,18 +186,18 @@ export function QASopPage() {
       <div className="flex gap-3">
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-32">
-            <SelectValue placeholder="狀態" />
+            <SelectValue placeholder={t('adminGlp.shared.status')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部狀態</SelectItem>
-            <SelectItem value="draft">草稿</SelectItem>
-            <SelectItem value="active">生效中</SelectItem>
-            <SelectItem value="obsolete">已廢止</SelectItem>
+            <SelectItem value="all">{t('common.allStatus')}</SelectItem>
+            <SelectItem value="draft">{t(STATUS_LABEL_KEYS.draft)}</SelectItem>
+            <SelectItem value="active">{t(STATUS_LABEL_KEYS.active)}</SelectItem>
+            <SelectItem value="obsolete">{t(STATUS_LABEL_KEYS.obsolete)}</SelectItem>
           </SelectContent>
         </Select>
         <Input
           className="w-40"
-          placeholder="類別篩選"
+          placeholder={t('adminGlp.qaSop.categoryFilter')}
           value={filterCategory}
           onChange={e => setFilterCategory(e.target.value)}
         />
@@ -202,7 +207,7 @@ export function QASopPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5" />
-            SOP 文件列表
+            {t('adminGlp.qaSop.listTitle')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -212,22 +217,22 @@ export function QASopPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>文件編號</TableHead>
-                  <TableHead>標題</TableHead>
-                  <TableHead>版本</TableHead>
-                  <TableHead>類別</TableHead>
-                  <TableHead>生效日</TableHead>
-                  <TableHead>審查日</TableHead>
-                  <TableHead>狀態</TableHead>
-                  <TableHead>確認數</TableHead>
-                  <TableHead className="w-32">操作</TableHead>
+                  <TableHead>{t('adminGlp.shared.documentNumber')}</TableHead>
+                  <TableHead>{t('adminGlp.shared.title')}</TableHead>
+                  <TableHead>{t('adminGlp.shared.version')}</TableHead>
+                  <TableHead>{t('adminGlp.shared.category')}</TableHead>
+                  <TableHead>{t('adminGlp.qaSop.col.effectiveDate')}</TableHead>
+                  <TableHead>{t('adminGlp.qaSop.col.reviewDate')}</TableHead>
+                  <TableHead>{t('adminGlp.shared.status')}</TableHead>
+                  <TableHead>{t('adminGlp.qaSop.col.acknowledgments')}</TableHead>
+                  <TableHead className="w-32">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sopList.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                      尚無 SOP 文件
+                      {t('adminGlp.qaSop.empty')}
                     </TableCell>
                   </TableRow>
                 ) : sopList.map(row => (
@@ -240,7 +245,7 @@ export function QASopPage() {
                     <TableCell>{row.review_date ?? '—'}</TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANTS[row.status]}>
-                        {STATUS_LABELS[row.status]}
+                        {t(STATUS_LABEL_KEYS[row.status])}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -248,7 +253,7 @@ export function QASopPage() {
                         {row.acknowledged_by_me && (
                           <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
                         )}
-                        {row.ack_count} 人
+                        {t('adminGlp.qaSop.ackPeople', { count: row.ack_count })}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -260,7 +265,7 @@ export function QASopPage() {
                             onClick={() => handleDownload(row.id, row.title)}
                           >
                             <Download className="h-3.5 w-3.5 mr-1" />
-                            下載
+                            {t('adminGlp.qaSop.download')}
                           </Button>
                         )}
                         {!row.acknowledged_by_me && row.status === 'active' && (
@@ -270,12 +275,12 @@ export function QASopPage() {
                             onClick={() => ackMutation.mutate(row.id)}
                             disabled={ackMutation.isPending}
                           >
-                            確認閱讀
+                            {t('adminGlp.qaSop.acknowledge')}
                           </Button>
                         )}
                         {canManage && (
                           <Button size="sm" variant="ghost" onClick={() => openEdit(row)}>
-                            編輯
+                            {t('common.edit')}
                           </Button>
                         )}
                       </div>
@@ -292,35 +297,35 @@ export function QASopPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editId ? '編輯 SOP 文件' : '新增 SOP 文件'}</DialogTitle>
+            <DialogTitle>{editId ? t('adminGlp.qaSop.dialog.edit') : t('adminGlp.qaSop.dialog.create')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label>標題</Label>
+              <Label>{t('adminGlp.shared.title')}</Label>
               <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>版本</Label>
+                <Label>{t('adminGlp.shared.version')}</Label>
                 <Input value={form.version} onChange={e => setForm(f => ({ ...f, version: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label>類別</Label>
+                <Label>{t('adminGlp.shared.category')}</Label>
                 <Input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>生效日期</Label>
+                <Label>{t('adminGlp.qaSop.dialog.effectiveDate')}</Label>
                 <Input type="date" value={form.effective_date} onChange={e => setForm(f => ({ ...f, effective_date: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label>下次審查日期</Label>
+                <Label>{t('adminGlp.qaSop.dialog.nextReviewDate')}</Label>
                 <Input type="date" value={form.review_date} onChange={e => setForm(f => ({ ...f, review_date: e.target.value }))} />
               </div>
             </div>
             <div className="space-y-1">
-              <Label>SOP 文件檔案</Label>
+              <Label>{t('adminGlp.qaSop.dialog.file')}</Label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -330,7 +335,7 @@ export function QASopPage() {
                   const file = e.target.files?.[0]
                   if (file) {
                     if (file.size > 30 * 1024 * 1024) {
-                      toast({ variant: 'destructive', title: '檔案大小不得超過 30 MB' })
+                      toast({ variant: 'destructive', title: t('adminGlp.qaSop.dialog.fileTooLarge') })
                       return
                     }
                     setUploadFile(file)
@@ -346,38 +351,38 @@ export function QASopPage() {
                   {uploadFile
                     ? uploadFile.name
                     : form.file_path
-                      ? `已上傳：${form.file_path.split('/').pop()}`
-                      : '點擊選擇 PDF 或 Word 檔案（最大 30 MB）'}
+                      ? t('adminGlp.qaSop.dialog.uploaded', { name: form.file_path.split('/').pop() })
+                      : t('adminGlp.qaSop.dialog.selectFile')}
                 </span>
               </div>
               {uploadFile && (
                 <p className="text-xs text-muted-foreground">
-                  將在儲存時上傳 ({(uploadFile.size / 1024 / 1024).toFixed(1)} MB)
+                  {t('adminGlp.qaSop.dialog.uploadOnSave', { size: (uploadFile.size / 1024 / 1024).toFixed(1) })}
                 </p>
               )}
             </div>
             {editId && (
               <div className="space-y-1">
-                <Label>狀態</Label>
+                <Label>{t('adminGlp.shared.status')}</Label>
                 <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v as SopStatus }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="draft">草稿</SelectItem>
-                    <SelectItem value="active">生效中</SelectItem>
-                    <SelectItem value="obsolete">已廢止</SelectItem>
+                    <SelectItem value="draft">{t(STATUS_LABEL_KEYS.draft)}</SelectItem>
+                    <SelectItem value="active">{t(STATUS_LABEL_KEYS.active)}</SelectItem>
+                    <SelectItem value="obsolete">{t(STATUS_LABEL_KEYS.obsolete)}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             )}
             <div className="space-y-1">
-              <Label>描述</Label>
+              <Label>{t('adminGlp.shared.description')}</Label>
               <Textarea rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={() => saveMutation.mutate()} disabled={!form.title || saveMutation.isPending || uploading}>
-              {uploading ? '上傳中…' : saveMutation.isPending ? '儲存中…' : '儲存'}
+              {uploading ? t('adminGlp.qaSop.dialog.uploading') : saveMutation.isPending ? t('adminGlp.shared.saving') : t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

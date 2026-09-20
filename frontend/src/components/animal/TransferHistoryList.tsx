@@ -1,7 +1,7 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import type { AnimalTransfer } from '@/lib/api'
-import { transferStatusNames, transferTypeNames } from '@/lib/api'
 import { uiLocale } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +12,7 @@ interface TransferHistoryListProps {
 }
 
 export function TransferHistoryList({ transfers }: TransferHistoryListProps) {
+    const { t } = useTranslation()
     const [showHistory, setShowHistory] = useState(false)
 
     if (transfers.length === 0) return null
@@ -23,7 +24,7 @@ export function TransferHistoryList({ transfers }: TransferHistoryListProps) {
                 onClick={() => setShowHistory(!showHistory)}
             >
                 {showHistory ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                歷史轉讓紀錄 ({transfers.length})
+                {t('animalActions.transfer.history.title', { count: transfers.length })}
             </button>
             {showHistory && (
                 <div className="space-y-3">
@@ -42,15 +43,15 @@ export function TransferHistoryList({ transfers }: TransferHistoryListProps) {
                                         </span>
                                     </div>
                                     <Badge className={record.status === 'completed' ? 'bg-status-success-bg text-status-success-text' : 'bg-status-error-bg text-status-error-text'}>
-                                        {transferStatusNames[record.status]}
+                                        {t(`animalActions.transfer.status.${record.status}`)}
                                     </Badge>
                                 </div>
                                 <p className="text-sm text-muted-foreground">
-                                    類型：{transferTypeNames[record.transfer_type === 'external' ? 'external' : 'internal']}
+                                    {t('animalActions.transfer.history.type', { type: t(`animalActions.transfer.type.${record.transfer_type === 'external' ? 'external' : 'internal'}`) })}
                                 </p>
                                 <p className="text-sm text-muted-foreground">{record.reason}</p>
                                 {record.rejected_reason && (
-                                    <p className="text-sm text-status-error-text mt-1">拒絕原因：{record.rejected_reason}</p>
+                                    <p className="text-sm text-status-error-text mt-1">{t('animalActions.transfer.history.rejectedReason', { reason: record.rejected_reason })}</p>
                                 )}
                                 <p className="text-xs text-muted-foreground mt-2">
                                     {new Date(record.created_at).toLocaleString(uiLocale(), { timeZone: 'Asia/Taipei' })}

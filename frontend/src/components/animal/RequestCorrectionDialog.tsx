@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+
 import {
   Dialog,
   DialogContent,
@@ -18,15 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { animalBreedNames, animalGenderNames, CORRECTABLE_FIELDS, type CorrectableField } from '@/lib/api'
+import { CORRECTABLE_FIELDS, type CorrectableField } from '@/lib/api'
 import { Loader2 } from 'lucide-react'
 import type { Animal } from '@/lib/api'
 
-const FIELD_LABELS: Record<CorrectableField, string> = {
-  ear_tag: '耳號',
-  birth_date: '出生日期',
-  gender: '性別',
-  breed: '品種',
+// 欄位顯示名稱走 i18n key（渲染時才 t()）；field 值本身仍是送後端的 enum。
+const FIELD_LABEL_KEYS: Record<CorrectableField, string> = {
+  ear_tag: 'animals.earTag',
+  birth_date: 'animals.birthDate',
+  gender: 'animals.gender',
+  breed: 'animals.breed',
 }
 
 interface RequestCorrectionDialogProps {
@@ -42,6 +45,7 @@ export function RequestCorrectionDialog({
   animal,
   onSubmit,
 }: RequestCorrectionDialogProps) {
+  const { t } = useTranslation()
   const [field, setField] = useState<CorrectableField>('ear_tag')
   const [newValue, setNewValue] = useState('')
   const [reason, setReason] = useState('')
@@ -54,9 +58,9 @@ export function RequestCorrectionDialog({
       case 'birth_date':
         return animal.birth_date ? new Date(animal.birth_date).toISOString().split('T')[0] : '-'
       case 'gender':
-        return animalGenderNames[animal.gender]
+        return t(`animals.genderLabels.${animal.gender}`)
       case 'breed':
-        return animal.breed === 'other' ? (animal.breed_other || '其他') : animalBreedNames[animal.breed]
+        return animal.breed === 'other' ? (animal.breed_other || t('animalActions.common.other')) : t(`animals.breedLabels.${animal.breed}`)
       default:
         return '-'
     }
@@ -97,7 +101,7 @@ export function RequestCorrectionDialog({
           <Input
             value={newValue}
             onChange={(e) => setNewValue(e.target.value)}
-            placeholder="如：001"
+            placeholder={t('animalActions.correction.earTagHint')}
             maxLength={10}
           />
         )
@@ -113,11 +117,11 @@ export function RequestCorrectionDialog({
         return (
           <Select value={newValue} onValueChange={setNewValue}>
             <SelectTrigger>
-              <SelectValue placeholder="選擇性別" />
+              <SelectValue placeholder={t('animalActions.correction.genderHint')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="male">公</SelectItem>
-              <SelectItem value="female">母</SelectItem>
+              <SelectItem value="male">{t('animals.genderLabels.male')}</SelectItem>
+              <SelectItem value="female">{t('animals.genderLabels.female')}</SelectItem>
             </SelectContent>
           </Select>
         )
@@ -125,13 +129,13 @@ export function RequestCorrectionDialog({
         return (
           <Select value={newValue} onValueChange={setNewValue}>
             <SelectTrigger>
-              <SelectValue placeholder="選擇品種" />
+              <SelectValue placeholder={t('animalActions.correction.breedHint')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="miniature">迷你豬</SelectItem>
-              <SelectItem value="white">白豬</SelectItem>
+              <SelectItem value="miniature">{t('animals.breedLabels.minipig')}</SelectItem>
+              <SelectItem value="white">{t('animals.breedLabels.white')}</SelectItem>
               <SelectItem value="LYD">LYD</SelectItem>
-              <SelectItem value="other">其他</SelectItem>
+              <SelectItem value="other">{t('animals.breedLabels.other')}</SelectItem>
             </SelectContent>
           </Select>
         )
@@ -165,15 +169,15 @@ export function RequestCorrectionDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>申請修正欄位</DialogTitle>
+          <DialogTitle>{t('animalActions.correction.title')}</DialogTitle>
           <DialogDescription>
-            耳號、出生日期、性別、品種等欄位建立後不可直接修改。若輸入錯誤，可提交修正申請，經系統管理員批准後套用。耳號：{animal.ear_tag}
+            {t('animalActions.correction.description', { earTag: animal.ear_tag })}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>選擇要修正的欄位</Label>
+              <Label>{t('animalActions.correction.selectField')}</Label>
               <Select value={field} onValueChange={handleFieldChange}>
                 <SelectTrigger>
                   <SelectValue />
@@ -181,26 +185,26 @@ export function RequestCorrectionDialog({
                 <SelectContent>
                   {CORRECTABLE_FIELDS.map((f) => (
                     <SelectItem key={f} value={f}>
-                      {FIELD_LABELS[f]}
+                      {t(FIELD_LABEL_KEYS[f])}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>目前值</Label>
+              <Label>{t('animalActions.correction.currentValue')}</Label>
               <Input value={getCurrentValue()} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
-              <Label>修正後的值 *</Label>
+              <Label>{t('animalActions.correction.newValueLabel')}</Label>
               {renderFieldInput()}
             </div>
             <div className="space-y-2">
-              <Label>修正原因 *</Label>
+              <Label>{t('animalActions.correction.reasonLabel')}</Label>
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="請說明為何需要修正（例如：建檔時誤植）"
+                placeholder={t('animalActions.correction.reasonHint')}
                 rows={3}
                 required
               />
@@ -208,7 +212,7 @@ export function RequestCorrectionDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               type="submit"
@@ -216,7 +220,7 @@ export function RequestCorrectionDialog({
               className="bg-status-purple-solid hover:bg-status-purple-solid/90"
             >
               {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              提交申請
+              {t('animalActions.correction.submit')}
             </Button>
           </DialogFooter>
         </form>

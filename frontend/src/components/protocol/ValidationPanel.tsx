@@ -7,6 +7,7 @@
  * - passed（綠色，可摺疊）：已通過
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react'
 
@@ -27,6 +28,7 @@ export function ValidationPanel({
     onIgnoreAndSubmit,
     hasErrors,
 }: ValidationPanelProps) {
+    const { t } = useTranslation()
     const [showPassed, setShowPassed] = useState(false)
 
     return (
@@ -34,7 +36,7 @@ export function ValidationPanel({
             <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                     <AlertCircle className="h-5 w-5" />
-                    提交前驗證報告
+                    {t('protocolComponents.validation.title')}
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -43,7 +45,7 @@ export function ValidationPanel({
                     <div className="space-y-2">
                         <h4 className="text-sm font-semibold flex items-center gap-1.5 text-status-error-text">
                             <AlertCircle className="h-4 w-4" />
-                            必須修正（{result.errors.length} 項）
+                            {t('protocolComponents.shared.mustFixCount', { count: result.errors.length })}
                         </h4>
                         <ul className="space-y-2 ml-5">
                             {result.errors.map((issue) => (
@@ -65,7 +67,7 @@ export function ValidationPanel({
                     <div className="space-y-2">
                         <h4 className="text-sm font-semibold flex items-center gap-1.5 text-status-warning-text">
                             <AlertTriangle className="h-4 w-4" />
-                            建議改善（{result.warnings.length} 項）
+                            {t('protocolComponents.shared.suggestionsCount', { count: result.warnings.length })}
                         </h4>
                         <ul className="space-y-2 ml-5">
                             {result.warnings.map((issue) => (
@@ -95,11 +97,11 @@ export function ValidationPanel({
                                 <ChevronRight className="h-4 w-4" />
                             )}
                             <CheckCircle2 className="h-4 w-4" />
-                            通過檢查（{result.passed.length} 項）
+                            {t('protocolComponents.shared.passedCount', { count: result.passed.length })}
                         </button>
                         {showPassed && (
                             <div className="ml-5 text-sm text-muted-foreground">
-                                {result.passed.join('、')}
+                                {result.passed.join(t('protocolComponents.shared.listSeparator'))}
                             </div>
                         )}
                     </div>
@@ -109,7 +111,7 @@ export function ValidationPanel({
                 <div className="flex gap-2 pt-2 border-t">
                     {onDismiss && (
                         <Button variant="outline" size="sm" onClick={onDismiss}>
-                            返回修改
+                            {t('protocolComponents.validation.backToEdit')}
                         </Button>
                     )}
                     {!hasErrors && onIgnoreAndSubmit && (
@@ -118,7 +120,7 @@ export function ValidationPanel({
                             size="sm"
                             onClick={onIgnoreAndSubmit}
                         >
-                            忽略建議，直接提交
+                            {t('protocolComponents.validation.ignoreAndSubmit')}
                         </Button>
                     )}
                 </div>

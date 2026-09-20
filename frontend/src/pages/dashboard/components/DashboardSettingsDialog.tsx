@@ -171,7 +171,7 @@ export function DashboardSettingsDialog({
         </div>
         <DialogFooter className="flex justify-between sm:justify-between">
           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onReset}>
-            重設為預設佈局
+            {t('dashboard.layout.resetToDefault')}
           </Button>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>

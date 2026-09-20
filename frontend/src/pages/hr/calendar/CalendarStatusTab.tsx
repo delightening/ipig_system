@@ -3,6 +3,8 @@
  * 顯示 Google Calendar 連接狀態、同步統計、自動同步設定
  */
 import { useState, useEffect } from 'react'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import {
     AlertTriangle,
     Calendar,
@@ -34,14 +36,14 @@ interface CalendarStatusTabProps {
 }
 
 /** 最後同步狀態標籤 */
-function getLastSyncBadge(status: string | null) {
+function getLastSyncBadge(t: TFunction, status: string | null) {
     switch (status) {
         case 'success':
-            return <StatusBadge variant="success">成功</StatusBadge>
+            return <StatusBadge variant="success">{t('common.success')}</StatusBadge>
         case 'partial':
-            return <StatusBadge variant="warning">部分完成</StatusBadge>
+            return <StatusBadge variant="warning">{t('hrPages.calendar.status.partial')}</StatusBadge>
         case 'failed':
-            return <StatusBadge variant="error">失敗</StatusBadge>
+            return <StatusBadge variant="error">{t('hrPages.calendar.status.failed')}</StatusBadge>
         default:
             return null
     }
@@ -69,6 +71,7 @@ export function CalendarStatusTab({
     onUpdateConfig,
     updateConfigPending,
 }: CalendarStatusTabProps) {
+    const { t } = useTranslation()
     // 本地設定表單狀態
     const [syncEnabled, setSyncEnabled] = useState(false)
     const [morningTime, setMorningTime] = useState('')
@@ -94,7 +97,7 @@ export function CalendarStatusTab({
     }
 
     if (loadingStatus) {
-        return <div className="text-center py-8">載入中...</div>
+        return <div className="text-center py-8">{t('common.loading')}</div>
     }
 
     if (syncStatus?.is_configured) {
@@ -106,7 +109,7 @@ export function CalendarStatusTab({
                         <CheckCircle className="h-6 w-6 text-status-success-text" />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <div className="font-medium">已連接</div>
+                        <div className="font-medium">{t('hrPages.calendar.status.connected')}</div>
                         <div className="text-sm text-muted-foreground truncate">
                             {syncStatus.calendar_id}
                         </div>
@@ -118,7 +121,7 @@ export function CalendarStatusTab({
                         className="shrink-0"
                     >
                         <Unlink className="h-4 w-4 mr-2" />
-                        斷開連接
+                        {t('hrPages.calendar.status.disconnect')}
                     </Button>
                 </div>
 
@@ -127,7 +130,7 @@ export function CalendarStatusTab({
                     <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3">
                         <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
                         <div className="text-sm text-destructive">
-                            過去 24 小時內有 {syncStatus.recent_errors} 個同步錯誤，請至「同步歷史」查看詳情
+                            {t('hrPages.calendar.status.recentErrors', { count: syncStatus.recent_errors })}
                         </div>
                     </div>
                 )}
@@ -138,14 +141,14 @@ export function CalendarStatusTab({
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm flex items-center gap-2">
                                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                                同步狀態
+                                {t('hrPages.calendar.status.syncStatus')}
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             {syncStatus.sync_enabled ? (
-                                <StatusBadge variant="success">自動同步啟用</StatusBadge>
+                                <StatusBadge variant="success">{t('hrPages.calendar.status.autoOn')}</StatusBadge>
                             ) : (
-                                <StatusBadge variant="neutral">自動同步停用</StatusBadge>
+                                <StatusBadge variant="neutral">{t('hrPages.calendar.status.autoOff')}</StatusBadge>
                             )}
                         </CardContent>
                     </Card>
@@ -154,17 +157,17 @@ export function CalendarStatusTab({
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
-                                最後同步
+                                {t('hrPages.calendar.status.lastSync')}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-1">
                             <div className="text-sm">
                                 {syncStatus.last_sync_at
                                     ? formatDateTime(syncStatus.last_sync_at)
-                                    : '尚未同步'}
+                                    : t('hrPages.calendar.status.neverSynced')}
                             </div>
                             {syncStatus.last_sync_status && (
-                                <div>{getLastSyncBadge(syncStatus.last_sync_status)}</div>
+                                <div>{getLastSyncBadge(t, syncStatus.last_sync_status)}</div>
                             )}
                         </CardContent>
                     </Card>
@@ -173,14 +176,14 @@ export function CalendarStatusTab({
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
-                                待同步事件
+                                {t('hrPages.calendar.status.pendingSyncs')}
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">{syncStatus.pending_syncs}</div>
                             {syncStatus.next_sync_at && (
                                 <div className="text-xs text-muted-foreground mt-1">
-                                    下次同步：{formatDateTime(syncStatus.next_sync_at)}
+                                    {t('hrPages.calendar.status.nextSync', { time: formatDateTime(syncStatus.next_sync_at) })}
                                 </div>
                             )}
                         </CardContent>
@@ -190,7 +193,7 @@ export function CalendarStatusTab({
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm flex items-center gap-2">
                                 <XCircle className="h-4 w-4 text-muted-foreground" />
-                                待處理衝突
+                                {t('hrPages.calendar.pendingConflicts')}
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -198,7 +201,7 @@ export function CalendarStatusTab({
                                 {syncStatus.pending_conflicts}
                             </div>
                             {syncStatus.pending_conflicts > 0 && (
-                                <div className="text-xs text-status-warning-text mt-1">需要手動處理</div>
+                                <div className="text-xs text-status-warning-text mt-1">{t('hrPages.calendar.status.needsManual')}</div>
                             )}
                         </CardContent>
                     </Card>
@@ -206,20 +209,20 @@ export function CalendarStatusTab({
 
                 {/* 自動同步設定 */}
                 <div className="border rounded-lg p-4 space-y-4">
-                    <div className="font-medium text-sm">自動同步設定</div>
+                    <div className="font-medium text-sm">{t('hrPages.calendar.status.autoSettings')}</div>
 
                     {loadingConfig ? (
-                        <div className="text-sm text-muted-foreground">載入設定中...</div>
+                        <div className="text-sm text-muted-foreground">{t('hrPages.calendar.status.loadingSettings')}</div>
                     ) : (
                         <>
                             {/* 啟用自動同步 */}
                             <div className="flex items-center justify-between">
                                 <div>
                                     <Label htmlFor="sync-enabled" className="text-sm font-medium">
-                                        啟用自動同步
+                                        {t('hrPages.calendar.status.enableAuto')}
                                     </Label>
                                     <div className="text-xs text-muted-foreground mt-0.5">
-                                        依排程自動將請假事件同步至 Google Calendar
+                                        {t('hrPages.calendar.status.enableAutoDescription')}
                                     </div>
                                 </div>
                                 <Switch
@@ -234,7 +237,7 @@ export function CalendarStatusTab({
                                 <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t">
                                     <div className="space-y-1.5">
                                         <Label htmlFor="morning-time" className="text-sm">
-                                            早上同步時間
+                                            {t('hrPages.calendar.status.morningTime')}
                                         </Label>
                                         <input
                                             id="morning-time"
@@ -243,11 +246,11 @@ export function CalendarStatusTab({
                                             onChange={(e) => { setMorningTime(e.target.value); setIsDirty(true) }}
                                             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
                                         />
-                                        <div className="text-xs text-muted-foreground">留空表示不設定早上同步</div>
+                                        <div className="text-xs text-muted-foreground">{t('hrPages.calendar.status.morningHint')}</div>
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="evening-time" className="text-sm">
-                                            晚上同步時間
+                                            {t('hrPages.calendar.status.eveningTime')}
                                         </Label>
                                         <input
                                             id="evening-time"
@@ -256,7 +259,7 @@ export function CalendarStatusTab({
                                             onChange={(e) => { setEveningTime(e.target.value); setIsDirty(true) }}
                                             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
                                         />
-                                        <div className="text-xs text-muted-foreground">留空表示不設定晚上同步</div>
+                                        <div className="text-xs text-muted-foreground">{t('hrPages.calendar.status.eveningHint')}</div>
                                     </div>
                                 </div>
                             )}
@@ -269,7 +272,7 @@ export function CalendarStatusTab({
                                     disabled={!isDirty || updateConfigPending}
                                 >
                                     <Save className="h-4 w-4 mr-2" />
-                                    {updateConfigPending ? '儲存中...' : '儲存設定'}
+                                    {updateConfigPending ? t('hrPages.shared.saving') : t('hrPages.calendar.status.saveSettings')}
                                 </Button>
                             </div>
                         </>
@@ -283,14 +286,14 @@ export function CalendarStatusTab({
         <div className="text-center py-8 space-y-4">
             <Calendar className="h-16 w-16 mx-auto text-muted-foreground" />
             <div>
-                <div className="font-medium">尚未連接 Google Calendar</div>
+                <div className="font-medium">{t('hrPages.calendar.notConnected')}</div>
                 <div className="text-sm text-muted-foreground">
-                    連接後可自動同步核准的請假事件到共用日曆
+                    {t('hrPages.calendar.status.notConnectedDescription')}
                 </div>
             </div>
             <Button onClick={onShowConnectDialog}>
                 <Link2 className="h-4 w-4 mr-2" />
-                連接 Google Calendar
+                {t('hrPages.calendar.connect.title')}
             </Button>
         </div>
     )

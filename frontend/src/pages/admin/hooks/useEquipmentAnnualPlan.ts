@@ -3,6 +3,7 @@
  */
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { deleteResource } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -17,6 +18,7 @@ const PLAN_KEYS = {
 } as const
 
 export function useEquipmentAnnualPlan() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const [planYear, setPlanYear] = useState(new Date().getFullYear())
@@ -58,10 +60,10 @@ export function useEquipmentAnnualPlan() {
     mutationFn: (year: number) => api.post('/equipment-annual-plans/generate', { year }),
     onSuccess: (_data, year) => {
       invalidatePlans()
-      toast({ title: '成功', description: `已產生 ${year} 年度計畫` })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.planGenerated', { year }) })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '產生失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.generateFailed')), variant: 'destructive' })
     },
   })
 
@@ -69,10 +71,10 @@ export function useEquipmentAnnualPlan() {
     mutationFn: (data: Record<string, unknown>) => api.post('/equipment-annual-plans', data),
     onSuccess: () => {
       invalidatePlans()
-      toast({ title: '成功', description: '已新增年度計畫項目' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.planItemCreated') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '新增失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.createFailed')), variant: 'destructive' })
     },
   })
 
@@ -84,7 +86,7 @@ export function useEquipmentAnnualPlan() {
       invalidatePlans()
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '更新失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.updateFailed')), variant: 'destructive' })
     },
   })
 
@@ -92,10 +94,10 @@ export function useEquipmentAnnualPlan() {
     mutationFn: (id: string) => deleteResource(`/equipment-annual-plans/${id}`),
     onSuccess: () => {
       invalidatePlans()
-      toast({ title: '成功', description: '已刪除年度計畫項目' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.planItemDeleted') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '刪除失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.deleteFailed')), variant: 'destructive' })
     },
   })
 

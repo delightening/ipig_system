@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Calendar, Clock } from 'lucide-react'
 
 import { StatsCard } from '@/components/ui/stats-card'
@@ -9,33 +10,37 @@ interface LeaveBalanceSummaryProps {
 }
 
 export function LeaveBalanceSummary({ balanceSummary }: LeaveBalanceSummaryProps) {
+    const { t } = useTranslation()
     return (
         <div className="grid gap-4 md:grid-cols-4">
             <StatsCard
                 icon={Calendar}
-                label="特休剩餘"
-                value={`${balanceSummary?.annual_leave_remaining ?? 0} 天`}
-                description={`已使用 ${balanceSummary?.annual_leave_used ?? 0} / ${balanceSummary?.annual_leave_total ?? 0} 天`}
+                label={t('hrPages.leaves.balance.annualRemaining')}
+                value={t('hrPages.shared.daysValue', { days: balanceSummary?.annual_leave_remaining ?? 0 })}
+                description={t('hrPages.leaves.balance.annualUsed', {
+                    used: balanceSummary?.annual_leave_used ?? 0,
+                    total: balanceSummary?.annual_leave_total ?? 0,
+                })}
             />
             <StatsCard
                 icon={Clock}
-                label="補休剩餘"
-                value={`${parseDecimal(balanceSummary?.comp_time_remaining).toFixed(1)} 小時`}
-                description={`已使用 ${parseDecimal(balanceSummary?.comp_time_used).toFixed(1)} 小時`}
+                label={t('hrPages.leaves.balance.compRemaining')}
+                value={t('hrPages.shared.hoursValue', { hours: parseDecimal(balanceSummary?.comp_time_remaining).toFixed(1) })}
+                description={t('hrPages.leaves.balance.compUsed', { hours: parseDecimal(balanceSummary?.comp_time_used).toFixed(1) })}
             />
             <StatsCard
                 icon={Clock}
-                label="即將到期（特休）"
-                value={`${balanceSummary?.expiring_soon_days ?? 0} 天`}
-                description="30 天內到期"
+                label={t('hrPages.leaves.balance.expiringAnnual')}
+                value={t('hrPages.shared.daysValue', { days: balanceSummary?.expiring_soon_days ?? 0 })}
+                description={t('hrPages.leaves.balance.within30Days')}
                 iconClassName="text-status-warning-text"
                 valueClassName="text-status-warning-text"
             />
             <StatsCard
                 icon={Clock}
-                label="即將到期（補休）"
-                value={`${parseDecimal(balanceSummary?.expiring_soon_hours).toFixed(1)} 小時`}
-                description="30 天內到期"
+                label={t('hrPages.leaves.balance.expiringComp')}
+                value={t('hrPages.shared.hoursValue', { hours: parseDecimal(balanceSummary?.expiring_soon_hours).toFixed(1) })}
+                description={t('hrPages.leaves.balance.within30Days')}
                 iconClassName="text-status-warning-text"
                 valueClassName="text-status-warning-text"
             />

@@ -139,7 +139,7 @@ export function ResearchBasicFields({
       {/* 類型 / 種類（皆可複選） */}
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label>{t('aup.basic.projectType')} * (複選)</Label>
+          <Label>{t('protocolPages.edit.multiSelectRequired', { label: t('aup.basic.projectType') })}</Label>
           <div className="grid gap-3 pl-4 text-sm">
             {PROJECT_TYPE_KEYS.filter((v) => v !== PROJECT_TYPE_OTHER || fieldVisibleForVersion('basic.projectTypeOther', formVersion)).map((v) => (
               <div key={v} className="flex items-center space-x-3">
@@ -166,7 +166,7 @@ export function ResearchBasicFields({
           )}
         </div>
         <div className="space-y-2">
-          <Label>{t('aup.basic.projectCategory')} * (複選)</Label>
+          <Label>{t('protocolPages.edit.multiSelectRequired', { label: t('aup.basic.projectCategory') })}</Label>
           <div className="grid gap-3 pl-4 text-sm sm:grid-cols-2 sm:grid-rows-6 sm:grid-flow-col">
             {PROJECT_CATEGORY_KEYS.map((v) => (
               <div key={v} className="flex items-center space-x-3">
@@ -198,7 +198,7 @@ export function ResearchBasicFields({
 
       {/* 資金來源 */}
       <div className="space-y-4">
-        <Label className="text-base font-semibold">{t('aup.basic.fundingSources')} (複選)</Label>
+        <Label className="text-base font-semibold">{t('protocolPages.edit.multiSelect', { label: t('aup.basic.fundingSources') })}</Label>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pl-4 text-sm">
           {['moa', 'mohw', 'nstc', 'moe', 'env', 'other'].map((option) => (
             <div key={option} className="flex items-center space-x-3">

@@ -72,7 +72,7 @@ export function SurgerySection({ design, surgery }: SurgerySectionProps) {
               <p className="text-sm mt-1">
                 {t('aup.surgery.labels.multipleSurgeriesDetail')}:
                 {surgery.multiple_surgeries.number ? ` ${surgery.multiple_surgeries.number}` : ''}
-                {surgery.multiple_surgeries.reason ? `（${surgery.multiple_surgeries.reason}）` : ''}
+                {surgery.multiple_surgeries.reason ? t('protocolComponents.shared.parenthesized', { text: surgery.multiple_surgeries.reason }) : ''}
               </p>
             )}
           </div>

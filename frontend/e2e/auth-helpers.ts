@@ -2,6 +2,7 @@ import { expect } from '@playwright/test'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import dotenv from 'dotenv'
+import { txt } from './helpers/i18n'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(__dirname, '../../.env') })
@@ -31,7 +32,7 @@ export async function performLogin(
                     resp.request().method() === 'POST',
                 { timeout: 15_000 },
             ),
-            page.getByRole('button', { name: '登入' }).click(),
+            page.getByRole('button', { name: txt('auth.login.submit') }).click(),
         ])
 
         if (response.status() === 502 || response.status() === 503) {
@@ -144,7 +145,7 @@ export async function completeForceChangePassword(
     const confirmInput = page.locator('#confirmPassword')
     await confirmInput.fill(newPassword)
 
-    const submitBtn = page.getByRole('button', { name: /確認|Submit|變更/ })
+    const submitBtn = page.getByRole('button', { name: txt('auth.forceChange.submit') })
     await expect(submitBtn).toBeVisible()
     await submitBtn.click()
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import api, { deleteResource, AnimalSource } from '@/lib/api'
 import { useTableSort } from '@/hooks/useTableSort'
 import { Button } from '@/components/ui/button'
@@ -70,6 +71,7 @@ const defaultFormValues: AnimalSourceFormData = {
 }
 
 export function AnimalSourcesPage() {
+  const { t } = useTranslation()
   const isGuest = useAuthIsGuest()
   const canManageSource = useAuthHasPermission()(PERMISSIONS.ANIMAL_SOURCE_MANAGE)
   const queryClient = useQueryClient()
@@ -101,13 +103,13 @@ export function AnimalSourcesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-sources'] })
-      toast({ title: '成功', description: '動物來源已新增' })
+      toast({ title: t('common.success'), description: t('animalPages.sources.toast.created') })
       handleCloseDialog()
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '新增失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('animalPages.shared.addFailed')),
         variant: 'destructive',
       })
     },
@@ -120,13 +122,13 @@ export function AnimalSourcesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-sources'] })
-      toast({ title: '成功', description: '動物來源已更新' })
+      toast({ title: t('common.success'), description: t('animalPages.sources.toast.updated') })
       handleCloseDialog()
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '更新失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('animalPages.shared.updateFailed')),
         variant: 'destructive',
       })
     },
@@ -139,12 +141,12 @@ export function AnimalSourcesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-sources'] })
-      toast({ title: '成功', description: '動物來源已刪除' })
+      toast({ title: t('common.success'), description: t('animalPages.sources.toast.deleted') })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '刪除失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('animalPages.shared.deleteFailed')),
         variant: 'destructive',
       })
     },
@@ -185,7 +187,12 @@ export function AnimalSourcesPage() {
   }
 
   const handleDelete = async (source: AnimalSource) => {
-    const ok = await confirm({ title: '刪除動物來源', description: `確定要刪除來源「${source.name}」嗎？`, variant: 'destructive', confirmLabel: '確認刪除' })
+    const ok = await confirm({
+      title: t('animalPages.sources.deleteTitle'),
+      description: t('animalPages.sources.deleteConfirm', { name: source.name }),
+      variant: 'destructive',
+      confirmLabel: t('common.confirmDelete'),
+    })
     if (ok) {
       deleteMutation.mutate(source.id)
     }
@@ -194,14 +201,14 @@ export function AnimalSourcesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="動物來源管理"
-        description="管理動物的來源/供應商資訊"
+        title={t('animalPages.sources.pageTitle')}
+        description={t('animalPages.sources.pageDescription')}
         actions={
           <GuestHide>
             <Can permission={PERMISSIONS.ANIMAL_SOURCE_MANAGE}>
               <Button size="sm" onClick={() => handleOpenDialog()} className="gap-2 bg-primary hover:bg-primary/90">
                 <Plus className="h-4 w-4" />
-                新增來源
+                {t('animalPages.sources.addSource')}
               </Button>
             </Can>
           </GuestHide>
@@ -213,27 +220,27 @@ export function AnimalSourcesPage() {
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <SortableTableHead sortKey="sort_order" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                排序
+                {t('animalPages.sources.sortOrder')}
               </SortableTableHead>
               <SortableTableHead sortKey="code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                代碼
+                {t('animalPages.sources.code')}
               </SortableTableHead>
               <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                名稱
+                {t('animalPages.sources.name')}
               </SortableTableHead>
               <SortableTableHead sortKey="address" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                地址
+                {t('animalPages.sources.address')}
               </SortableTableHead>
               <SortableTableHead sortKey="contact" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                聯絡人
+                {t('animalPages.sources.contact')}
               </SortableTableHead>
               <SortableTableHead sortKey="phone" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                電話
+                {t('animalPages.sources.phone')}
               </SortableTableHead>
               <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                狀態
+                {t('animals.status')}
               </SortableTableHead>
-              <TableHead className="text-right">操作</TableHead>
+              <TableHead className="text-right">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -276,7 +283,7 @@ export function AnimalSourcesPage() {
                   </TableCell>
                   <TableCell>
                     <StatusBadge variant={source.is_active ? 'success' : 'neutral'}>
-                      {source.is_active ? '啟用' : '停用'}
+                      {source.is_active ? t('animalPages.sources.active') : t('animalPages.sources.inactive')}
                     </StatusBadge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -287,7 +294,7 @@ export function AnimalSourcesPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() => handleOpenDialog(source)}
-                            aria-label="編輯"
+                            aria-label={t('common.edit')}
                           >
                             <Edit2 className="h-4 w-4" />
                           </Button>
@@ -296,7 +303,7 @@ export function AnimalSourcesPage() {
                             size="icon"
                             onClick={() => handleDelete(source)}
                             disabled={deleteMutation.isPending}
-                            aria-label="刪除"
+                            aria-label={t('common.delete')}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -310,11 +317,11 @@ export function AnimalSourcesPage() {
               <TableEmptyRow
                 colSpan={8}
                 icon={Building2}
-                title="尚無來源資料"
+                title={t('animalPages.sources.empty')}
                 // TableEmptyRow 的 action 是純 prop 不是 children，包不進 <Can>；
                 // 用同一個 permission 判斷即可。原本只擋 guest，沒有
                 // animal.source.manage 的一般使用者仍看得到「新增第一個來源」並打得開對話框。
-                action={isGuest || !canManageSource ? undefined : { label: '新增第一個來源', onClick: () => handleOpenDialog(), icon: Plus }}
+                action={isGuest || !canManageSource ? undefined : { label: t('animalPages.sources.addFirst'), onClick: () => handleOpenDialog(), icon: Plus }}
               />
             )}
           </TableBody>
@@ -326,71 +333,71 @@ export function AnimalSourcesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingSource ? '編輯動物來源' : '新增動物來源'}
+              {editingSource ? t('animalPages.sources.dialog.editTitle') : t('animalPages.sources.dialog.addTitle')}
             </DialogTitle>
             <DialogDescription>
-              {editingSource ? '修改來源資訊' : '輸入新來源的資訊'}
+              {editingSource ? t('animalPages.sources.dialog.editDescription') : t('animalPages.sources.dialog.addDescription')}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={rhfHandleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="code">代碼 *</Label>
+                <Label htmlFor="code">{t('animalPages.sources.code')} *</Label>
                 <Input
                   id="code"
                   {...register('code', { required: 'validation.required' })}
-                  placeholder="如：SOURCE01"
+                  placeholder={t('animalPages.sources.codePlaceholder')}
                 />
                 {errors.code && (
-                  <p className="text-sm text-destructive">{errors.code.message}</p>
+                  <p className="text-sm text-destructive">{t(errors.code.message ?? 'validation.required')}</p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="name">名稱 *</Label>
+                <Label htmlFor="name">{t('animalPages.sources.name')} *</Label>
                 <Input
                   id="name"
                   {...register('name', { required: 'validation.required' })}
-                  placeholder="來源名稱"
+                  placeholder={t('animalPages.sources.namePlaceholder')}
                 />
                 {errors.name && (
-                  <p className="text-sm text-destructive">{errors.name.message}</p>
+                  <p className="text-sm text-destructive">{t(errors.name.message ?? 'validation.required')}</p>
                 )}
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="address">地址</Label>
+              <Label htmlFor="address">{t('animalPages.sources.address')}</Label>
               <Input
                 id="address"
                 {...register('address')}
-                placeholder="完整地址"
+                placeholder={t('animalPages.sources.addressPlaceholder')}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="contact">聯絡人</Label>
+                <Label htmlFor="contact">{t('animalPages.sources.contact')}</Label>
                 <Input
                   id="contact"
                   {...register('contact')}
-                  placeholder="聯絡人姓名"
+                  placeholder={t('animalPages.sources.contactPlaceholder')}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">電話</Label>
+                <Label htmlFor="phone">{t('animalPages.sources.phone')}</Label>
                 <div className="flex gap-2">
                   <Input
                     id="phone"
                     className="flex-1"
                     {...register('phone')}
-                    placeholder="聯絡電話"
+                    placeholder={t('animalPages.sources.phonePlaceholder')}
                   />
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-muted-foreground">#</span>
                     <Input
                       className="w-24"
-                      placeholder="分機"
+                      placeholder={t('animalPages.sources.extPlaceholder')}
                       {...register('phone_ext')}
                     />
                   </div>
@@ -400,7 +407,7 @@ export function AnimalSourcesPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="sort_order">排序</Label>
+                <Label htmlFor="sort_order">{t('animalPages.sources.sortOrder')}</Label>
                 <Input
                   id="sort_order"
                   type="number"
@@ -408,7 +415,7 @@ export function AnimalSourcesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>狀態</Label>
+                <Label>{t('animals.status')}</Label>
                 <div className="flex items-center gap-4 pt-2">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -418,7 +425,7 @@ export function AnimalSourcesPage() {
                       onChange={() => setValue('is_active', true)}
                       className="w-4 h-4 text-primary"
                     />
-                    <span className="text-sm">啟用</span>
+                    <span className="text-sm">{t('animalPages.sources.active')}</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -428,7 +435,7 @@ export function AnimalSourcesPage() {
                       onChange={() => setValue('is_active', false)}
                       className="w-4 h-4 text-primary"
                     />
-                    <span className="text-sm">停用</span>
+                    <span className="text-sm">{t('animalPages.sources.inactive')}</span>
                   </label>
                 </div>
               </div>
@@ -436,7 +443,7 @@ export function AnimalSourcesPage() {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                取消
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
@@ -446,7 +453,7 @@ export function AnimalSourcesPage() {
                 {(createMutation.isPending || updateMutation.isPending) && (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 )}
-                {editingSource ? '更新' : '新增'}
+                {editingSource ? t('common.update') : t('common.create')}
               </Button>
             </DialogFooter>
           </form>

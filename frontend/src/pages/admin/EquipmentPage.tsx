@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { Plus, Wrench, Ruler, Hammer, Trash2, Calendar, Pause } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { GuestHide } from '@/components/ui/guest-hide'
 import { useDialogSet } from '@/hooks/useDialogSet'
@@ -58,6 +59,7 @@ import { EquipmentStatsCards } from './components/EquipmentStatsCards'
 import { IdleTabContent } from './components/IdleTabContent'
 
 export function EquipmentPage() {
+  const { t } = useTranslation()
   const hasPermission = useAuthHasPermission()
   const canManage = hasPermission('equipment.manage')
   const canReview = hasPermission('equipment.maintenance.review') || canManage
@@ -212,7 +214,7 @@ export function EquipmentPage() {
   }
 
   const handleDeleteEquip = (id: string, name: string) => {
-    if (window.confirm(`確定要刪除設備「${name}」嗎？`)) {
+    if (window.confirm(t('adminOps.equipment.confirm.deleteEquipment', { name }))) {
       mutations.deleteEquipMutation.mutate(id)
     }
   }
@@ -261,7 +263,7 @@ export function EquipmentPage() {
   }
 
   const handleDeleteCalib = (id: string) => {
-    if (window.confirm('確定要刪除此紀錄嗎？')) {
+    if (window.confirm(t('adminOps.equipment.confirm.deleteRecord'))) {
       mutations.deleteCalibMutation.mutate(id)
     }
   }
@@ -281,7 +283,7 @@ export function EquipmentPage() {
   }
 
   const handleDeleteMaint = (id: string) => {
-    if (window.confirm('確定要刪除此紀錄嗎？')) {
+    if (window.confirm(t('adminOps.equipment.confirm.deleteRecord'))) {
       deleteMaintMutation.mutate(id)
     }
   }
@@ -295,21 +297,25 @@ export function EquipmentPage() {
   }
 
   const handleApproveDisposal = (id: string, approved: boolean) => {
-    const msg = approved ? '確定核准此報廢申請？' : '確定駁回此報廢申請？'
+    const msg = approved
+      ? t('adminOps.equipment.confirm.approveDisposal')
+      : t('adminOps.equipment.confirm.rejectDisposal')
     if (window.confirm(msg)) {
       approveDisposalMutation.mutate({ id, approved })
     }
   }
 
   const handleRestoreEquipment = (id: string) => {
-    if (window.confirm('確定要恢復此設備為啟用狀態？')) {
+    if (window.confirm(t('adminOps.equipment.confirm.restoreEquipment'))) {
       restoreEquipmentMutation.mutate(id)
     }
   }
 
   const handleRequestIdle = (equipmentId: string, requestType: 'idle' | 'restore') => {
-    const label = requestType === 'idle' ? '閒置' : '恢復'
-    const reason = window.prompt(`請輸入${label}原因：`)
+    const promptMessage = requestType === 'idle'
+      ? t('adminOps.equipment.prompt.idleReason')
+      : t('adminOps.equipment.prompt.restoreReason')
+    const reason = window.prompt(promptMessage)
     if (reason) {
       createIdleMutation.mutate({ equipment_id: equipmentId, request_type: requestType, reason })
     }
@@ -317,13 +323,13 @@ export function EquipmentPage() {
 
   const handleApproveIdle = (id: string, approved: boolean) => {
     if (approved) {
-      if (window.confirm('確定核准此閒置申請？')) {
+      if (window.confirm(t('adminOps.equipment.confirm.approveIdle'))) {
         approveIdleMutation.mutate({ id, approved: true })
       }
       return
     }
     // R71-10：駁回補填原因（取代原固定『駁回』）；取消 prompt 則中止。
-    const reason = window.prompt('請輸入駁回原因：', '')
+    const reason = window.prompt(t('adminOps.equipment.prompt.rejectReason'), '')
     if (reason === null) return
     approveIdleMutation.mutate({ id, approved: false, reason })
   }
@@ -331,13 +337,13 @@ export function EquipmentPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="設備維護管理"
-        description="實驗室 GLP 合規：設備管理、校正/確效/查核、維修/保養、報廢"
+        title={t('adminOps.equipment.page.title')}
+        description={t('adminOps.equipment.page.description')}
         actions={canManage ? (
           <GuestHide>
             <Button size="sm" onClick={() => dialogs.open('equipCreate')}>
               <Plus className="h-4 w-4 mr-2" />
-              新增設備
+              {t('adminOps.equipment.page.addEquipment')}
             </Button>
           </GuestHide>
         ) : undefined}
@@ -347,12 +353,12 @@ export function EquipmentPage() {
 
       <PageTabs
         tabs={[
-          { value: 'equipment', label: '設備', icon: Wrench },
-          { value: 'calibrations', label: '校正/確效/查核', icon: Ruler },
-          { value: 'maintenance', label: '維修/保養', icon: Hammer },
-          { value: 'idle', label: '閒置管理', icon: Pause },
-          { value: 'disposals', label: '報廢', icon: Trash2 },
-          { value: 'annual-plan', label: '年度計畫', icon: Calendar },
+          { value: 'equipment', label: t('adminOps.equipment.tabs.equipment'), icon: Wrench },
+          { value: 'calibrations', label: t('adminOps.equipment.tabs.calibrations'), icon: Ruler },
+          { value: 'maintenance', label: t('adminOps.equipment.tabs.maintenance'), icon: Hammer },
+          { value: 'idle', label: t('adminOps.equipment.tabs.idle'), icon: Pause },
+          { value: 'disposals', label: t('adminOps.equipment.tabs.disposals'), icon: Trash2 },
+          { value: 'annual-plan', label: t('adminOps.equipment.tabs.annualPlan'), icon: Calendar },
         ]}
         defaultTab="equipment"
         variant="underline"

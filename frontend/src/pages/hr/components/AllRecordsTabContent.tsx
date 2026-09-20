@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
@@ -18,8 +19,10 @@ import {
 import type { OvertimeWithUser } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
 import {
-    OVERTIME_TYPE_NAMES,
-    OVERTIME_STATUS_NAMES,
+    OVERTIME_TYPE_CODES,
+    OVERTIME_STATUS_CODES,
+    overtimeTypeLabel,
+    overtimeStatusLabel,
 } from '../constants'
 import { AllRecordsTable } from './AllRecordsTable'
 
@@ -35,6 +38,7 @@ interface AllRecordsTabContentProps {
 }
 
 export function AllRecordsTabContent({ isActive, staffList }: AllRecordsTabContentProps) {
+    const { t } = useTranslation()
     const [filterStatus, setFilterStatus] = useState<string>('all')
     const [filterOvertimeType, setFilterOvertimeType] = useState<string>('all')
     const [filterApplicant, setFilterApplicant] = useState<string>('all')
@@ -81,8 +85,8 @@ export function AllRecordsTabContent({ isActive, staffList }: AllRecordsTabConte
     return (
         <Card>
                 <CardHeader>
-                    <CardTitle>全部加班紀錄</CardTitle>
-                    <CardDescription>查看所有員工的加班資料</CardDescription>
+                    <CardTitle>{t('hrPages.overtime.records.title')}</CardTitle>
+                    <CardDescription>{t('hrPages.overtime.records.description')}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <AllRecordsFilterBar
@@ -108,7 +112,7 @@ export function AllRecordsTabContent({ isActive, staffList }: AllRecordsTabConte
 
                     {allOvertime && allOvertime.total > 0 && (
                         <div className="text-sm text-muted-foreground">
-                            共 {allOvertime.total} 筆紀錄
+                            {t('hrPages.shared.totalRecords', { count: allOvertime.total })}
                         </div>
                     )}
                 </CardContent>
@@ -147,16 +151,17 @@ function AllRecordsFilterBar({
     onClear,
     staffList,
 }: AllRecordsFilterBarProps) {
+    const { t } = useTranslation()
     return (
         <div className="flex flex-wrap gap-3 items-end">
             <div className="grid gap-1">
-                <Label className="text-xs">申請人</Label>
+                <Label className="text-xs">{t('hrPages.shared.col.applicant')}</Label>
                 <Select value={filterApplicant} onValueChange={onApplicantChange}>
                     <SelectTrigger className="w-[180px]">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">全部人員</SelectItem>
+                        <SelectItem value="all">{t('hrPages.shared.filter.allStaff')}</SelectItem>
                         {staffList?.map((staff) => (
                             <SelectItem key={staff.id} value={staff.id}>
                                 {staff.display_name}
@@ -166,35 +171,35 @@ function AllRecordsFilterBar({
                 </Select>
             </div>
             <div className="grid gap-1">
-                <Label className="text-xs">狀態</Label>
+                <Label className="text-xs">{t('hrPages.shared.col.status')}</Label>
                 <Select value={filterStatus} onValueChange={onStatusChange}>
                     <SelectTrigger className="w-[140px]">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">全部狀態</SelectItem>
-                        {Object.entries(OVERTIME_STATUS_NAMES).map(([code, name]) => (
-                            <SelectItem key={code} value={code}>{name}</SelectItem>
+                        <SelectItem value="all">{t('common.allStatus')}</SelectItem>
+                        {OVERTIME_STATUS_CODES.map((code) => (
+                            <SelectItem key={code} value={code}>{overtimeStatusLabel(t, code)}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
             </div>
             <div className="grid gap-1">
-                <Label className="text-xs">加班類型</Label>
+                <Label className="text-xs">{t('hrPages.overtime.type')}</Label>
                 <Select value={filterOvertimeType} onValueChange={onOvertimeTypeChange}>
                     <SelectTrigger className="w-[140px]">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">全部類型</SelectItem>
-                        {Object.entries(OVERTIME_TYPE_NAMES).map(([code, name]) => (
-                            <SelectItem key={code} value={code}>{name}</SelectItem>
+                        <SelectItem value="all">{t('hrPages.shared.filter.allTypes')}</SelectItem>
+                        {OVERTIME_TYPE_CODES.map((code) => (
+                            <SelectItem key={code} value={code}>{overtimeTypeLabel(t, code)}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
             </div>
             <div className="grid gap-1">
-                <Label className="text-xs">起始日期</Label>
+                <Label className="text-xs">{t('hrPages.shared.filter.fromDate')}</Label>
                 <Input
                     type="date"
                     value={filterFrom}
@@ -203,7 +208,7 @@ function AllRecordsFilterBar({
                 />
             </div>
             <div className="grid gap-1">
-                <Label className="text-xs">結束日期</Label>
+                <Label className="text-xs">{t('hrPages.shared.filter.endDate')}</Label>
                 <Input
                     type="date"
                     value={filterTo}
@@ -213,7 +218,7 @@ function AllRecordsFilterBar({
             </div>
             {hasActiveFilters && (
                 <Button variant="ghost" size="sm" onClick={onClear}>
-                    清除篩選
+                    {t('common.clearFilters')}
                 </Button>
             )}
         </div>

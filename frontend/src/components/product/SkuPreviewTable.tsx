@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
 import { Loader2, Sparkles } from 'lucide-react'
 
@@ -20,32 +22,34 @@ export function SkuPreviewTable({
   onBack,
   setCategorySubcategoryOverrides,
 }: SkuPreviewTableProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-foreground">
-          請為以下商品設定 SKU（留空則由系統自動產生），共 {previewRows.length} 筆
+          {t('erpMaster.import.skuTable.intro', { count: previewRows.length })}
         </p>
         <Button variant="ghost" size="sm" onClick={onBack}>
-          返回
+          {t('erpMaster.common.back')}
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        先選擇品類與子類（與「新增產品」相同分層），再按「產生 SKU」由系統產出編碼；亦可手動輸入或留空由匯入時自動產生。
+        {t('erpMaster.import.skuTable.hint')}
       </p>
       <div className="max-h-80 overflow-auto rounded-lg border border-border">
         <table className="w-full text-sm">
           <thead className="bg-muted sticky top-0">
             <tr>
-              <th className="px-2 py-2 text-left font-medium w-10">列</th>
-              <th className="px-2 py-2 text-left font-medium min-w-[80px]">名稱</th>
-              <th className="px-2 py-2 text-left font-medium min-w-[60px]">規格</th>
-              <th className="px-2 py-2 text-left font-medium w-12">單位</th>
-              <th className="px-2 py-2 text-left font-medium w-16">安全庫存</th>
-              <th className="px-2 py-2 text-left font-medium min-w-[100px]">品類</th>
-              <th className="px-2 py-2 text-left font-medium min-w-[100px]">子類</th>
-              <th className="px-2 py-2 text-left font-medium w-20">動作</th>
-              <th className="px-2 py-2 text-left font-medium min-w-[110px]">SKU 編碼</th>
+              <th className="px-2 py-2 text-left font-medium w-10">{t('erpMaster.import.result.row')}</th>
+              <th className="px-2 py-2 text-left font-medium min-w-[80px]">{t('erpMaster.common.name')}</th>
+              <th className="px-2 py-2 text-left font-medium min-w-[60px]">{t('erpMaster.common.spec')}</th>
+              <th className="px-2 py-2 text-left font-medium w-12">{t('erpMaster.common.unit')}</th>
+              <th className="px-2 py-2 text-left font-medium w-16">{t('erpMaster.products.safetyStock')}</th>
+              <th className="px-2 py-2 text-left font-medium min-w-[100px]">{t('erpMaster.products.category')}</th>
+              <th className="px-2 py-2 text-left font-medium min-w-[100px]">{t('erpMaster.products.subcategory')}</th>
+              <th className="px-2 py-2 text-left font-medium w-20">{t('erpMaster.import.skuTable.action')}</th>
+              <th className="px-2 py-2 text-left font-medium min-w-[110px]">{t('erpMaster.import.skuTable.skuCode')}</th>
             </tr>
           </thead>
           <tbody>
@@ -64,7 +68,7 @@ export function SkuPreviewTable({
                   <td className="px-2 py-1.5">{r.safety_stock ?? '-'}</td>
                   <td className="px-2 py-1.5">
                     <select
-                      aria-label={`第 ${r.row} 列品類`}
+                      aria-label={t('erpMaster.import.skuTable.rowCategory', { row: r.row })}
                       value={catCode}
                       onChange={(e) => {
                         const v = e.target.value
@@ -86,7 +90,7 @@ export function SkuPreviewTable({
                       <span className="text-muted-foreground">—</span>
                     ) : hasSubcategories ? (
                       <select
-                        aria-label={`第 ${r.row} 列子類`}
+                        aria-label={t('erpMaster.import.skuTable.rowSubcategory', { row: r.row })}
                         value={subCode}
                         onChange={(e) =>
                           setRowSubcategoryCode((prev) => ({
@@ -104,7 +108,7 @@ export function SkuPreviewTable({
                         ))}
                       </select>
                     ) : (
-                      <span className="text-muted-foreground text-xs">同品類</span>
+                      <span className="text-muted-foreground text-xs">{t('erpMaster.import.skuTable.sameCategory')}</span>
                     )}
                   </td>
                   <td className="px-2 py-1.5">
@@ -133,7 +137,7 @@ export function SkuPreviewTable({
                       ) : (
                         <>
                           <Sparkles className="h-3.5 w-3.5 mr-0.5" />
-                          產生 SKU
+                          {t('erpMaster.import.skuTable.generate')}
                         </>
                       )}
                     </Button>
@@ -145,7 +149,7 @@ export function SkuPreviewTable({
                       onChange={(e) =>
                         setSkuOverrides((prev) => ({ ...prev, [r.row]: e.target.value }))
                       }
-                      placeholder="留空自動產生"
+                      placeholder={t('erpMaster.import.skuTable.placeholder')}
                       className="w-full min-w-[100px] rounded border border-border px-2 py-1 text-sm font-mono focus:border-status-info-solid focus:outline-hidden focus:ring-1 focus:ring-primary"
                     />
                   </td>
@@ -163,10 +167,10 @@ export function SkuPreviewTable({
           className="bg-purple-600 hover:bg-purple-700"
         >
           {importIsPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          確認匯入
+          {t('erpMaster.import.skuTable.confirm')}
         </Button>
         <Button variant="outline" size="sm" onClick={onBack}>
-          返回
+          {t('erpMaster.common.back')}
         </Button>
       </div>
     </div>

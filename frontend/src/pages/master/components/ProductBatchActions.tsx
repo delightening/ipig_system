@@ -1,7 +1,9 @@
+import { useTranslation } from 'react-i18next'
+
+import i18n from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/use-toast'
 import { Check, PowerOff, Download, Tags } from 'lucide-react'
-import { UOM_MAP } from '@/lib/utils'
 
 import type { ExtendedProduct } from './productTypes'
 
@@ -17,32 +19,54 @@ interface ProductBatchActionsProps {
 function exportProductsCsv(products: ExtendedProduct[], filenamePrefix: string) {
   if (products.length === 0) return
 
-  const headers = ['SKU', '名稱', '規格', '品類', '子類', '單位', '安全庫存', '追蹤批號', '追蹤效期', '狀態']
+  // 內部匯出檔固定中文（使用者裁定 2026-09-19）
+  const tZh = i18n.getFixedT('zh-TW')
+  const formatUomZh = (uom: string) => {
+    if (!uom) return uom
+    const key = `uom.${uom}`
+    return i18n.exists(key, { lng: 'zh-TW' }) ? tZh(key) : uom
+  }
+
+  const headers = [
+    'SKU',
+    tZh('erpMaster.common.name'),
+    tZh('erpMaster.common.spec'),
+    tZh('erpMaster.products.category'),
+    tZh('erpMaster.products.subcategory'),
+    tZh('erpMaster.common.unit'),
+    tZh('erpMaster.products.safetyStock'),
+    tZh('erpMaster.products.trackBatch'),
+    tZh('erpMaster.products.trackExpiry'),
+    tZh('erpMaster.common.status'),
+  ]
   const rows = products.map(p => [
     p.sku,
     p.name,
     p.spec || '',
     p.category_code || '',
     p.subcategory_code || '',
-    UOM_MAP[p.base_uom] || p.base_uom,
+    formatUomZh(p.base_uom),
     p.safety_stock?.toString() ?? '',
-    p.track_batch ? '是' : '否',
-    p.track_expiry ? '是' : '否',
-    p.is_active ? '啟用' : '停用',
+    p.track_batch ? tZh('common.yes') : tZh('common.no'),
+    p.track_expiry ? tZh('common.yes') : tZh('common.no'),
+    p.is_active ? tZh('erpMaster.common.active') : tZh('erpMaster.common.inactive'),
   ])
 
   const csvContent = [headers, ...rows]
     .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     .join('\n')
 
-  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
   link.download = `${filenamePrefix}_${new Date().toISOString().split('T')[0]}.csv`
   link.click()
   URL.revokeObjectURL(link.href)
 
-  toast({ title: '匯出成功', description: `已匯出 ${products.length} 筆產品` })
+  toast({
+    title: i18n.t('common.exportSuccess'),
+    description: i18n.t('erpMaster.products.exportedCount', { count: products.length }),
+  })
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -55,6 +79,8 @@ export function ProductBatchActions({
   onBatchDeactivate,
   onClearSelection,
 }: ProductBatchActionsProps) {
+  const { t } = useTranslation()
+
   if (selectionSize === 0) return null
 
   const handleBatchExport = () => {
@@ -67,24 +93,24 @@ export function ProductBatchActions({
       <div className="flex items-center gap-2">
         <Check className="h-4 w-4 text-primary" />
         <span className="text-sm font-medium">
-          已選擇 {selectionSize} 個產品
+          {t('erpMaster.products.batch.selected', { count: selectionSize })}
         </span>
       </div>
       <div className="flex-1" />
       <Button variant="outline" size="sm" onClick={onBatchDeactivate}>
         <PowerOff className="mr-2 h-4 w-4" />
-        批次停用
+        {t('erpMaster.products.batch.deactivate')}
       </Button>
       <Button variant="outline" size="sm" onClick={handleBatchExport}>
         <Download className="mr-2 h-4 w-4" />
-        批次匯出
+        {t('erpMaster.products.batch.export')}
       </Button>
       <Button variant="outline" size="sm" disabled>
         <Tags className="mr-2 h-4 w-4" />
-        批次設定標籤
+        {t('erpMaster.products.batch.setTags')}
       </Button>
       <Button variant="ghost" size="sm" onClick={onClearSelection}>
-        取消選擇
+        {t('erpMaster.products.batch.clearSelection')}
       </Button>
     </div>
   )

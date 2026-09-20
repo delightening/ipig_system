@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Trans, useTranslation } from 'react-i18next'
+
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/input'
@@ -26,6 +28,7 @@ interface Props {
 }
 
 export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, iacucNo }: Props) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
 
     const [reason, setReason] = useState('')
@@ -53,15 +56,15 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
             // 原 ['euthanasia-orders'] 無 query 消費（死 key）→ 開單後待處理面板不刷新。
             queryClient.invalidateQueries({ queryKey: ['euthanasia-pending'] })
             toast({
-                title: '安樂死單已開立',
-                description: '系統已通知計畫主持人，請等待回應或 24 小時後自動解鎖。',
+                title: t('animalActions.euthanasia.order.createdTitle'),
+                description: t('animalActions.euthanasia.order.createdDescription'),
             })
             onOpenChange(false)
         },
         onError: (error: unknown) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '開立失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('animalActions.euthanasia.order.createFailed')),
                 variant: 'destructive',
             })
         },
@@ -70,11 +73,11 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (!reason.trim()) {
-            toast({ title: '錯誤', description: '請填寫安樂死原因', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('animalActions.euthanasia.order.reasonRequired'), variant: 'destructive' })
             return
         }
         if (!confirmed) {
-            toast({ title: '錯誤', description: '請確認已閱讀注意事項', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('animalActions.euthanasia.order.confirmRequired'), variant: 'destructive' })
             return
         }
         mutation.mutate()
@@ -97,10 +100,10 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-status-error-text">
                         <AlertOctagon className="h-5 w-5" />
-                        開立安樂死單
+                        {t('animalActions.euthanasia.order.title')}
                     </DialogTitle>
                     <DialogDescription>
-                        <span className="font-medium">耳號：{earTag}</span>
+                        <span className="font-medium">{t('animalActions.common.earTagLabel', { earTag })}</span>
                         {iacucNo && <span className="ml-4">IACUC No.: {iacucNo}</span>}
                     </DialogDescription>
                 </DialogHeader>
@@ -110,25 +113,30 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
                     <div className="bg-status-error-bg border border-status-error-border rounded-lg p-4">
                         <h4 className="font-medium text-status-error-text mb-2 flex items-center gap-2">
                             <Clock className="h-4 w-4" />
-                            注意事項
+                            {t('animalActions.euthanasia.order.notesTitle')}
                         </h4>
                         <ul className="text-sm text-status-error-text space-y-1 list-disc pl-5">
-                            <li>開立後將通知計畫主持人（PI）</li>
-                            <li>PI 需在 <strong>24 小時內</strong> 回應「同意」或「申請暫緩」</li>
-                            <li>若 PI 未於時限內回應，系統將自動解鎖執行權限</li>
+                            <li>{t('animalActions.euthanasia.order.note1')}</li>
                             <li>
-                                <strong>執行期限：{deadlineStr}</strong>
+                                <Trans
+                                    i18nKey="animalActions.euthanasia.order.note2"
+                                    components={{ strong: <strong /> }}
+                                />
+                            </li>
+                            <li>{t('animalActions.euthanasia.order.note3')}</li>
+                            <li>
+                                <strong>{t('animalActions.euthanasia.order.executionDeadline', { deadline: deadlineStr })}</strong>
                             </li>
                         </ul>
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="reason">安樂死原因 *</Label>
+                        <Label htmlFor="reason">{t('animalActions.euthanasia.order.reasonLabel')}</Label>
                         <Textarea
                             id="reason"
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
-                            placeholder="詳細說明執行安樂死的原因，包括動物狀況、臨床症狀等..."
+                            placeholder={t('animalActions.euthanasia.order.reasonHint')}
                             className="min-h-[120px]"
                             required
                         />
@@ -143,13 +151,13 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
                             className="h-4 w-4 mt-1 text-status-error-text rounded"
                         />
                         <span className="text-sm text-muted-foreground">
-                            我已閱讀並理解上述注意事項，確認開立安樂死單據
+                            {t('animalActions.euthanasia.order.confirmCheckbox')}
                         </span>
                     </label>
 
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                            取消
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             type="submit"
@@ -161,7 +169,7 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
                             ) : (
                                 <AlertOctagon className="h-4 w-4 mr-2" />
                             )}
-                            確認開立
+                            {t('animalActions.euthanasia.order.confirmCreate')}
                         </Button>
                     </DialogFooter>
                 </form>

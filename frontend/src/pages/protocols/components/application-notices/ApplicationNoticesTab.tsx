@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Plus, Loader2, CheckCircle2, FileText } from 'lucide-react'
 
 import {
@@ -32,10 +33,12 @@ interface CreateState {
   content: string
   effective_from: string
 }
+// title 預設值為送往後端存入 DB 的資料（申請須知標題），非 UI 文案，故維持原文不翻譯。
 const EMPTY: CreateState = { version_label: '', title: '動物試驗申請須知', content: '', effective_from: '' }
 
 /** 動物試驗申請須知版本登記（admin）：版本號 + 標題 + 正文 + 生效日 + 生效標記。 */
 export function ApplicationNoticesTab() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const { dialogState, confirm } = useConfirmDialog()
   const [draft, setDraft] = useState<CreateState | null>(null)
@@ -45,7 +48,7 @@ export function ApplicationNoticesTab() {
     queryFn: listApplicationNotices,
   })
   const invalidate = () => qc.invalidateQueries({ queryKey: ['application-notices'] })
-  const onErr = (e: unknown, msg: string) => toast({ title: '錯誤', description: getApiErrorMessage(e, msg), variant: 'destructive' })
+  const onErr = (e: unknown, msg: string) => toast({ title: t('common.error'), description: getApiErrorMessage(e, msg), variant: 'destructive' })
 
   const createMutation = useMutation({
     mutationFn: (s: CreateState) => createApplicationNotice({
@@ -54,40 +57,40 @@ export function ApplicationNoticesTab() {
       content: s.content,
       effective_from: s.effective_from,
     }),
-    onSuccess: () => { toast({ title: '成功', description: '已新增須知版本' }); invalidate(); setDraft(null) },
-    onError: (e) => onErr(e, '新增失敗'),
+    onSuccess: () => { toast({ title: t('common.success'), description: t('protocolPages.applicationNotices.created') }); invalidate(); setDraft(null) },
+    onError: (e) => onErr(e, t('protocolPages.applicationNotices.createFailed')),
   })
 
   const activateMutation = useMutation({
     mutationFn: activateApplicationNotice,
-    onSuccess: () => { toast({ title: '成功', description: '已設為生效版本' }); invalidate() },
-    onError: (e) => onErr(e, '設定失敗'),
+    onSuccess: () => { toast({ title: t('common.success'), description: t('protocolPages.applicationNotices.activated') }); invalidate() },
+    onError: (e) => onErr(e, t('protocolPages.applicationNotices.activateFailed')),
   })
 
   const handleActivate = async (id: string, label: string) => {
     const ok = await confirm({
-      title: '設為生效版本',
-      description: `將「${label}」設為當前生效須知？申請人填表/送審時將以此版本為準（停用其他版本）。`,
-      confirmLabel: '確認設為生效',
+      title: t('protocolPages.applicationNotices.activateTitle'),
+      description: t('protocolPages.applicationNotices.activateConfirm', { label }),
+      confirmLabel: t('protocolPages.applicationNotices.activateConfirmLabel'),
     })
     if (ok) activateMutation.mutate(id)
   }
 
   const handleCreate = () => {
     if (!draft) return
-    if (!draft.version_label.trim()) { toast({ title: '錯誤', description: '版本號為必填', variant: 'destructive' }); return }
-    if (!draft.title.trim()) { toast({ title: '錯誤', description: '標題為必填', variant: 'destructive' }); return }
-    if (!draft.content.trim()) { toast({ title: '錯誤', description: '須知正文為必填', variant: 'destructive' }); return }
-    if (!draft.effective_from) { toast({ title: '錯誤', description: '生效日為必填', variant: 'destructive' }); return }
+    if (!draft.version_label.trim()) { toast({ title: t('common.error'), description: t('protocolPages.applicationNotices.validation.versionRequired'), variant: 'destructive' }); return }
+    if (!draft.title.trim()) { toast({ title: t('common.error'), description: t('protocolPages.applicationNotices.validation.titleRequired'), variant: 'destructive' }); return }
+    if (!draft.content.trim()) { toast({ title: t('common.error'), description: t('protocolPages.applicationNotices.validation.contentRequired'), variant: 'destructive' }); return }
+    if (!draft.effective_from) { toast({ title: t('common.error'), description: t('protocolPages.applicationNotices.validation.effectiveFromRequired'), variant: 'destructive' }); return }
     createMutation.mutate(draft)
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">院區層級動物試驗申請須知的版次登記，僅系統管理員可維護；設為生效後申請人送審前須簽署。</p>
+        <p className="text-sm text-muted-foreground">{t('protocolPages.applicationNotices.description')}</p>
         <Button size="sm" onClick={() => setDraft({ ...EMPTY })}>
-          <Plus className="h-4 w-4 mr-2" />新增版本
+          <Plus className="h-4 w-4 mr-2" />{t('protocolPages.applicationNotices.addVersion')}
         </Button>
       </div>
 
@@ -95,31 +98,31 @@ export function ApplicationNoticesTab() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead>版本號</TableHead>
-              <TableHead>標題</TableHead>
-              <TableHead>生效日</TableHead>
-              <TableHead>生效中</TableHead>
-              <TableHead>建立者</TableHead>
-              <TableHead className="text-right">操作</TableHead>
+              <TableHead>{t('protocolPages.applicationNotices.columns.versionLabel')}</TableHead>
+              <TableHead>{t('protocolPages.applicationNotices.columns.title')}</TableHead>
+              <TableHead>{t('protocolPages.applicationNotices.columns.effectiveFrom')}</TableHead>
+              <TableHead>{t('protocolPages.applicationNotices.columns.active')}</TableHead>
+              <TableHead>{t('protocolPages.applicationNotices.columns.createdBy')}</TableHead>
+              <TableHead className="text-right">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={6} className="p-0"><TableSkeleton rows={8} cols={6} /></TableCell></TableRow>
             ) : isError ? (
-              <TableRow><TableCell colSpan={6} className="py-8 text-center text-status-error-text">載入失敗，請稍後再試。</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="py-8 text-center text-status-error-text">{t('common.loadFailed')}</TableCell></TableRow>
             ) : notices.length > 0 ? (
               notices.map((n) => (
                 <TableRow key={n.id}>
                   <TableCell className="font-medium">{n.version_label}</TableCell>
                   <TableCell className="max-w-[240px] whitespace-normal break-words">{n.title}</TableCell>
                   <TableCell>{n.effective_from ? formatDate(n.effective_from) : '-'}</TableCell>
-                  <TableCell>{n.is_active ? <Badge variant="success">生效中</Badge> : '-'}</TableCell>
+                  <TableCell>{n.is_active ? <Badge variant="success">{t('protocolPages.applicationNotices.columns.active')}</Badge> : '-'}</TableCell>
                   <TableCell>{n.created_by_name || '-'}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       {!n.is_active && (
-                        <Button variant="ghost" size="icon" title="設為生效" aria-label="設為生效" disabled={activateMutation.isPending} onClick={() => handleActivate(n.id, n.version_label)}>
+                        <Button variant="ghost" size="icon" title={t('protocolPages.applicationNotices.activate')} aria-label={t('protocolPages.applicationNotices.activate')} disabled={activateMutation.isPending} onClick={() => handleActivate(n.id, n.version_label)}>
                           <CheckCircle2 className="h-4 w-4 text-status-success-solid" />
                         </Button>
                       )}
@@ -128,7 +131,7 @@ export function ApplicationNoticesTab() {
                 </TableRow>
               ))
             ) : (
-              <TableEmptyRow colSpan={6} icon={FileText} title="尚無須知版本" />
+              <TableEmptyRow colSpan={6} icon={FileText} title={t('protocolPages.applicationNotices.empty')} />
             )}
           </TableBody>
         </Table>
@@ -137,31 +140,31 @@ export function ApplicationNoticesTab() {
       {/* 新增版本 */}
       <Dialog open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>新增申請須知版本</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('protocolPages.applicationNotices.dialogTitle')}</DialogTitle></DialogHeader>
           {draft && (
             <div className="space-y-3">
               <div className="grid gap-2">
-                <Label>版本號 *</Label>
-                <Input value={draft.version_label} onChange={(e) => setDraft({ ...draft, version_label: e.target.value })} placeholder="例：2025年9月修訂版" />
+                <Label>{t('protocolPages.applicationNotices.fields.versionLabel')}</Label>
+                <Input value={draft.version_label} onChange={(e) => setDraft({ ...draft, version_label: e.target.value })} placeholder={t('protocolPages.applicationNotices.fields.versionLabelPlaceholder')} />
               </div>
               <div className="grid gap-2">
-                <Label>標題 *</Label>
-                <Input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="動物試驗申請須知" />
+                <Label>{t('protocolPages.applicationNotices.fields.title')}</Label>
+                <Input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder={t('protocolPages.applicationNotices.fields.titlePlaceholder')} />
               </div>
               <div className="grid gap-2">
-                <Label>生效日 *</Label>
+                <Label>{t('protocolPages.applicationNotices.fields.effectiveFrom')}</Label>
                 <Input type="date" value={draft.effective_from} onChange={(e) => setDraft({ ...draft, effective_from: e.target.value })} />
               </div>
               <div className="grid gap-2">
-                <Label>須知正文 *（支援 markdown，顯示給申請人閱讀）</Label>
-                <Textarea rows={8} value={draft.content} onChange={(e) => setDraft({ ...draft, content: e.target.value })} placeholder="貼上須知正文…（歷史紙本版本可填「（紙本版本，詳見附件 PDF）」）" />
+                <Label>{t('protocolPages.applicationNotices.fields.content')}</Label>
+                <Textarea rows={8} value={draft.content} onChange={(e) => setDraft({ ...draft, content: e.target.value })} placeholder={t('protocolPages.applicationNotices.fields.contentPlaceholder')} />
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDraft(null)}>取消</Button>
+            <Button variant="outline" onClick={() => setDraft(null)}>{t('common.cancel')}</Button>
             <Button onClick={handleCreate} disabled={createMutation.isPending}>
-              {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}儲存
+              {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

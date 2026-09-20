@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api, { Animal } from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
@@ -22,6 +23,7 @@ const INITIAL_SUDDEN_DEATH_FORM: SuddenDeathFormData = {
 }
 
 export function useAnimalDetailMutations(animalId: string) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const [showSuddenDeathDialog, setShowSuddenDeathDialog] = useState(false)
@@ -42,12 +44,12 @@ export function useAnimalDetailMutations(animalId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal', animalId] })
       queryClient.invalidateQueries({ queryKey: ['animals'] })
-      toast({ title: '\u6210\u529F', description: '\u52D5\u7269\u5DF2\u6210\u529F\u5206\u914D\u5230\u8A66\u9A57' })
+      toast({ title: t('common.success'), description: t('animalPages.mutations.assignedToStudy') })
     },
     onError: (error: unknown) => {
       toast({
-        title: '\u932F\u8AA4',
-        description: getErrorMessage(error) || '\u5206\u914D\u5931\u6557',
+        title: t('common.error'),
+        description: getErrorMessage(error) || t('animalPages.mutations.assignFailed'),
         variant: 'destructive',
       })
     },
@@ -68,16 +70,16 @@ export function useAnimalDetailMutations(animalId: string) {
       queryClient.invalidateQueries({ queryKey: ['animals'] })
       queryClient.invalidateQueries({ queryKey: ['animal-sudden-death', animalId] })
       toast({
-        title: '\u5DF2\u767B\u8A18',
-        description: '\u731D\u6B7B\u7D00\u9304\u5DF2\u767B\u8A18\uFF0C\u52D5\u7269\u72C0\u614B\u5DF2\u81EA\u52D5\u66F4\u65B0',
+        title: t('animalPages.mutations.suddenDeathRegisteredTitle'),
+        description: t('animalPages.mutations.suddenDeathRegistered'),
       })
       setShowSuddenDeathDialog(false)
       setSuddenDeathForm(INITIAL_SUDDEN_DEATH_FORM)
     },
     onError: (error: unknown) => {
       toast({
-        title: '\u932F\u8AA4',
-        description: getErrorMessage(error) || '\u731D\u6B7B\u767B\u8A18\u5931\u6557',
+        title: t('common.error'),
+        description: getErrorMessage(error) || t('animalPages.mutations.suddenDeathFailed'),
         variant: 'destructive',
       })
     },

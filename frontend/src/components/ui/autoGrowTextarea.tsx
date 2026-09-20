@@ -1,5 +1,6 @@
 import * as React from "react"
 import { ChevronsDownUp, ChevronsUpDown } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { cn } from "@/lib/utils"
 import { Textarea, type TextareaProps } from "@/components/ui/input"
@@ -20,6 +21,7 @@ const AutoGrowTextarea = React.forwardRef<HTMLTextAreaElement, AutoGrowTextareaP
     { className, collapsedHeight = 80, maxAutoHeight = 0, value, onChange, ...props },
     forwardedRef,
   ) => {
+    const { t } = useTranslation()
     const innerRef = React.useRef<HTMLTextAreaElement>(null)
     const [collapsed, setCollapsed] = React.useState(false)
 
@@ -67,7 +69,7 @@ const AutoGrowTextarea = React.forwardRef<HTMLTextAreaElement, AutoGrowTextareaP
             type="button"
             tabIndex={-1}
             onClick={() => setCollapsed((c) => !c)}
-            aria-label={collapsed ? "展開欄位" : "收合欄位"}
+            aria-label={collapsed ? t('common.expandField') : t('common.collapseField')}
             className="absolute top-1.5 right-1.5 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             {collapsed ? <ChevronsUpDown className="h-4 w-4" /> : <ChevronsDownUp className="h-4 w-4" />}

@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
@@ -34,21 +35,22 @@ export function SuddenDeathDialog({
   isPending,
   onConfirm,
 }: SuddenDeathDialogProps) {
+  const { t } = useTranslation()
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-destructive">
             <Zap className="h-5 w-5" />
-            {'\u767B\u8A18\u731D\u6B7B \u2014 \u8033\u865F'} {earTag}
+            {t('animalPages.suddenDeath.dialogTitle', { earTag })}
           </DialogTitle>
           <DialogDescription>
-            {'\u767B\u8A18\u5F8C\u52D5\u7269\u72C0\u614B\u5C07\u81EA\u52D5\u66F4\u65B0\u70BA\u300C\u731D\u6B7B\u300D\uFF0C\u6B64\u64CD\u4F5C\u4E0D\u53EF\u5FA9\u539F\u3002'}
+            {t('animalPages.suddenDeath.description')}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="sd-discovered-at">{'\u767C\u73FE\u6642\u9593'} *</Label>
+            <Label htmlFor="sd-discovered-at">{t('animalPages.suddenDeath.discoveredAt')} *</Label>
             <Input
               id="sd-discovered-at"
               type="datetime-local"
@@ -59,10 +61,10 @@ export function SuddenDeathDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="sd-location">{'\u767C\u73FE\u5730\u9EDE'}</Label>
+            <Label htmlFor="sd-location">{t('animalPages.suddenDeath.location')}</Label>
             <Input
               id="sd-location"
-              placeholder={'\u5982\uFF1AA01 \u6B04\u4F4D'}
+              placeholder={t('animalPages.suddenDeath.locationPlaceholder')}
               value={form.location}
               onChange={(e) =>
                 onFormChange((prev) => ({ ...prev, location: e.target.value }))
@@ -70,10 +72,10 @@ export function SuddenDeathDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="sd-probable-cause">{'\u53EF\u80FD\u539F\u56E0'}</Label>
+            <Label htmlFor="sd-probable-cause">{t('animalPages.suddenDeath.probableCause')}</Label>
             <Textarea
               id="sd-probable-cause"
-              placeholder={'\u63CF\u8FF0\u53EF\u80FD\u7684\u6B7B\u56E0...'}
+              placeholder={t('animalPages.suddenDeath.probableCausePlaceholder')}
               value={form.probable_cause}
               onChange={(e) =>
                 onFormChange((prev) => ({ ...prev, probable_cause: e.target.value }))
@@ -82,10 +84,10 @@ export function SuddenDeathDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="sd-remark">{'\u5099\u8A3B'}</Label>
+            <Label htmlFor="sd-remark">{t('animalPages.shared.remark')}</Label>
             <Textarea
               id="sd-remark"
-              placeholder={'\u5176\u4ED6\u5099\u8A3B...'}
+              placeholder={t('animalPages.shared.otherRemarks')}
               value={form.remark}
               onChange={(e) =>
                 onFormChange((prev) => ({ ...prev, remark: e.target.value }))
@@ -97,7 +99,7 @@ export function SuddenDeathDialog({
             <input
               id="sd-requires-pathology"
               type="checkbox"
-              aria-label={'\u9700\u8981\u75C5\u7406\u6AA2\u67E5'}
+              aria-label={t('animalPages.suddenDeath.requiresPathology')}
               checked={form.requires_pathology}
               onChange={(e) =>
                 onFormChange((prev) => ({
@@ -111,13 +113,13 @@ export function SuddenDeathDialog({
               htmlFor="sd-requires-pathology"
               className="text-sm font-normal cursor-pointer"
             >
-              {'\u9700\u8981\u75C5\u7406\u6AA2\u67E5'}
+              {t('animalPages.suddenDeath.requiresPathology')}
             </Label>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {'\u53D6\u6D88'}
+            {t('common.cancel')}
           </Button>
           <Button
             className="bg-destructive hover:bg-destructive/90 text-white"
@@ -125,7 +127,7 @@ export function SuddenDeathDialog({
             onClick={onConfirm}
           >
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {'\u78BA\u8A8D\u767B\u8A18\u731D\u6B7B'}
+            {t('animalPages.suddenDeath.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

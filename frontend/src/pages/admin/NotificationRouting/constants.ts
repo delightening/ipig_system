@@ -1,24 +1,26 @@
+import type { TFunction } from 'i18next'
 import { Mail, MessageSquare, Radio } from 'lucide-react'
 
 import type { NotificationRouting } from './types'
 
+/** 通知管道選項；`labelKey` 為 i18n 鍵，渲染時才 `t(labelKey)`（避免模組級常數凍結語言）。 */
 export const channelOptions = [
-    { value: 'in_app', label: '站內通知', icon: MessageSquare },
-    { value: 'email', label: 'Email', icon: Mail },
-    { value: 'both', label: '站內 + Email', icon: Radio },
+    { value: 'in_app', labelKey: 'adminOps.notificationRouting.channels.inApp', icon: MessageSquare },
+    { value: 'email', labelKey: 'adminOps.notificationRouting.channels.email', icon: Mail },
+    { value: 'both', labelKey: 'adminOps.notificationRouting.channels.both', icon: Radio },
 ] as const
 
 export const GROUP_KEYS = ['AUP', 'Animal', 'ERP', 'HR', 'Equipment'] as const
 
 export type GroupKey = (typeof GROUP_KEYS)[number]
 
-/** 關係型 resolver key → 人類可讀標籤（對齊後端 resolvers.rs::resolver_meta）。 */
-export const resolverNameMap: Record<string, string> = {
-    protocol_pi_sd: '計畫 PI / 計劃負責人(SD)',
-    protocol_pi: '計畫 PI',
-    assigned_reviewers: '被指派審查委員',
-    event_subject: '當事人本人',
-    leave_request_approvers: '核准經手人',
+/** 關係型 resolver key → 人類可讀標籤的 i18n 鍵（對齊後端 resolvers.rs::resolver_meta）。 */
+export const resolverLabelKeys: Record<string, string> = {
+    protocol_pi_sd: 'adminOps.notificationRouting.resolvers.protocolPiSd',
+    protocol_pi: 'adminOps.notificationRouting.resolvers.protocolPi',
+    assigned_reviewers: 'adminOps.notificationRouting.resolvers.assignedReviewers',
+    event_subject: 'adminOps.notificationRouting.resolvers.eventSubject',
+    leave_request_approvers: 'adminOps.notificationRouting.resolvers.leaveRequestApprovers',
 }
 
 /**
@@ -29,9 +31,11 @@ export const resolverNameMap: Record<string, string> = {
 export function recipientLabel(
     rule: NotificationRouting,
     roleNameMap: Record<string, string>,
+    t: TFunction,
 ): string {
     if (rule.target_kind === 'resolver') {
-        return resolverNameMap[rule.target_value] || rule.target_value
+        const labelKey = resolverLabelKeys[rule.target_value]
+        return (labelKey ? t(labelKey) : '') || rule.target_value
     }
     return roleNameMap[rule.target_value] || rule.target_value
 }

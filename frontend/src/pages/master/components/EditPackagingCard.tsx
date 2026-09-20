@@ -1,50 +1,20 @@
+import { useTranslation } from 'react-i18next'
+
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { UOM_MAP } from '@/lib/utils'
-import { cn } from '@/lib/utils'
+import { cn, formatUom } from '@/lib/utils'
 import type { ProductEditFormReturn } from '../hooks/useProductEditForm'
 
+// 只放單位代碼；顯示名稱在渲染時走 formatUom（i18n `uom.<code>`）
 const PACKAGING_UNITS = {
-  outer: [
-    { code: 'CTN', name: '箱' },
-    { code: 'BX', name: '盒' },
-    { code: 'PK', name: '包' },
-    { code: 'CASE', name: '件' },
-  ],
-  inner: [
-    { code: 'BX', name: '盒' },
-    { code: 'PK', name: '包' },
-    { code: 'EA', name: '個' },
-    { code: 'PC', name: '支' },
-    { code: 'PR', name: '雙' },
-    { code: 'BT', name: '瓶' },
-    { code: 'RL', name: '卷' },
-    { code: 'SET', name: '組' },
-    { code: 'TB', name: '錠' },
-    { code: 'CP', name: '膠囊' },
-  ],
-  base: [
-    { code: 'EA', name: '個' },
-    { code: 'PC', name: '支' },
-    { code: 'PR', name: '雙' },
-    { code: 'BT', name: '瓶' },
-    { code: 'BX', name: '盒' },
-    { code: 'PK', name: '包' },
-    { code: 'RL', name: '卷' },
-    { code: 'SET', name: '組' },
-    { code: 'TB', name: '錠' },
-    { code: 'CP', name: '膠囊' },
-  ],
-}
-
-interface UnitOption {
-  code: string
-  name: string
+  outer: ['CTN', 'BX', 'PK', 'CASE'],
+  inner: ['BX', 'PK', 'EA', 'PC', 'PR', 'BT', 'RL', 'SET', 'TB', 'CP'],
+  base: ['EA', 'PC', 'PR', 'BT', 'BX', 'PK', 'RL', 'SET', 'TB', 'CP'],
 }
 
 interface UnitChipRowProps {
-  units: UnitOption[]
+  units: string[]
   selectedCode: string
   onSelect: (code: string) => void
 }
@@ -52,20 +22,20 @@ interface UnitChipRowProps {
 function UnitChipRow({ units, selectedCode, onSelect }: UnitChipRowProps) {
   return (
     <div className="flex flex-wrap gap-2">
-      {units.map((u) => (
+      {units.map((code) => (
         <button
-          key={u.code}
+          key={code}
           type="button"
-          onClick={() => onSelect(u.code)}
+          onClick={() => onSelect(code)}
           className={cn(
             'flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 transition-all',
-            selectedCode === u.code
+            selectedCode === code
               ? 'border-primary bg-primary/10'
               : 'border-border hover:border-primary/50',
           )}
         >
-          <span className="font-mono text-sm font-semibold">{u.code}</span>
-          <span className="text-xs text-muted-foreground">{u.name}</span>
+          <span className="font-mono text-sm font-semibold">{code}</span>
+          <span className="text-xs text-muted-foreground">{formatUom(code)}</span>
         </button>
       ))}
     </div>
@@ -77,20 +47,21 @@ interface EditPackagingCardProps {
 }
 
 export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
+  const { t } = useTranslation()
   const { form, updateField } = formReturn
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>包裝結構</CardTitle>
+        <CardTitle>{t('erpMaster.productEdit.packaging.title')}</CardTitle>
         <CardDescription>
-          外層→內層→基礎單位（消耗單位），編輯時可檢視與修改
+          {t('erpMaster.productEdit.packaging.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Layer count toggle */}
         <div className="space-y-3">
-          <Label className="text-sm font-medium">包裝層數</Label>
+          <Label className="text-sm font-medium">{t('erpMaster.packaging.layerCount')}</Label>
           <div className="flex gap-3">
             <button
               type="button"
@@ -102,9 +73,9 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
                   : 'border-border hover:border-primary/50',
               )}
             >
-              兩層包裝
+              {t('erpMaster.packaging.twoLayer')}
               <span className="block text-xs mt-1 text-muted-foreground">
-                外層 → 內層（消耗每內層）
+                {t('erpMaster.packaging.twoLayerDescription')}
               </span>
             </button>
             <button
@@ -117,9 +88,9 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
                   : 'border-border hover:border-primary/50',
               )}
             >
-              三層包裝
+              {t('erpMaster.packaging.threeLayer')}
               <span className="block text-xs mt-1 text-muted-foreground">
-                外層 → 內層 → 基礎（消耗每基礎）
+                {t('erpMaster.packaging.threeLayerDescription')}
               </span>
             </button>
           </div>
@@ -128,7 +99,7 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
         <div className="space-y-4">
           {/* Outer layer */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">外層包裝</Label>
+            <Label className="text-sm font-medium">{t('erpMaster.packaging.outerLayer')}</Label>
             <UnitChipRow
               units={PACKAGING_UNITS.outer}
               selectedCode={form.outerUnitCode}
@@ -143,7 +114,7 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted border border-border w-fit">
                 <span className="text-sm text-muted-foreground">1</span>
                 <span className="text-sm">
-                  {UOM_MAP[form.outerUnitCode] || form.outerUnitCode}
+                  {formatUom(form.outerUnitCode)}
                 </span>
               </div>
             )}
@@ -152,9 +123,9 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
           {/* Inner layer */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">
-              內層包裝
+              {t('erpMaster.packaging.innerLayer')}
               {form.packagingLayers === 2 && (
-                <span className="text-xs text-muted-foreground ml-2">（消耗單位）</span>
+                <span className="text-xs text-muted-foreground ml-2">{t('erpMaster.packaging.consumptionUnitNote')}</span>
               )}
             </Label>
             <UnitChipRow
@@ -170,8 +141,8 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted border border-border w-fit">
                   <span className="text-sm text-muted-foreground">
                     {form.outerUnitCode
-                      ? `一${UOM_MAP[form.outerUnitCode] || form.outerUnitCode}`
-                      : '一'}
+                      ? t('erpMaster.packaging.oneUnit', { unit: formatUom(form.outerUnitCode) })
+                      : t('erpMaster.packaging.one')}
                   </span>
                   <Input
                     type="number"
@@ -186,7 +157,7 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
                     }
                   />
                   <span className="text-sm">
-                    {UOM_MAP[form.innerUnitCode] || form.innerUnitCode}
+                    {formatUom(form.innerUnitCode)}
                   </span>
                 </div>
               </div>
@@ -197,7 +168,7 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
           {form.packagingLayers === 3 && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">
-                基礎單位（消耗單位，庫存管理）
+                {t('erpMaster.productEdit.packaging.baseUnitLabel')}
               </Label>
               <UnitChipRow
                 units={PACKAGING_UNITS.base}
@@ -207,7 +178,7 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
               {form.innerUnitCode && form.baseUnitCode && (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted border border-border w-fit">
                   <span className="text-sm text-muted-foreground">
-                    一{UOM_MAP[form.innerUnitCode] || form.innerUnitCode}
+                    {t('erpMaster.packaging.oneUnit', { unit: formatUom(form.innerUnitCode) })}
                   </span>
                   <Input
                     type="number"
@@ -222,7 +193,7 @@ export function EditPackagingCard({ formReturn }: EditPackagingCardProps) {
                     }
                   />
                   <span className="text-sm">
-                    {UOM_MAP[form.baseUnitCode] || form.baseUnitCode}
+                    {formatUom(form.baseUnitCode)}
                   </span>
                 </div>
               )}

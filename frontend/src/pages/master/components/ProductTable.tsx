@@ -1,4 +1,6 @@
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
 import { Button } from '@/components/ui/button'
@@ -28,7 +30,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { formatNumber, cn, UOM_MAP } from '@/lib/utils'
+import { formatNumber, cn, formatUom } from '@/lib/utils'
 import { useTableSort } from '@/hooks/useTableSort'
 
 import type { ExtendedProduct, StatusAction, ProductListState } from './productTypes'
@@ -46,17 +48,17 @@ interface ProductTableProps {
   isAdmin: boolean
 }
 
-function getStatusBadge(product: ExtendedProduct) {
+function getStatusBadge(product: ExtendedProduct, t: TFunction) {
   const status = product.status || (product.is_active ? 'active' : 'inactive')
   switch (status) {
     case 'active':
-      return <Badge variant="success">啟用</Badge>
+      return <Badge variant="success">{t('erpMaster.common.active')}</Badge>
     case 'inactive':
-      return <Badge variant="warning">停用</Badge>
+      return <Badge variant="warning">{t('erpMaster.common.inactive')}</Badge>
     case 'discontinued':
-      return <Badge variant="destructive">停產</Badge>
+      return <Badge variant="destructive">{t('erpMaster.products.status.discontinued')}</Badge>
     default:
-      return <Badge variant="secondary">未知</Badge>
+      return <Badge variant="secondary">{t('erpMaster.common.unknown')}</Badge>
   }
 }
 
@@ -72,12 +74,13 @@ export function ProductTable({
   onHardDelete,
   isAdmin,
 }: ProductTableProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { sortedData, sort, toggleSort } = useTableSort(products)
 
   const handleCopySku = async (sku: string) => {
     await navigator.clipboard.writeText(sku)
-    toast({ title: '已複製', description: `SKU: ${sku}` })
+    toast({ title: t('erpMaster.common.copied'), description: `SKU: ${sku}` })
   }
 
   const hasFilters = !!listState.filters.search || listState.activeFilterCount > 0
@@ -96,29 +99,29 @@ export function ProductTable({
                   checked={products.length > 0 && selectionSize === products.length}
                   onChange={onSelectAll}
                   className="h-4 w-4 rounded border-input"
-                  aria-label="全選產品"
+                  aria-label={t('erpMaster.products.table.selectAll')}
                 />
               </TableHead>
               <SortableTableHead sortKey="sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
                 SKU
               </SortableTableHead>
               <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                名稱
+                {t('erpMaster.common.name')}
               </SortableTableHead>
-              <TableHead className="hidden @[900px]:table-cell">規格</TableHead>
+              <TableHead className="hidden @[900px]:table-cell">{t('erpMaster.common.spec')}</TableHead>
               <SortableTableHead className="hidden @[750px]:table-cell" sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                單位
+                {t('erpMaster.common.unit')}
               </SortableTableHead>
               <SortableTableHead className="hidden @[900px]:table-cell text-right" sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                安全庫存
+                {t('erpMaster.products.safetyStock')}
               </SortableTableHead>
               <SortableTableHead className="hidden @[1050px]:table-cell text-center" sortKey="track_batch" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                批號
+                {t('erpMaster.products.table.batchNo')}
               </SortableTableHead>
               <SortableTableHead className="hidden @[1050px]:table-cell text-center" sortKey="track_expiry" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>
-                效期
+                {t('erpMaster.products.table.expiry')}
               </SortableTableHead>
-              <TableHead className="text-right">操作</TableHead>
+              <TableHead className="text-right">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -132,11 +135,11 @@ export function ProductTable({
               <TableEmptyRow
                 colSpan={9}
                 icon={Package}
-                title={hasFilters ? '找不到符合條件的產品' : '尚無產品資料'}
+                title={hasFilters ? t('erpMaster.products.table.noMatch') : t('erpMaster.products.table.empty')}
                 action={
                   hasFilters
                     ? undefined
-                    : { label: '建立第一個產品', onClick: () => navigate('/products/new'), icon: Plus }
+                    : { label: t('erpMaster.products.table.createFirst'), onClick: () => navigate('/products/new'), icon: Plus }
                 }
               />
             ) : (
@@ -212,6 +215,8 @@ function ProductCardList({
   isAdmin: boolean
   navigate: ReturnType<typeof useNavigate>
 }) {
+  const { t } = useTranslation()
+
   if (isLoading) return <LoadingCard />
   if (isEmpty) return <EmptyCard hasFilters={hasFilters} />
   return (
@@ -222,10 +227,12 @@ function ProductCardList({
           checked={products.length > 0 && selectionSize === products.length}
           onChange={onSelectAll}
           className="h-4 w-4 rounded border-input"
-          aria-label="全選產品"
+          aria-label={t('erpMaster.products.table.selectAll')}
         />
         <span>
-          {selectionSize > 0 ? `已選 ${selectionSize} / ${products.length}` : `全選（${products.length} 筆）`}
+          {selectionSize > 0
+            ? t('erpMaster.products.table.selectedOf', { selected: selectionSize, total: products.length })
+            : t('erpMaster.products.table.selectAllCount', { count: products.length })}
         </span>
       </div>
       {sortedData.map((product) => (
@@ -264,14 +271,15 @@ function ProductRow({
   isAdmin: boolean
   navigate: ReturnType<typeof useNavigate>
 }) {
+  const { t } = useTranslation()
   const status = product.status || (product.is_active ? 'active' : 'inactive')
   const statusRowClass =
     status === 'discontinued' ? 'bg-destructive/5 text-muted-foreground'
     : status === 'inactive' ? 'bg-muted/40'
     : ''
   const statusTitle =
-    status === 'discontinued' ? '此產品已停產'
-    : status === 'inactive' ? '此產品已停用'
+    status === 'discontinued' ? t('erpMaster.products.table.discontinuedHint')
+    : status === 'inactive' ? t('erpMaster.products.table.inactiveHint')
     : undefined
 
   return (
@@ -286,7 +294,7 @@ function ProductRow({
           checked={isSelected}
           onChange={() => onSelect(product.id)}
           className="h-4 w-4 rounded border-input"
-          aria-label={`選擇產品 ${product.sku}`}
+          aria-label={t('erpMaster.products.table.selectProduct', { sku: product.sku })}
         />
       </TableCell>
       <TableCell>
@@ -309,7 +317,7 @@ function ProductRow({
       </TableCell>
       <TableCell className="hidden @[750px]:table-cell">
         <span className="text-xs px-1.5 py-0.5 bg-muted rounded">
-          {UOM_MAP[product.base_uom] || product.base_uom}
+          {formatUom(product.base_uom)}
         </span>
       </TableCell>
       <TableCell className="hidden @[900px]:table-cell text-right tabular-nums">
@@ -317,7 +325,7 @@ function ProductRow({
           <span>
             {formatNumber(product.safety_stock, 0)}
             <span className="text-muted-foreground text-xs ml-1">
-              {UOM_MAP[product.base_uom] || product.base_uom}
+              {formatUom(product.base_uom)}
             </span>
           </span>
         ) : (
@@ -325,10 +333,10 @@ function ProductRow({
         )}
       </TableCell>
       <TableCell className="hidden @[1050px]:table-cell text-center">
-        <BoolIcon value={!!product.track_batch} label="批號" />
+        <BoolIcon value={!!product.track_batch} label={t('erpMaster.products.table.batchNo')} />
       </TableCell>
       <TableCell className="hidden @[1050px]:table-cell text-center">
-        <BoolIcon value={!!product.track_expiry} label="效期" />
+        <BoolIcon value={!!product.track_expiry} label={t('erpMaster.products.table.expiry')} />
       </TableCell>
       <TableCell className="text-right">
         <ProductActions
@@ -344,10 +352,12 @@ function ProductRow({
 }
 
 function SkuCell({ sku, onCopy }: { sku: string; onCopy: (sku: string) => void }) {
+  const { t } = useTranslation()
+
   return (
     <code
       className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded cursor-pointer hover:bg-muted-foreground/20 transition-colors line-clamp-3 leading-tight break-words"
-      title={`點擊複製 ${sku}`}
+      title={t('erpMaster.products.table.clickToCopy', { sku })}
       onClick={() => onCopy(sku)}
     >
       {sku}
@@ -356,38 +366,43 @@ function SkuCell({ sku, onCopy }: { sku: string; onCopy: (sku: string) => void }
 }
 
 function BoolIcon({ value, label }: { value: boolean; label: string }) {
+  const { t } = useTranslation()
+
   return value ? (
     <span
       className="mx-auto inline-block h-2.5 w-2.5 rounded-full bg-status-success-text"
-      aria-label={`${label}：啟用`}
-      title={`${label}：啟用`}
+      aria-label={t('erpMaster.products.table.boolOn', { label })}
+      title={t('erpMaster.products.table.boolOn', { label })}
     />
   ) : (
-    <X className="mx-auto h-4 w-4 text-destructive" aria-label={`${label}：未啟用`} />
+    <X className="mx-auto h-4 w-4 text-destructive" aria-label={t('erpMaster.products.table.boolOff', { label })} />
   )
 }
 
 function LoadingCard() {
+  const { t } = useTranslation()
+
   return (
     <div className="rounded-lg border bg-card py-12 text-center">
       <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-      <p className="mt-2 text-sm text-muted-foreground">載入中...</p>
+      <p className="mt-2 text-sm text-muted-foreground">{t('common.loading')}</p>
     </div>
   )
 }
 
 function EmptyCard({ hasFilters }: { hasFilters: boolean }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   return (
     <div className="rounded-lg border bg-card py-12 text-center">
       <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
       <p className="text-muted-foreground">
-        {hasFilters ? '找不到符合條件的產品' : '尚無產品資料'}
+        {hasFilters ? t('erpMaster.products.table.noMatch') : t('erpMaster.products.table.empty')}
       </p>
       {!hasFilters && (
         <Button variant="outline" className="mt-4" onClick={() => navigate('/products/new')}>
           <Plus className="mr-2 h-4 w-4" />
-          建立第一個產品
+          {t('erpMaster.products.table.createFirst')}
         </Button>
       )}
     </div>
@@ -413,7 +428,8 @@ function ProductCard({
   isAdmin: boolean
   navigate: ReturnType<typeof useNavigate>
 }) {
-  const uom = UOM_MAP[product.base_uom] || product.base_uom
+  const { t } = useTranslation()
+  const uom = formatUom(product.base_uom)
   return (
     <div className={cn('rounded-lg border bg-card p-3 space-y-2', isSelected && 'bg-primary/5 border-primary/30')}>
       <div className="flex items-start gap-2">
@@ -422,12 +438,12 @@ function ProductCard({
           checked={isSelected}
           onChange={() => onSelect(product.id)}
           className="mt-1 h-4 w-4 rounded border-input shrink-0"
-          aria-label={`選擇產品 ${product.sku}`}
+          aria-label={t('erpMaster.products.table.selectProduct', { sku: product.sku })}
         />
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center justify-between gap-2">
             <SkuCell sku={product.sku} onCopy={onCopySku} />
-            {getStatusBadge(product)}
+            {getStatusBadge(product, t)}
           </div>
           <button
             className="font-medium text-left hover:text-primary hover:underline transition-colors block w-full break-words"
@@ -437,50 +453,50 @@ function ProductCard({
             {product.name}
           </button>
           {product.spec && (
-            <div className="text-xs text-muted-foreground break-words">規格：{product.spec}</div>
+            <div className="text-xs text-muted-foreground break-words">{t('erpMaster.products.table.specLabel', { spec: product.spec })}</div>
           )}
         </div>
       </div>
 
       <div className="flex flex-wrap gap-x-3 gap-y-1 pl-6 text-xs text-muted-foreground">
-        <span>單位：<span className="text-foreground">{uom}</span></span>
+        <span>{t('erpMaster.products.table.unitLabel')}<span className="text-foreground">{uom}</span></span>
         {product.safety_stock ? (
           <span>
-            安全庫存：
+            {t('erpMaster.products.table.safetyStockLabel')}
             <span className="text-foreground tabular-nums">{formatNumber(product.safety_stock, 0)} {uom}</span>
           </span>
         ) : null}
-        {product.track_batch && <Badge variant="secondary" className="text-[10px] px-1.5">批號</Badge>}
-        {product.track_expiry && <Badge variant="secondary" className="text-[10px] px-1.5">效期</Badge>}
+        {product.track_batch && <Badge variant="secondary" className="text-[10px] px-1.5">{t('erpMaster.products.table.batchNo')}</Badge>}
+        {product.track_expiry && <Badge variant="secondary" className="text-[10px] px-1.5">{t('erpMaster.products.table.expiry')}</Badge>}
       </div>
 
       <div className="flex items-center justify-end gap-0.5 pt-1 border-t">
-        <Button variant="ghost" size="icon" className="h-8 w-8" title="檢視" aria-label="檢視" onClick={() => navigate(`/products/${product.id}`)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" title={t('common.view')} aria-label={t('common.view')} onClick={() => navigate(`/products/${product.id}`)}>
           <Eye className="h-4 w-4" />
         </Button>
         <Can permission={PERMISSIONS.ERP_PRODUCT_EDIT}>
-          <Button variant="ghost" size="icon" className="h-8 w-8" title="編輯" aria-label="編輯" onClick={() => navigate(`/products/${product.id}/edit`)}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" title={t('common.edit')} aria-label={t('common.edit')} onClick={() => navigate(`/products/${product.id}/edit`)}>
             <Pencil className="h-4 w-4" />
           </Button>
         </Can>
         <Can permission={PERMISSIONS.ERP_PRODUCT_CREATE}>
-          <Button variant="ghost" size="icon" className="h-8 w-8" title="複製" aria-label="複製" onClick={() => navigate(`/products/new?copy=${product.id}`)}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" title={t('erpMaster.common.copy')} aria-label={t('erpMaster.common.copy')} onClick={() => navigate(`/products/new?copy=${product.id}`)}>
             <Copy className="h-4 w-4" />
           </Button>
         </Can>
         <Can permission={PERMISSIONS.ERP_PRODUCT_EDIT}>
           {product.is_active ? (
-            <Button variant="ghost" size="icon" className="h-8 w-8" title="停用" aria-label="停用" onClick={() => onStatusChange(product, 'deactivate')}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" title={t('erpMaster.products.actions.deactivate')} aria-label={t('erpMaster.products.actions.deactivate')} onClick={() => onStatusChange(product, 'deactivate')}>
               <PowerOff className="h-4 w-4 text-destructive" />
             </Button>
           ) : (
-            <Button variant="ghost" size="icon" className="h-8 w-8" title="啟用" aria-label="啟用" onClick={() => onStatusChange(product, 'activate')}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" title={t('erpMaster.products.actions.activate')} aria-label={t('erpMaster.products.actions.activate')} onClick={() => onStatusChange(product, 'activate')}>
               <Power className="h-4 w-4 text-status-success-text" />
             </Button>
           )}
         </Can>
         <Can permission={PERMISSIONS.ERP_PRODUCT_EDIT}>
-          <Button variant="ghost" size="icon" className="h-8 w-8" title="標記停產" aria-label="標記停產" onClick={() => onStatusChange(product, 'discontinue')}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" title={t('erpMaster.products.statusDialog.discontinueTitle')} aria-label={t('erpMaster.products.statusDialog.discontinueTitle')} onClick={() => onStatusChange(product, 'discontinue')}>
             <Ban className="h-4 w-4 text-muted-foreground" />
           </Button>
         </Can>
@@ -489,8 +505,8 @@ function ProductCard({
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-destructive hover:text-destructive"
-            title="硬刪除（僅管理員）"
-            aria-label="硬刪除（僅管理員）"
+            title={t('erpMaster.products.actions.hardDelete')}
+            aria-label={t('erpMaster.products.actions.hardDelete')}
             onClick={() => onHardDelete(product)}
           >
             <Trash2 className="h-4 w-4" />
@@ -514,19 +530,21 @@ function ProductActions({
   isAdmin: boolean
   navigate: ReturnType<typeof useNavigate>
 }) {
+  const { t } = useTranslation()
+
   return (
-    <div className="flex flex-col items-end gap-0.5" aria-label={`產品 ${product.sku} 操作`}>
+    <div className="flex flex-col items-end gap-0.5" aria-label={t('erpMaster.products.table.rowActions', { sku: product.sku })}>
       <div className="flex items-center gap-0.5">
-        <Button variant="ghost" size="icon" className="h-8 w-8" title="檢視" aria-label="檢視" onClick={() => navigate(`/products/${product.id}`)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" title={t('common.view')} aria-label={t('common.view')} onClick={() => navigate(`/products/${product.id}`)}>
           <Eye className="h-4 w-4" />
         </Button>
         <Can permission={PERMISSIONS.ERP_PRODUCT_EDIT}>
-          <Button variant="ghost" size="icon" className="h-8 w-8" title="編輯" aria-label="編輯" onClick={() => navigate(`/products/${product.id}/edit`)}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" title={t('common.edit')} aria-label={t('common.edit')} onClick={() => navigate(`/products/${product.id}/edit`)}>
             <Pencil className="h-4 w-4" />
           </Button>
         </Can>
         <Can permission={PERMISSIONS.ERP_PRODUCT_CREATE}>
-          <Button variant="ghost" size="icon" className="h-8 w-8" title="複製" aria-label="複製" onClick={() => navigate(`/products/new?copy=${product.id}`)}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" title={t('erpMaster.common.copy')} aria-label={t('erpMaster.common.copy')} onClick={() => navigate(`/products/new?copy=${product.id}`)}>
             <Copy className="h-4 w-4" />
           </Button>
         </Can>
@@ -534,17 +552,17 @@ function ProductActions({
       <div className="flex items-center gap-0.5">
         <Can permission={PERMISSIONS.ERP_PRODUCT_EDIT}>
           {product.is_active ? (
-            <Button variant="ghost" size="icon" className="h-8 w-8" title="停用" aria-label="停用" onClick={() => onStatusChange(product, 'deactivate')}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" title={t('erpMaster.products.actions.deactivate')} aria-label={t('erpMaster.products.actions.deactivate')} onClick={() => onStatusChange(product, 'deactivate')}>
               <PowerOff className="h-4 w-4 text-destructive" />
             </Button>
           ) : (
-            <Button variant="ghost" size="icon" className="h-8 w-8" title="啟用" aria-label="啟用" onClick={() => onStatusChange(product, 'activate')}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" title={t('erpMaster.products.actions.activate')} aria-label={t('erpMaster.products.actions.activate')} onClick={() => onStatusChange(product, 'activate')}>
               <Power className="h-4 w-4 text-status-success-text" />
             </Button>
           )}
         </Can>
         <Can permission={PERMISSIONS.ERP_PRODUCT_EDIT}>
-          <Button variant="ghost" size="icon" className="h-8 w-8" title="標記停產" aria-label="標記停產" onClick={() => onStatusChange(product, 'discontinue')}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" title={t('erpMaster.products.statusDialog.discontinueTitle')} aria-label={t('erpMaster.products.statusDialog.discontinueTitle')} onClick={() => onStatusChange(product, 'discontinue')}>
             <Ban className="h-4 w-4 text-muted-foreground" />
           </Button>
         </Can>
@@ -553,8 +571,8 @@ function ProductActions({
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-destructive hover:text-destructive"
-            title="硬刪除（僅管理員）"
-            aria-label="硬刪除（僅管理員）"
+            title={t('erpMaster.products.actions.hardDelete')}
+            aria-label={t('erpMaster.products.actions.hardDelete')}
             onClick={() => onHardDelete(product)}
           >
             <Trash2 className="h-4 w-4" />

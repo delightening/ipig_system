@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts'
 import { Scale } from 'lucide-react'
 
@@ -15,6 +16,7 @@ interface Props {
  * 體重變化；逐筆數值由 Recharts tooltip 提供。單筆時只顯示數值、不畫圖。
  */
 export function AnimalWeightTrendCard({ weights }: Props) {
+    const { t } = useTranslation()
     if (!weights.length) return null
 
     const sorted = [...weights].sort(
@@ -35,11 +37,11 @@ export function AnimalWeightTrendCard({ weights }: Props) {
             </div>
             <div className="rounded-lg border border-border bg-card p-3 shadow-xs">
                 <div className="mb-1 flex items-baseline gap-2">
-                    <span className="text-sm font-semibold text-foreground">體重趨勢</span>
+                    <span className="text-sm font-semibold text-foreground">{t('animalRecords.weights.trendTitle')}</span>
                     <span className="text-xs text-muted-foreground">
-                        {sorted.length} 筆 · {fmtDate(sorted[0].measure_date)}–{fmtDate(latest.measure_date)}
+                        {t('animalRecords.weights.trendCount', { count: sorted.length })} · {fmtDate(sorted[0].measure_date)}–{fmtDate(latest.measure_date)}
                     </span>
-                    <span className="ml-auto text-sm font-bold text-status-info-text">最新 {latestWeight} kg</span>
+                    <span className="ml-auto text-sm font-bold text-status-info-text">{t('animalRecords.weights.latestWeight', { weight: latestWeight })}</span>
                 </div>
                 {sorted.length >= 2 && (
                     <ResponsiveContainer width="100%" height={120}>
@@ -48,7 +50,7 @@ export function AnimalWeightTrendCard({ weights }: Props) {
                             <XAxis dataKey="name" fontSize={11} tickMargin={6} />
                             <YAxis fontSize={11} width={40} unit=" kg" />
                             <Tooltip
-                                formatter={(value) => [`${value} kg`, '體重']}
+                                formatter={(value) => [`${value} kg`, t('animalRecords.weights.weight')]}
                                 contentStyle={{ fontSize: 12, borderRadius: 8 }}
                             />
                             <Line

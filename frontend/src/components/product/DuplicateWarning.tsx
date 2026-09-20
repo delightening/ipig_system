@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
 import { Loader2, AlertTriangle } from 'lucide-react'
 
@@ -10,23 +12,25 @@ export function DuplicateWarning({
   onImportWithNewSku,
   onImportAnyway,
 }: DuplicateWarningProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="space-y-4 p-4 border border-status-warning-border bg-status-warning-bg rounded-lg">
       <div className="flex items-center gap-2 text-status-warning-text">
         <AlertTriangle className="h-5 w-5" />
-        <span className="font-medium">發現 {checkResult.duplicate_count} 筆與既有產品重複</span>
+        <span className="font-medium">{t('erpMaster.import.duplicate.found', { count: checkResult.duplicate_count })}</span>
       </div>
       <p className="text-sm text-status-warning-text">
-        下列產品的「名稱+規格」已存在於資料庫中，請選擇處理方式：
+        {t('erpMaster.import.duplicate.description')}
       </p>
       <div className="max-h-32 overflow-y-auto border border-status-warning-border rounded bg-white">
         <table className="w-full text-sm">
           <thead className="bg-status-warning-bg sticky top-0">
             <tr>
-              <th className="px-3 py-2 text-left font-medium">列</th>
-              <th className="px-3 py-2 text-left font-medium">名稱</th>
-              <th className="px-3 py-2 text-left font-medium">規格</th>
-              <th className="px-3 py-2 text-left font-medium">既有 SKU</th>
+              <th className="px-3 py-2 text-left font-medium">{t('erpMaster.import.result.row')}</th>
+              <th className="px-3 py-2 text-left font-medium">{t('erpMaster.common.name')}</th>
+              <th className="px-3 py-2 text-left font-medium">{t('erpMaster.common.spec')}</th>
+              <th className="px-3 py-2 text-left font-medium">{t('erpMaster.import.duplicate.existingSku')}</th>
             </tr>
           </thead>
           <tbody>
@@ -50,7 +54,7 @@ export function DuplicateWarning({
           className="border-amber-600 text-status-warning-text hover:bg-status-warning-bg"
         >
           {importIsPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          略過重複列（僅匯入不重複者）
+          {t('erpMaster.import.duplicate.skip')}
         </Button>
         <Button
           variant="outline"
@@ -59,7 +63,7 @@ export function DuplicateWarning({
           disabled={importIsPending}
           className="border-amber-600 text-status-warning-text hover:bg-status-warning-bg"
         >
-          匯入，但更改流水號
+          {t('erpMaster.import.duplicate.importWithNewSku')}
         </Button>
         <Button
           variant="outline"
@@ -67,7 +71,7 @@ export function DuplicateWarning({
           onClick={onImportAnyway}
           disabled={importIsPending}
         >
-          仍要匯入（可能產生重複產品）
+          {t('erpMaster.import.duplicate.importAnyway')}
         </Button>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { AxiosError } from 'axios'
 import api, { User, LoginResponse, TwoFactorRequiredResponse } from '@/lib/api'
 import { attemptRefreshWithRetry } from '@/lib/api/client'
+import i18n from '@/lib/i18n'
 import { logger } from '@/lib/logger'
 import { broadcastAuth, onAuthBroadcast } from '@/lib/authBroadcast'
 import { isTabIdle } from '@/lib/tabActivity'
@@ -127,7 +128,7 @@ export const useAuthStore = create<AuthState>()(
         set({
           user: {
             id: 'guest',
-            display_name: '訪客',
+            display_name: i18n.t('auth.guest.displayName'),
             email: 'guest@guest.com',
             roles: ['GUEST'],
             permissions: [],

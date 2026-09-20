@@ -104,6 +104,13 @@ vi.mock('@/stores/auth', () => ({
   useAuthHasPermission: () => () => true,
 }))
 
+// PenCell 的文字改走 i18n：t(key) 回 key，斷言比對 key（不綁語言包內容）。
+// initReactI18next 是 lib/i18n（經 lib/utils 被拉進來）在 import 階段需要的 plugin 形狀。
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+  initReactI18next: { type: '3rdParty', init: () => {} },
+}))
+
 const { AnimalPenView } = await import('../components/AnimalPenView')
 
 function renderOccupiedPen() {
@@ -166,7 +173,7 @@ describe('有豬的欄位點編號加入豬隻', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'A05' }))
 
-    const input = screen.getByPlaceholderText('輸入耳號')
+    const input = screen.getByPlaceholderText('animalPages.shared.enterEarTag')
     expect(input).toBeInTheDocument()
     // 按鈕本身在編輯狀態下應該消失（換成純文字 + 輸入框）
     expect(screen.queryByRole('button', { name: 'A05' })).not.toBeInTheDocument()
@@ -179,7 +186,7 @@ describe('有豬的欄位點編號加入豬隻', () => {
     const { onQuickMove } = renderOccupiedPen()
 
     fireEvent.click(screen.getByRole('button', { name: 'A05' }))
-    const input = screen.getByPlaceholderText('輸入耳號')
+    const input = screen.getByPlaceholderText('animalPages.shared.enterEarTag')
     fireEvent.change(input, { target: { value: '010' } })
     fireEvent.keyDown(input, { key: 'Enter' })
 
@@ -191,7 +198,7 @@ describe('有豬的欄位點編號加入豬隻', () => {
 
     fireEvent.click(screen.getByText('009'))
 
-    expect(screen.queryByPlaceholderText('輸入耳號')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('animalPages.shared.enterEarTag')).not.toBeInTheDocument()
   })
 
   it('在 A05 輸入到一半就切到 A06，A05 失焦後 150ms 的延遲送出不會誤送舊文字、也不會蓋掉 A06 剛開始的編輯', async () => {
@@ -201,13 +208,13 @@ describe('有豬的欄位點編號加入豬隻', () => {
       const { onQuickMove } = renderTwoOccupiedPens()
 
       fireEvent.click(screen.getByRole('button', { name: 'A05' }))
-      const inputA05 = screen.getByPlaceholderText('輸入耳號')
+      const inputA05 = screen.getByPlaceholderText('animalPages.shared.enterEarTag')
       fireEvent.change(inputA05, { target: { value: '999' } })
       fireEvent.blur(inputA05) // 排入 150ms 後的延遲 submit/cancel
 
       // 在延遲觸發前就切到另一個欄位（不用等，立即操作）
       fireEvent.click(screen.getByRole('button', { name: 'A06' }))
-      expect(screen.getByPlaceholderText('輸入耳號')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('animalPages.shared.enterEarTag')).toBeInTheDocument()
 
       // 精準跳過 A05 那筆延遲 callback 原本會觸發的時間點
       await vi.advanceTimersByTimeAsync(200)
@@ -215,7 +222,7 @@ describe('有豬的欄位點編號加入豬隻', () => {
       // A05 的殘留文字「999」不該被送出
       expect(onQuickMove).not.toHaveBeenCalledWith('999', 'A05')
       // A06 剛開始的編輯不該被 A05 那筆遲到的 callback 清掉
-      expect(screen.getByPlaceholderText('輸入耳號')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('animalPages.shared.enterEarTag')).toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }

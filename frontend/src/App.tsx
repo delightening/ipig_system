@@ -2,6 +2,7 @@
 // 是否能成功跑完 docker build/up，無 NativeCommandError 拋出）
 import { useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Toaster } from '@/components/ui/toaster'
 import { useAuthStore } from '@/stores/auth'
 import { RequirePermission, ProtectedRoute, ForcePasswordRoute, DashboardRoute, AdminRoute, GuestBlock, useHasDashboardAccess } from '@/components/auth'
@@ -136,6 +137,7 @@ const MobileSignPage = lazy(() => import('@/pages/sign/MobileSignPage').then(m =
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
 
 function App() {
+    const { t } = useTranslation()
     const { checkAuth, isAuthenticated, isGuest: isGuestFn } = useAuthStore()
     const hasDashboardAccess = useHasDashboardAccess()
     const location = useLocation()
@@ -286,7 +288,7 @@ function App() {
 
     return (
         <>
-            <Suspense fallback={<LoadingOverlay fullScreen message="頁面載入中..." />}>
+            <Suspense fallback={<LoadingOverlay fullScreen message={t('auth.app.pageLoading')} />}>
             <Routes>
                 {/* Public Auth Routes */}
                 <Route element={<AuthLayout />}>

@@ -124,7 +124,7 @@ export function ProtocolListTab() {
   })
 
   const handleDelete = async (protocolId: string, title: string) => {
-    const ok = await confirm({ title: '刪除計畫書', description: t('protocols.deleteConfirm', { title }), variant: 'destructive', confirmLabel: '確認刪除' })
+    const ok = await confirm({ title: t('protocolPages.list.deleteTitle'), description: t('protocols.deleteConfirm', { title }), variant: 'destructive', confirmLabel: t('common.confirmDelete') })
     if (ok) deleteMutation.mutate(protocolId)
   }
 
@@ -132,17 +132,17 @@ export function ProtocolListTab() {
     mutationFn: (protocolId: string) => api.post(`/protocols/${protocolId}/copy`),
     onSuccess: (res) => {
       const newId = res.data?.id
-      toast({ title: '已複製計畫書', description: '新草稿已建立，即將開啟編輯頁。' })
+      toast({ title: t('protocolPages.list.copySuccessTitle'), description: t('protocolPages.list.copySuccessDescription') })
       queryClient.invalidateQueries({ queryKey: ['protocols'] })
       if (newId) navigate(`/protocols/${newId}/edit`)
     },
     onError: (error: unknown) => {
-      toast({ title: '複製失敗', description: getApiErrorMessage(error), variant: 'destructive' })
+      toast({ title: t('protocolPages.list.copyFailed'), description: getApiErrorMessage(error), variant: 'destructive' })
     },
   })
 
   const handleCopy = async (protocolId: string, title: string) => {
-    const ok = await confirm({ title: '複製計畫書', description: `確定要複製「${title}」建立新草稿嗎？`, confirmLabel: '確認複製' })
+    const ok = await confirm({ title: t('protocolPages.list.copyTitle'), description: t('protocolPages.list.copyConfirm', { title }), confirmLabel: t('protocolPages.list.copyConfirmLabel') })
     if (ok) copyMutation.mutate(protocolId)
   }
 
@@ -150,16 +150,16 @@ export function ProtocolListTab() {
   const deleteImportedMutation = useMutation({
     mutationFn: (protocolId: string) => api.delete(`/protocols/${protocolId}/imported`),
     onSuccess: () => {
-      toast({ title: t('common.success'), description: '計畫已刪除' })
+      toast({ title: t('common.success'), description: t('protocolPages.list.hardDeleteSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocols'] })
     },
     onError: (error: unknown) => {
-      toast({ title: t('common.error'), description: getApiErrorMessage(error, '刪除失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(error, t('protocols.deleteFailed')), variant: 'destructive' })
     },
   })
 
   const handleDeleteImported = async (protocolId: string, title: string) => {
-    const ok = await confirm({ title: '硬刪除計畫', description: `確定要硬刪除「${title}」嗎？此操作不可復原（限匯入計劃 / 已駁回 / 草稿，且無變更申請或廢棄物樣品等下游資料）。`, variant: 'destructive', confirmLabel: t('common.confirmDelete') })
+    const ok = await confirm({ title: t('protocolPages.list.hardDeleteTitle'), description: t('protocolPages.list.hardDeleteConfirm', { title }), variant: 'destructive', confirmLabel: t('common.confirmDelete') })
     if (ok) deleteImportedMutation.mutate(protocolId)
   }
 
@@ -168,7 +168,7 @@ export function ProtocolListTab() {
       <div className="flex flex-wrap items-center justify-end gap-2">
         {canImportApproved && (
           <Button size="sm" variant="outline" asChild>
-            <Link to="/protocols/import-approved"><FileInput className="mr-2 h-4 w-4" />匯入已核准計劃</Link>
+            <Link to="/protocols/import-approved"><FileInput className="mr-2 h-4 w-4" />{t('protocolPages.list.importApproved')}</Link>
           </Button>
         )}
         {canCreateProtocol && (
@@ -243,7 +243,7 @@ export function ProtocolListTab() {
                           </Button>
                         )}
                         {canCreateProtocol && (
-                          <Button variant="ghost" size="icon" title="複製計畫書" aria-label="複製計畫書" onClick={() => handleCopy(protocol.id, protocol.title)} disabled={copyMutation.isPending}>
+                          <Button variant="ghost" size="icon" title={t('protocolPages.list.copyTitle')} aria-label={t('protocolPages.list.copyTitle')} onClick={() => handleCopy(protocol.id, protocol.title)} disabled={copyMutation.isPending}>
                             <Copy className="h-4 w-4" />
                           </Button>
                         )}
@@ -253,7 +253,7 @@ export function ProtocolListTab() {
                           </Button>
                         )}
                         {canAdminHardDelete(protocol) && (
-                          <Button variant="ghost" size="icon" title="硬刪除計畫" aria-label="硬刪除計畫" onClick={() => handleDeleteImported(protocol.id, protocol.title)} disabled={deleteImportedMutation.isPending}>
+                          <Button variant="ghost" size="icon" title={t('protocolPages.list.hardDeleteTitle')} aria-label={t('protocolPages.list.hardDeleteTitle')} onClick={() => handleDeleteImported(protocol.id, protocol.title)} disabled={deleteImportedMutation.isPending}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}

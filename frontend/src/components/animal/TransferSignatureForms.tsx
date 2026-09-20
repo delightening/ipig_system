@@ -27,12 +27,12 @@ export function ApproveForm({ transferId, invalidate }: { transferId: string; in
             return transferApi.approve(transferId)
         },
         onSuccess: () => {
-            toast({ title: '成功', description: 'PI 已同意轉讓，簽章已記錄' })
+            toast({ title: t('common.success'), description: t('animalActions.transfer.approve.approved') })
             setShowSignature(false)
             setSignatureData(null)
             invalidate()
         },
-        onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '同意失敗'), variant: 'destructive' }),
+        onError: (e: unknown) => toast({ title: t('common.error'), description: getApiErrorMessage(e, t('animalActions.transfer.approve.failed')), variant: 'destructive' }),
     })
 
     return (
@@ -45,18 +45,18 @@ export function ApproveForm({ transferId, invalidate }: { transferId: string; in
                         className="bg-status-success-solid hover:bg-status-success-solid/90"
                     >
                         <PenLine className="h-4 w-4 mr-2" />
-                        PI 同意轉讓（需簽名）
+                        {t('animalActions.transfer.approve.button')}
                     </Button>
                 ) : (
                     <div className="space-y-3">
                         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                             <PenLine className="h-4 w-4" />
-                            {t('signature.handwriting', '手寫簽名')} — 確認同意轉讓
+                            {t('animalActions.transfer.approve.signatureConfirm', { signature: t('signature.handwriting') })}
                         </div>
                         <HandwrittenSignaturePad onSignatureChange={setSignatureData} height={140} />
                         <div className="flex gap-2 justify-end">
                             <Button size="sm" variant="outline" onClick={() => { setShowSignature(false); setSignatureData(null) }}>
-                                取消
+                                {t('common.cancel')}
                             </Button>
                             <Button
                                 size="sm"
@@ -65,7 +65,7 @@ export function ApproveForm({ transferId, invalidate }: { transferId: string; in
                                 disabled={!signatureData || mutation.isPending}
                             >
                                 {mutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <UserCheck className="h-4 w-4 mr-1" />}
-                                {t('signature.confirmSign', '確認簽署')}
+                                {t('signature.confirmSign')}
                             </Button>
                         </div>
                     </div>
@@ -92,12 +92,12 @@ export function CompleteForm({ transferId, invalidate }: { transferId: string; i
             return transferApi.complete(transferId)
         },
         onSuccess: () => {
-            toast({ title: '成功', description: '轉讓已完成，動物已分配到新計劃' })
+            toast({ title: t('common.success'), description: t('animalActions.transfer.complete.completed') })
             setShowSignature(false)
             setSignatureData(null)
             invalidate()
         },
-        onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '完成失敗'), variant: 'destructive' }),
+        onError: (e: unknown) => toast({ title: t('common.error'), description: getApiErrorMessage(e, t('animalActions.transfer.complete.failed')), variant: 'destructive' }),
     })
 
     return (
@@ -110,18 +110,18 @@ export function CompleteForm({ transferId, invalidate }: { transferId: string; i
                         className="bg-primary hover:bg-primary/90"
                     >
                         <PenLine className="h-4 w-4 mr-2" />
-                        完成轉讓（需簽名）
+                        {t('animalActions.transfer.complete.button')}
                     </Button>
                 ) : (
                     <div className="space-y-3">
                         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                             <PenLine className="h-4 w-4" />
-                            {t('signature.handwriting', '手寫簽名')} — 確認完成轉讓
+                            {t('animalActions.transfer.complete.signatureConfirm', { signature: t('signature.handwriting') })}
                         </div>
                         <HandwrittenSignaturePad onSignatureChange={setSignatureData} height={140} />
                         <div className="flex gap-2 justify-end">
                             <Button size="sm" variant="outline" onClick={() => { setShowSignature(false); setSignatureData(null) }}>
-                                取消
+                                {t('common.cancel')}
                             </Button>
                             <Button
                                 size="sm"
@@ -130,7 +130,7 @@ export function CompleteForm({ transferId, invalidate }: { transferId: string; i
                                 disabled={!signatureData || mutation.isPending}
                             >
                                 {mutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
-                                {t('signature.confirmSign', '確認簽署')}
+                                {t('signature.confirmSign')}
                             </Button>
                         </div>
                     </div>

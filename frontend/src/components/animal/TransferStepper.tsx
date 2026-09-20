@@ -1,13 +1,14 @@
+import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Clock, FileCheck, Stethoscope, UserCheck, XCircle } from 'lucide-react'
 
 import type { AnimalTransfer, AnimalTransferStatus } from '@/lib/api'
 
-const TRANSFER_STEPS: { status: AnimalTransferStatus; label: string; icon: typeof Clock }[] = [
-    { status: 'pending', label: '發起', icon: Clock },
-    { status: 'vet_evaluated', label: '獸醫評估', icon: Stethoscope },
-    { status: 'plan_assigned', label: '指定新計劃', icon: FileCheck },
-    { status: 'pi_approved', label: 'PI 同意', icon: UserCheck },
-    { status: 'completed', label: '完成', icon: CheckCircle2 },
+const TRANSFER_STEPS: { status: AnimalTransferStatus; labelKey: string; icon: typeof Clock }[] = [
+    { status: 'pending', labelKey: 'animalActions.transfer.stepper.initiate', icon: Clock },
+    { status: 'vet_evaluated', labelKey: 'animalActions.transfer.vetEvaluate.title', icon: Stethoscope },
+    { status: 'plan_assigned', labelKey: 'animalActions.transfer.assignPlan.title', icon: FileCheck },
+    { status: 'pi_approved', labelKey: 'animalActions.transfer.stepper.piApprove', icon: UserCheck },
+    { status: 'completed', labelKey: 'animalActions.common.done', icon: CheckCircle2 },
 ]
 
 function getStepIndex(status: AnimalTransferStatus): number {
@@ -16,6 +17,7 @@ function getStepIndex(status: AnimalTransferStatus): number {
 }
 
 export function TransferStepper({ transfer }: { transfer: AnimalTransfer }) {
+    const { t } = useTranslation()
     const currentIdx = getStepIndex(transfer.status)
     const isRejected = transfer.status === 'rejected'
 
@@ -33,7 +35,7 @@ export function TransferStepper({ transfer }: { transfer: AnimalTransfer }) {
               ${isCurrent ? 'ring-2 ring-indigo-400' : ''}
             `}>
                             <Icon className="h-3.5 w-3.5 shrink-0" />
-                            <span className="hidden sm:inline">{step.label}</span>
+                            <span className="hidden sm:inline">{t(step.labelKey)}</span>
                         </div>
                         {idx < TRANSFER_STEPS.length - 1 && (
                             <div className={`h-0.5 flex-1 mx-1 min-w-[12px] ${isDone && idx < currentIdx ? 'bg-indigo-400' : 'bg-muted'}`} />
@@ -44,7 +46,7 @@ export function TransferStepper({ transfer }: { transfer: AnimalTransfer }) {
             {isRejected && (
                 <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-status-error-bg text-status-error-text ring-2 ring-red-400 ml-2">
                     <XCircle className="h-3.5 w-3.5" />
-                    <span>已拒絕</span>
+                    <span>{t('animalActions.transfer.status.rejected')}</span>
                 </div>
             )}
         </div>

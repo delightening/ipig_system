@@ -1,10 +1,11 @@
+import { useTranslation } from 'react-i18next'
 import { Input, Textarea } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Repeater } from '@/components/ui/repeater'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DrugCombobox } from '@/components/animal/DrugCombobox'
 import { CollapsibleSection, DrugCheckInput } from './SurgeryFormComponents'
-import type { SurgeryFormData, MedicationItem, VitalSign } from './useSurgeryForm'
+import { POSTURE_OPTIONS, type SurgeryFormData, type MedicationItem, type VitalSign } from './useSurgeryForm'
 
 interface Props {
   formData: SurgeryFormData
@@ -12,10 +13,11 @@ interface Props {
 }
 
 export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
+  const { t } = useTranslation()
   return (
     <>
       {/* 誘導麻醉 */}
-      <CollapsibleSection title="誘導麻醉">
+      <CollapsibleSection title={t('animalRecords.surgeries.inductionAnesthesia')}>
         <div className="space-y-3">
           <DrugCheckInput
             label="Atropine"
@@ -48,7 +50,7 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
             }
           />
           <div className="pt-2">
-            <Label className="text-sm text-muted-foreground">其他藥劑</Label>
+            <Label className="text-sm text-muted-foreground">{t('animalRecords.surgeries.otherAgents')}</Label>
             <Repeater<MedicationItem>
               value={formData.induction.others}
               onChange={(others) =>
@@ -58,7 +60,7 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
                 })
               }
               defaultItem={() => ({ name: '', dose: '', drug_option_id: undefined, dosage_unit: '' })}
-              addLabel="新增藥劑"
+              addLabel={t('animalRecords.surgeries.addAgent')}
               renderItem={(item, _index, onItemChange) => (
                 <div className="grid grid-cols-2 gap-2">
                   <DrugCombobox
@@ -86,7 +88,7 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
       </CollapsibleSection>
 
       {/* 術前給藥 */}
-      <CollapsibleSection title="術前給藥" defaultOpen={false}>
+      <CollapsibleSection title={t('animalRecords.surgeries.preSurgeryMedication')} defaultOpen={false}>
         <Repeater<MedicationItem>
           value={formData.pre_surgery.medications}
           onChange={(medications) =>
@@ -96,7 +98,7 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
             })
           }
           defaultItem={() => ({ name: '', dose: '', drug_option_id: undefined, dosage_unit: '' })}
-          addLabel="新增術前藥品"
+          addLabel={t('animalRecords.surgeries.addPreOpDrug')}
           renderItem={(item, _index, onItemChange) => (
             <div className="grid grid-cols-2 gap-2">
               <DrugCombobox
@@ -122,14 +124,14 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
       </CollapsibleSection>
 
       {/* 固定姿勢（可複選） */}
-      <CollapsibleSection title="固定姿勢" defaultOpen={false}>
+      <CollapsibleSection title={t('animalRecords.surgeries.positioning')} defaultOpen={false}>
         <div className="space-y-3">
-          <Label>固定姿勢（可複選）</Label>
+          <Label>{t('animalRecords.surgeries.positioningMulti')}</Label>
           <div className="grid grid-cols-2 gap-3">
-            {(['正趴', '左側躺', '右側躺', '仰躺'] as const).map((posture) => (
+            {POSTURE_OPTIONS.map(({ value: posture, labelKey }) => (
               <Checkbox
                 key={posture}
-                label={posture}
+                label={t(labelKey)}
                 checked={formData.positioning.includes(posture)}
                 onCheckedChange={(checked) => {
                   const next = checked
@@ -144,7 +146,7 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
       </CollapsibleSection>
 
       {/* 麻醉維持 */}
-      <CollapsibleSection title="麻醉維持">
+      <CollapsibleSection title={t('animalRecords.surgeries.anesthesiaMaintenance')}>
         <div className="space-y-3">
           <DrugCheckInput
             label="O2"
@@ -177,7 +179,7 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
             }
           />
           <div className="pt-2">
-            <Label className="text-sm text-muted-foreground">其他藥劑</Label>
+            <Label className="text-sm text-muted-foreground">{t('animalRecords.surgeries.otherAgents')}</Label>
             <Repeater<MedicationItem>
               value={formData.maintenance.others}
               onChange={(others) =>
@@ -187,7 +189,7 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
                 })
               }
               defaultItem={() => ({ name: '', dose: '', drug_option_id: undefined, dosage_unit: '' })}
-              addLabel="新增藥劑"
+              addLabel={t('animalRecords.surgeries.addAgent')}
               renderItem={(item, _index, onItemChange) => (
                 <div className="grid grid-cols-2 gap-2">
                   <DrugCombobox
@@ -215,22 +217,22 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
       </CollapsibleSection>
 
       {/* 監測與恢復 */}
-      <CollapsibleSection title="監測與恢復">
+      <CollapsibleSection title={t('animalRecords.surgeries.monitoringRecovery')}>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="anesthesia_observation">麻醉觀察過程</Label>
+            <Label htmlFor="anesthesia_observation">{t('animalRecords.surgeries.anesthesiaObservation')}</Label>
             <Textarea
               id="anesthesia_observation"
               value={formData.anesthesia_observation}
               onChange={(e) =>
                 onChange({ ...formData, anesthesia_observation: e.target.value })
               }
-              placeholder="描述麻醉觀察過程..."
+              placeholder={t('animalRecords.surgeries.anesthesiaObservationPlaceholder')}
             />
           </div>
 
           <div className="space-y-2">
-            <Label>生理數值</Label>
+            <Label>{t('animalRecords.surgeries.vitalSigns')}</Label>
             <Repeater<VitalSign>
               value={formData.vital_signs}
               onChange={(vital_signs) => onChange({ ...formData, vital_signs })}
@@ -242,18 +244,18 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
                 temperature: '',
                 spo2: '',
               })}
-              addLabel="新增測量紀錄"
+              addLabel={t('animalRecords.surgeries.addMeasurement')}
               maxItems={100}
               renderItem={(item, _index, onItemChange) => (
                 <div className="grid grid-cols-6 gap-2 p-2 bg-muted rounded">
                   <Input
                     type="time"
-                    placeholder="時間"
+                    placeholder={t('animalRecords.surgeries.vitalTime')}
                     value={item.time}
                     onChange={(e) => onItemChange({ ...item, time: e.target.value })}
                   />
                   <Input
-                    placeholder="呼吸方式"
+                    placeholder={t('animalRecords.surgeries.breathingMethod')}
                     value={item.breathing_method}
                     onChange={(e) =>
                       onItemChange({ ...item, breathing_method: e.target.value })
@@ -261,13 +263,13 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
                   />
                   <Input
                     type="number"
-                    placeholder="心跳/分"
+                    placeholder={t('animalRecords.surgeries.heartRatePlaceholder')}
                     value={item.heart_rate}
                     onChange={(e) => onItemChange({ ...item, heart_rate: e.target.value })}
                   />
                   <Input
                     type="number"
-                    placeholder="呼吸/分"
+                    placeholder={t('animalRecords.surgeries.respirationPlaceholder')}
                     value={item.respiration_rate}
                     onChange={(e) =>
                       onItemChange({ ...item, respiration_rate: e.target.value })
@@ -276,7 +278,7 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
                   <Input
                     type="number"
                     step="0.1"
-                    placeholder="體溫°C"
+                    placeholder={t('animalRecords.surgeries.temperaturePlaceholder')}
                     value={item.temperature}
                     onChange={(e) => onItemChange({ ...item, temperature: e.target.value })}
                   />
@@ -292,17 +294,17 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="reflex_recovery">反射恢復觀察</Label>
+            <Label htmlFor="reflex_recovery">{t('animalRecords.surgeries.reflexRecovery')}</Label>
             <Textarea
               id="reflex_recovery"
               value={formData.reflex_recovery}
               onChange={(e) => onChange({ ...formData, reflex_recovery: e.target.value })}
-              placeholder="描述反射恢復狀況..."
+              placeholder={t('animalRecords.surgeries.reflexRecoveryPlaceholder')}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="respiration_auto">自主呼吸：呼吸次數/分鐘</Label>
+            <Label htmlFor="respiration_auto">{t('animalRecords.surgeries.spontaneousRespiration')}</Label>
             <Input
               id="respiration_auto"
               type="number"
@@ -315,7 +317,7 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
           </div>
 
           <Checkbox
-            label="術後給藥-優點軟膏"
+            label={t('animalRecords.surgeries.postOintment')}
             checked={formData.post_ointment}
             onCheckedChange={(checked) =>
               onChange({ ...formData, post_ointment: checked === true })
@@ -323,12 +325,12 @@ export function SurgeryAnesthesiaSection({ formData, onChange }: Props) {
           />
 
           <div className="space-y-2">
-            <Label htmlFor="remark">備註</Label>
+            <Label htmlFor="remark">{t('animalRecords.shared.remark')}</Label>
             <Textarea
               id="remark"
               value={formData.remark}
               onChange={(e) => onChange({ ...formData, remark: e.target.value })}
-              placeholder="其他備註..."
+              placeholder={t('animalRecords.shared.otherRemarkPlaceholder')}
             />
           </div>
         </div>

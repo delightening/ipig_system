@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { GuestHide } from '@/components/ui/guest-hide'
@@ -13,18 +14,23 @@ import { RoleSignatureDialog } from '@/components/auth/RoleSignatureDialog'
 import { Loader2, Shield, Plus, Pencil, Trash2, Eye } from 'lucide-react'
 import { PermissionTree } from '@/components/admin/PermissionTree'
 import { groupPermissionsByModule } from '@/hooks/usePermissionManager'
+import { translateModuleName } from '@/hooks/permission/permissionConfig'
 import { useRolesMutations } from './hooks/useRolesMutations'
 
 export function RolesPage() {
+  const { t } = useTranslation()
   const rm = useRolesMutations()
 
   // R30-27b：簽章 dialog 標題依當下 mode 推導，獨立成 helper 避免 JSX 巢狀三元
   const signatureDialogTitle = (() => {
-    if (!rm.signaturePrompt) return '電子簽章'
+    if (!rm.signaturePrompt) return t('adminUsers.roles.signature.defaultTitle')
     switch (rm.signaturePrompt.mode) {
-      case 'create': return '簽署：建立角色'
-      case 'update': return '簽署：更新角色與權限'
-      case 'delete': return `簽署：${rm.signaturePrompt.role.is_system ? '停用' : '刪除'}角色`
+      case 'create': return t('adminUsers.roles.signature.create')
+      case 'update': return t('adminUsers.roles.signature.update')
+      case 'delete':
+        return rm.signaturePrompt.role.is_system
+          ? t('adminUsers.roles.signature.deactivate')
+          : t('adminUsers.roles.signature.delete')
     }
   })()
 
@@ -49,13 +55,13 @@ export function RolesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="角色權限"
-        description="管理系統角色與權限設定"
+        title={t('nav.adminRoles')}
+        description={t('adminUsers.roles.description')}
         actions={
           <GuestHide>
             <Button size="sm" onClick={() => rm.setShowCreateDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              新增角色
+              {t('adminUsers.roles.addRole')}
             </Button>
           </GuestHide>
         }
@@ -73,10 +79,10 @@ export function RolesPage() {
                 </CardTitle>
                 <GuestHide>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => rm.handleEdit(role)} aria-label="編輯">
+                    <Button variant="ghost" size="icon" onClick={() => rm.handleEdit(role)} aria-label={t('common.edit')}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => rm.handleDeleteClick(role)} aria-label="刪除">
+                    <Button variant="ghost" size="icon" onClick={() => rm.handleDeleteClick(role)} aria-label={t('common.delete')}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
@@ -87,17 +93,19 @@ export function RolesPage() {
             <CardContent className="space-y-3">
               {/* R49 follow-up: guest mode 拿到的 role 可能無 permissions 欄位 — null-safe */}
               {(role.permissions?.length ?? 0) === 0 ? (
-                <span className="text-sm text-muted-foreground">無權限</span>
+                <span className="text-sm text-muted-foreground">{t('adminUsers.roles.noPermissions')}</span>
               ) : (
                 <>
                   <div className="text-sm text-muted-foreground">
                     {groupPermissionsByModule(role.permissions ?? [])
-                      .map(({ moduleName, count }) => `${moduleName} ${count} 項`)
+                      .map(({ moduleName, count }) =>
+                        t('adminUsers.roles.moduleCount', { module: translateModuleName(t, moduleName), count }),
+                      )
                       .join(' · ')}
                   </div>
                   <Button variant="outline" size="sm" className="w-full" onClick={() => rm.handleViewDetail(role)}>
                     <Eye className="h-4 w-4 mr-2" />
-                    查看詳情 ({role.permissions?.length ?? 0} 個權限)
+                    {t('adminUsers.roles.viewDetails', { count: role.permissions?.length ?? 0 })}
                   </Button>
                 </>
               )}
@@ -110,32 +118,32 @@ export function RolesPage() {
       <Dialog open={rm.showCreateDialog} onOpenChange={rm.setShowCreateDialog}>
         <DialogContent size="xl">
           <DialogHeader>
-            <DialogTitle>新增角色</DialogTitle>
-            <DialogDescription>創建新的系統角色並設定權限</DialogDescription>
+            <DialogTitle>{t('adminUsers.roles.addRole')}</DialogTitle>
+            <DialogDescription>{t('adminUsers.roles.createDescription')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="code">角色代碼 *</Label>
-                <Input id="code" value={rm.formData.code} onChange={(e) => rm.setFormData({ ...rm.formData, code: e.target.value })} placeholder="例如: manager" />
+                <Label htmlFor="code">{t('adminUsers.roles.codeLabel')}</Label>
+                <Input id="code" value={rm.formData.code} onChange={(e) => rm.setFormData({ ...rm.formData, code: e.target.value })} placeholder={t('adminUsers.roles.codePlaceholder')} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="name">角色名稱 *</Label>
-                <Input id="name" value={rm.formData.name} onChange={(e) => rm.setFormData({ ...rm.formData, name: e.target.value })} placeholder="例如: 經理" />
+                <Label htmlFor="name">{t('adminUsers.roles.nameLabel')}</Label>
+                <Input id="name" value={rm.formData.name} onChange={(e) => rm.setFormData({ ...rm.formData, name: e.target.value })} placeholder={t('adminUsers.roles.namePlaceholder')} />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>權限設定</Label>
+              <Label>{t('adminUsers.roles.permissionSettings')}</Label>
               <div className="border rounded-md p-4">
                 <PermissionTree permissions={rm.permissions} selectedPermissionIds={rm.formData.permission_ids} onTogglePermission={rm.togglePermission} showSearch={true} />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => rm.setShowCreateDialog(false)}>取消</Button>
+            <Button variant="outline" onClick={() => rm.setShowCreateDialog(false)}>{t('common.cancel')}</Button>
             <Button onClick={rm.handleCreate} disabled={rm.createMutation.isPending}>
               {rm.createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              創建
+              {t('adminUsers.roles.createButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -145,26 +153,26 @@ export function RolesPage() {
       <Dialog open={rm.showEditDialog} onOpenChange={rm.setShowEditDialog}>
         <DialogContent size="xl">
           <DialogHeader>
-            <DialogTitle>編輯角色</DialogTitle>
-            <DialogDescription>修改角色 {rm.selectedRole?.name} 的設定</DialogDescription>
+            <DialogTitle>{t('adminUsers.roles.editRole')}</DialogTitle>
+            <DialogDescription>{t('adminUsers.roles.editDescription', { name: rm.selectedRole?.name })}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-name">角色名稱</Label>
+              <Label htmlFor="edit-name">{t('adminUsers.roles.editNameLabel')}</Label>
               <Input id="edit-name" value={rm.formData.name} onChange={(e) => rm.setFormData({ ...rm.formData, name: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>權限設定</Label>
+              <Label>{t('adminUsers.roles.permissionSettings')}</Label>
               <div className="border rounded-md p-4">
                 <PermissionTree permissions={rm.permissions} selectedPermissionIds={rm.formData.permission_ids} onTogglePermission={rm.togglePermission} showSearch={true} />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => rm.setShowEditDialog(false)}>取消</Button>
+            <Button variant="outline" onClick={() => rm.setShowEditDialog(false)}>{t('common.cancel')}</Button>
             <Button onClick={rm.handleUpdate} disabled={rm.updateMutation.isPending}>
               {rm.updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              儲存
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -174,8 +182,8 @@ export function RolesPage() {
       <Dialog open={rm.showDetailDialog} onOpenChange={(open) => { rm.setShowDetailDialog(open); if (!open) rm.setRoleForDetail(null) }}>
         <DialogContent size="xl" className="max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>{rm.roleForDetail?.name} — 權限詳情</DialogTitle>
-            <DialogDescription>共 {rm.roleForDetail?.permissions?.length ?? 0} 個權限（唯讀）</DialogDescription>
+            <DialogTitle>{t('adminUsers.roles.detailTitle', { name: rm.roleForDetail?.name })}</DialogTitle>
+            <DialogDescription>{t('adminUsers.roles.detailDescription', { count: rm.roleForDetail?.permissions?.length ?? 0 })}</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-auto border rounded-md p-4 min-h-0">
             <PermissionTree permissions={rm.permissions} selectedPermissionIds={rm.roleForDetail?.permissions?.map((p) => p.id) ?? []} showSearch={true} readOnly={true} />
@@ -187,8 +195,8 @@ export function RolesPage() {
       <ConfirmPasswordModal
         open={rm.showReauthForDeleteRole}
         onOpenChange={(open) => { rm.setShowReauthForDeleteRole(open); if (!open) rm.setRoleToDelete(null) }}
-        title={rm.roleToDelete?.is_system ? '確認停用系統角色' : '確認刪除角色'}
-        description={rm.roleToDelete ? `確定要${rm.roleToDelete.is_system ? '停用' : '刪除'}角色「${rm.roleToDelete.name}」？請輸入您的登入密碼以確認。` : ''}
+        title={rm.roleToDelete?.is_system ? t('adminUsers.roles.confirmDeactivateTitle') : t('adminUsers.roles.confirmDeleteTitle')}
+        description={rm.roleToDelete ? t(rm.roleToDelete.is_system ? 'adminUsers.roles.confirmDeactivateDescription' : 'adminUsers.roles.confirmDeleteDescription', { name: rm.roleToDelete.name }) : ''}
         onSubmit={rm.handleDeleteConfirm}
       />
 
@@ -197,7 +205,7 @@ export function RolesPage() {
         open={rm.signaturePrompt !== null}
         onOpenChange={(open) => { if (!open) rm.setSignaturePrompt(null) }}
         title={signatureDialogTitle}
-        description="本操作會記錄電子簽章（密碼 + 手寫）至稽核軌跡。請輸入密碼並完成手寫簽名後送出。"
+        description={t('adminUsers.roles.signature.description')}
         purpose={signatureDialogPurpose}
         onSubmit={rm.handleSignatureSubmit}
       />

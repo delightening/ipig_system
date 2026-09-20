@@ -26,6 +26,13 @@ vi.mock('@/lib/api', () => ({
 
 vi.mock('@/components/ui/use-toast', () => ({ toast: vi.fn() }))
 
+// 元件文字全走 i18n：這裡讓 t(key) 回 key，斷言比對 key（專案測試慣例）。
+// lib/utils 會拉進 lib/i18n（.use(initReactI18next)），mock 整個模組就得補上這個 plugin 形狀。
+vi.mock('react-i18next', () => ({
+    useTranslation: () => ({ t: (key: string) => key }),
+    initReactI18next: { type: '3rdParty', init: () => {} },
+}))
+
 const { AttendanceCorrectionDialog } = await import('../components/AttendanceCorrectionDialog')
 
 function mkRecord(over: Partial<AttendanceWithUser> = {}): AttendanceWithUser {
@@ -61,7 +68,7 @@ function renderDialog(record: AttendanceWithUser | null) {
     )
 }
 
-const reasonBox = () => screen.getByPlaceholderText(/忘記打卡/)
+const reasonBox = () => screen.getByPlaceholderText('hrPages.attendance.correction.reasonPlaceholder')
 
 describe('補卡對話框', () => {
     beforeEach(() => {
@@ -71,13 +78,13 @@ describe('補卡對話框', () => {
 
     it('更正模式帶入既有紀錄的台灣時間，不是 UTC 原值', () => {
         renderDialog(mkRecord())
-        expect(screen.getByLabelText('上班時間')).toHaveValue('08:30')
-        expect(screen.getByLabelText('下班時間')).toHaveValue('17:30')
+        expect(screen.getByLabelText('hrPages.attendance.correction.clockInTime')).toHaveValue('08:30')
+        expect(screen.getByLabelText('hrPages.attendance.correction.clockOutTime')).toHaveValue('17:30')
     })
 
     it('理由過短時送出鈕 disabled，不呼叫 API', () => {
         renderDialog(mkRecord())
-        const confirm = screen.getByRole('button', { name: '確認更正' })
+        const confirm = screen.getByRole('button', { name: 'hrPages.attendance.correction.confirmCorrect' })
 
         expect(confirm).toBeDisabled()
 
@@ -91,9 +98,9 @@ describe('補卡對話框', () => {
     it('更正送出的時間是 UTC，理由已 trim', async () => {
         renderDialog(mkRecord())
 
-        fireEvent.change(screen.getByLabelText('上班時間'), { target: { value: '09:00' } })
+        fireEvent.change(screen.getByLabelText('hrPages.attendance.correction.clockInTime'), { target: { value: '09:00' } })
         fireEvent.change(reasonBox(), { target: { value: '  忘記打卡，主管確認  ' } })
-        fireEvent.click(screen.getByRole('button', { name: '確認更正' }))
+        fireEvent.click(screen.getByRole('button', { name: 'hrPages.attendance.correction.confirmCorrect' }))
 
         await waitFor(() =>
             expect(apiPut).toHaveBeenCalledWith('/hr/attendance/att-1', {
@@ -108,36 +115,36 @@ describe('補卡對話框', () => {
     it('更正模式把兩個時間都清空時不得送出', () => {
         renderDialog(mkRecord())
 
-        fireEvent.change(screen.getByLabelText('上班時間'), { target: { value: '' } })
-        fireEvent.change(screen.getByLabelText('下班時間'), { target: { value: '' } })
+        fireEvent.change(screen.getByLabelText('hrPages.attendance.correction.clockInTime'), { target: { value: '' } })
+        fireEvent.change(screen.getByLabelText('hrPages.attendance.correction.clockOutTime'), { target: { value: '' } })
         fireEvent.change(reasonBox(), { target: { value: '忘記打卡' } })
 
         // 不擋的話會送出 null/null：後端 COALESCE 回原值＝什麼都沒改，
         // 卻蓋上 is_corrected 與更正理由，污染稽核軌跡與月報的「補登／更正天數」
-        expect(screen.getByRole('button', { name: '確認更正' })).toBeDisabled()
-        fireEvent.click(screen.getByRole('button', { name: '確認更正' }))
+        expect(screen.getByRole('button', { name: 'hrPages.attendance.correction.confirmCorrect' })).toBeDisabled()
+        fireEvent.click(screen.getByRole('button', { name: 'hrPages.attendance.correction.confirmCorrect' }))
         expect(apiPut).not.toHaveBeenCalled()
     })
 
     it('補登模式未選人員與日期時，送出鈕 disabled', () => {
         renderDialog(null)
         fireEvent.change(reasonBox(), { target: { value: '忘記打卡' } })
-        expect(screen.getByRole('button', { name: '確認補登' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'hrPages.attendance.correction.confirmBackfill' })).toBeDisabled()
         expect(apiPost).not.toHaveBeenCalled()
     })
 
     it('兩種模式都告知不得補自己的紀錄', () => {
         const { unmount } = renderDialog(mkRecord())
-        expect(screen.getByText(/不得補登或更正自己的紀錄/)).toBeInTheDocument()
+        expect(screen.getByText(/hrPages\.attendance\.correction\.noSelf/)).toBeInTheDocument()
         unmount()
 
         renderDialog(null)
-        expect(screen.getByText(/不得補登或更正自己的紀錄/)).toBeInTheDocument()
+        expect(screen.getByText(/hrPages\.attendance\.correction\.noSelf/)).toBeInTheDocument()
     })
 
     it('更正模式顯示對象與日期，且不出現人員下拉', () => {
         renderDialog(mkRecord())
         expect(screen.getByText('測試同仁')).toBeInTheDocument()
-        expect(screen.queryByLabelText('人員')).not.toBeInTheDocument()
+        expect(screen.queryByLabelText('hrPages.attendance.correction.staff')).not.toBeInTheDocument()
     })
 })

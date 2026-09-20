@@ -10,6 +10,7 @@
  * Permission 條件式 render — user 沒權限的條目自動隱藏，避免 dead clicks。
  */
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
     Truck,
     ShoppingCart,
@@ -30,10 +31,10 @@ import { useAuthHasPermission, useAuthHasRole } from '@/stores/auth'
 import { EmptyState } from '@/components/ui/empty-state'
 
 interface ReportItem {
-    title: string
+    titleKey: string
     href: string
     icon: React.ReactNode
-    description: string
+    descriptionKey: string
     /** 顯示條件：未指定 = 對所有登入用戶顯示 */
     permission?: string
     /** 角色條件：未指定 = 不限角色 */
@@ -45,42 +46,42 @@ interface ReportItem {
 const reportItems: ReportItem[] = [
     // ERP 報表（與舊 ErpReportsPage 對齊；保留 admin gate）
     {
-        title: '庫存現況報表',
+        titleKey: 'reportsPages.stockOnHand.title',
         href: '/stock-on-hand',
         icon: <BarChart3 className="h-4 w-4" />,
-        description: '目前庫存狀況統計',
+        descriptionKey: 'reportsPages.hub.items.stockOnHand.description',
         role: 'admin',
         section: 'erp',
     },
     {
-        title: '庫存流水報表',
+        titleKey: 'reportsPages.stockLedger.title',
         href: '/stock-ledger',
         icon: <FileText className="h-4 w-4" />,
-        description: '庫存異動明細報表',
+        descriptionKey: 'reportsPages.hub.items.stockLedger.description',
         role: 'admin',
         section: 'erp',
     },
     {
-        title: '採購明細報表',
+        titleKey: 'reportsPages.purchaseLines.title',
         href: '/purchase-lines',
         icon: <Truck className="h-4 w-4" />,
-        description: '採購項目明細統計',
+        descriptionKey: 'reportsPages.hub.items.purchaseLines.description',
         role: 'admin',
         section: 'erp',
     },
     {
-        title: '銷貨明細報表',
+        titleKey: 'reportsPages.salesLines.title',
         href: '/sales-lines',
         icon: <ShoppingCart className="h-4 w-4" />,
-        description: '銷貨項目明細統計',
+        descriptionKey: 'reportsPages.hub.items.salesLines.description',
         role: 'admin',
         section: 'erp',
     },
     {
-        title: '案件消耗報表',
+        titleKey: 'reportsPages.protocolConsumption.title',
         href: '/protocol-consumption',
         icon: <FlaskConical className="h-4 w-4" />,
-        description: '依計畫統計耗材領用',
+        descriptionKey: 'reportsPages.hub.items.protocolConsumption.description',
         // 用 permission 而非 role：後端這支的閘就是 erp.report.view，而該權限授予
         // WAREHOUSE_MANAGER / PURCHASING / ADMIN_STAFF——他們呼叫得到 API，卻會被
         // `role: 'admin'` 擋在選單外。hasPermission 對 SYSTEM_ADMIN / admin / GUEST
@@ -90,102 +91,103 @@ const reportItems: ReportItem[] = [
         section: 'erp',
     },
     {
-        title: '成本摘要報表',
+        titleKey: 'reportsPages.costSummary.title',
         href: '/cost-summary',
         icon: <BarChart3 className="h-4 w-4" />,
-        description: '成本分析與摘要',
+        descriptionKey: 'reportsPages.hub.items.costSummary.description',
         role: 'admin',
         section: 'erp',
     },
     {
-        title: '進銷貨彙總報表',
+        titleKey: 'reportsPages.purchaseSales.title',
         href: '/purchase-sales-summary',
         icon: <TrendingUp className="h-4 w-4" />,
-        description: '按月份、供應商客戶、產品類別彙總分析',
+        descriptionKey: 'reportsPages.hub.items.purchaseSales.description',
         role: 'admin',
         section: 'erp',
     },
     {
-        title: '會計報表',
+        titleKey: 'reportsPages.accounting.title',
         href: '/accounting',
         icon: <BarChart3 className="h-4 w-4" />,
-        description: '試算表、傳票、應付／應收帳款、損益表',
+        descriptionKey: 'reportsPages.hub.items.accounting.description',
         role: 'admin',
         section: 'erp',
     },
     // 動物 / 血檢
     {
-        title: '血液檢查費用報表',
+        titleKey: 'reportsPages.bloodTestCost.title',
         href: '/blood-test-cost',
         icon: <Droplets className="h-4 w-4" />,
-        description: '依專案與日期查詢血檢費用',
+        descriptionKey: 'reportsPages.hub.items.bloodTestCost.description',
         role: 'admin',
         section: 'animal',
     },
     {
-        title: '血液檢查結果分析',
+        titleKey: 'reportsPages.bloodTestAnalysis.title',
         href: '/blood-test-analysis',
         icon: <Activity className="h-4 w-4" />,
-        description: '血檢數據統計、趨勢分析、異常值偵測',
+        descriptionKey: 'reportsPages.hub.items.bloodTestAnalysis.description',
         section: 'animal',
     },
     {
-        title: '倉庫現況報表',
+        titleKey: 'reportsPages.hub.items.warehouseStatus.title',
         href: '/warehouses',
         icon: <Warehouse className="h-4 w-4" />,
-        description: '從倉庫列表進入單倉的現況/平面圖/PDF 報表',
+        descriptionKey: 'reportsPages.hub.items.warehouseStatus.description',
         section: 'animal',
     },
     {
-        title: '每週病歷彙整報表',
+        titleKey: 'reportsPages.hub.items.weeklyMedical.title',
         href: '/weekly-medical-report',
         icon: <HeartPulse className="h-4 w-4" />,
-        description: '依耳號、計畫案、日期查詢每日醫療事件，可匯出 Excel',
+        descriptionKey: 'reportsPages.hub.items.weeklyMedical.description',
         permission: 'animal.record.view',
         section: 'animal',
     },
     {
-        title: '廢棄物再利用月結報表',
+        titleKey: 'reportsPages.byproductMonthly.title',
         href: '/byproduct-monthly-report',
         icon: <FlaskConical className="h-4 w-4" />,
-        description: '依時間區間查詢採樣紀錄，匯出 Excel 交負責人對帳',
+        descriptionKey: 'reportsPages.hub.items.byproductMonthly.description',
         permission: 'animal.byproduct_sample.view',
         section: 'animal',
     },
     {
-        title: '獸醫巡場報告',
+        titleKey: 'reportsPages.hub.items.vetPatrol.title',
         href: '/vet-patrol-reports',
         icon: <Stethoscope className="h-4 w-4" />,
-        description: '巡場觀察 / 建議 / 追蹤改善歷史紀錄；可篩選我的草稿、待追蹤、已完成',
+        descriptionKey: 'reportsPages.hub.items.vetPatrol.description',
         permission: 'animal.record.view',
         section: 'animal',
     },
     // GLP / AUP
     {
-        title: '操作日誌',
+        titleKey: 'reportsPages.hub.items.auditLogs.title',
         href: '/admin/audit-logs',
         icon: <ScrollText className="h-4 w-4" />,
-        description: 'GLP 合規操作軌跡 / HMAC chain 審計',
+        descriptionKey: 'reportsPages.hub.items.auditLogs.description',
         role: 'admin',
         section: 'glp',
     },
     {
-        title: '研究計畫總覽',
+        titleKey: 'reportsPages.hub.items.protocolsOverview.title',
         href: '/protocols',
         icon: <FlaskConical className="h-4 w-4" />,
-        description: 'AUP 研究計畫列表（已核准 / 審核中 / 修正案）',
+        descriptionKey: 'reportsPages.hub.items.protocolsOverview.description',
         section: 'aup',
     },
 ]
 
-const SECTION_LABELS: Record<ReportItem['section'], string> = {
-    erp: 'ERP / 進銷存',
-    animal: '動物管理 / 血檢',
-    glp: 'GLP 合規',
-    aup: '研究計畫',
+const SECTION_LABEL_KEYS: Record<ReportItem['section'], string> = {
+    erp: 'reportsPages.hub.sections.erp',
+    animal: 'reportsPages.hub.sections.animal',
+    glp: 'reportsPages.hub.sections.glp',
+    aup: 'reportsPages.hub.sections.aup',
 }
 
 export function ReportsPage() {
+    const { t } = useTranslation()
     const hasRole = useAuthHasRole()
     const hasPermission = useAuthHasPermission()
 
@@ -195,10 +197,10 @@ export function ReportsPage() {
         return true
     })
 
-    const grouped = (Object.keys(SECTION_LABELS) as ReportItem['section'][])
+    const grouped = (Object.keys(SECTION_LABEL_KEYS) as ReportItem['section'][])
         .map((section) => ({
             section,
-            label: SECTION_LABELS[section],
+            label: t(SECTION_LABEL_KEYS[section]),
             items: visible.filter((it) => it.section === section),
         }))
         .filter((g) => g.items.length > 0)
@@ -206,17 +208,17 @@ export function ReportsPage() {
     return (
         <div className="space-y-8">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">報表中心</h1>
+                <h1 className="text-3xl font-bold tracking-tight">{t('reportsPages.hub.title')}</h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    跨子系統報表入口；依個人權限顯示可用項目
+                    {t('reportsPages.hub.subtitle')}
                 </p>
             </div>
 
             {grouped.length === 0 ? (
                 <EmptyState
                     icon={FileSearch}
-                    title="尚無可存取的報表項目"
-                    description="您目前的權限沒有對應的報表入口；請聯絡系統管理員確認 ERP / GLP / AUP 相關權限是否已開通。"
+                    title={t('reportsPages.hub.emptyTitle')}
+                    description={t('reportsPages.hub.emptyDescription')}
                 />
             ) : grouped.map(({ section, label, items }) => (
                 <section key={section} className="space-y-3">
@@ -234,10 +236,10 @@ export function ReportsPage() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h3 className="font-medium text-foreground group-hover:text-primary transition-colors">
-                                            {item.title}
+                                            {t(item.titleKey)}
                                         </h3>
                                         <p className="text-xs text-muted-foreground mt-1">
-                                            {item.description}
+                                            {t(item.descriptionKey)}
                                         </p>
                                     </div>
                                     <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/30 group-hover:text-primary transition-colors" />

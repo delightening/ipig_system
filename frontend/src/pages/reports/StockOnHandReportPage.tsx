@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { StockOnHandReport } from '@/lib/api'
 import { formatNumber, formatUom } from '@/lib/utils'
 import { useTableSort } from '@/hooks/useTableSort'
@@ -17,6 +18,7 @@ import { Download, Package } from 'lucide-react'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
 
 export function StockOnHandReportPage() {
+  const { t } = useTranslation()
   const { data: report, isLoading } = useQuery<StockOnHandReport[]>({
     queryKey: ['report-stock-on-hand'],
     queryFn: async () => {
@@ -59,12 +61,12 @@ export function StockOnHandReportPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="庫存現況報表"
-        description="各倉庫商品庫存量與價值"
+        title={t('reportsPages.stockOnHand.title')}
+        description={t('reportsPages.stockOnHand.description')}
         actions={
           <Button size="sm" onClick={exportToCSV} disabled={!report?.length}>
             <Download className="mr-2 h-4 w-4" />
-            匯出 CSV
+            {t('reportsPages.shared.exportCsv')}
           </Button>
         }
       />
@@ -73,15 +75,15 @@ export function StockOnHandReportPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
-              <SortableTableHead sortKey="product_sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品代碼</SortableTableHead>
-              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品名稱</SortableTableHead>
-              <SortableTableHead sortKey="category_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類別</SortableTableHead>
-              <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單位</SortableTableHead>
-              <SortableTableHead sortKey="qty_on_hand" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">庫存量</SortableTableHead>
-              <SortableTableHead sortKey="avg_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">平均成本</SortableTableHead>
-              <SortableTableHead sortKey="total_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">庫存價值</SortableTableHead>
-              <SortableTableHead sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">安全庫存</SortableTableHead>
+              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.warehouse')}</SortableTableHead>
+              <SortableTableHead sortKey="product_sku" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.productCode')}</SortableTableHead>
+              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.productName')}</SortableTableHead>
+              <SortableTableHead sortKey="category_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.category')}</SortableTableHead>
+              <SortableTableHead sortKey="base_uom" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.unit')}</SortableTableHead>
+              <SortableTableHead sortKey="qty_on_hand" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.qtyOnHand')}</SortableTableHead>
+              <SortableTableHead sortKey="avg_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.avgCost')}</SortableTableHead>
+              <SortableTableHead sortKey="total_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.inventoryValue')}</SortableTableHead>
+              <SortableTableHead sortKey="safety_stock" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.stockOnHand.safetyStock')}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -119,7 +121,7 @@ export function StockOnHandReportPage() {
                 </TableRow>
               ))
             ) : (
-              <TableEmptyRow colSpan={9} icon={Package} title="尚無庫存資料" />
+              <TableEmptyRow colSpan={9} icon={Package} title={t('reportsPages.stockOnHand.emptyTitle')} />
             )}
           </TableBody>
         </Table>

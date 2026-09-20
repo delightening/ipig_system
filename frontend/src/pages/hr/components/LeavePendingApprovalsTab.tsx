@@ -1,12 +1,12 @@
+import { useTranslation } from 'react-i18next'
 import { FileText, UserCheck, XCircle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
 import { formatDate } from '@/lib/utils'
-import { LEAVE_STATUS_NAMES, LEAVE_TYPE_NAMES } from '@/types/hr'
 import type { LeaveRequestWithUser } from '@/types/hr'
-import { formatLeaveHours } from '../constants'
+import { formatLeaveHours, leaveStatusLabel, leaveTypeLabel } from '../constants'
 import { ApprovalActionsCell } from './ApprovalActionsCell'
 
 interface LeavePendingApprovalsTabProps {
@@ -34,10 +34,11 @@ export function LeavePendingApprovalsTab({
     proxyConfirmPending,
     proxyRejectPending,
 }: LeavePendingApprovalsTabProps) {
+    const { t } = useTranslation()
     const columns: ColumnDef<LeaveRequestWithUser>[] = [
         {
             key: 'applicant',
-            header: '申請人',
+            header: t('hrPages.shared.col.applicant'),
             cell: (leave) => (
                 <div>
                     <div className="font-medium">{leave.user_name}</div>
@@ -47,12 +48,12 @@ export function LeavePendingApprovalsTab({
         },
         {
             key: 'leave_type',
-            header: '假別',
-            cell: (leave) => LEAVE_TYPE_NAMES[leave.leave_type] || leave.leave_type,
+            header: t('hrPages.shared.col.leaveType'),
+            cell: (leave) => leaveTypeLabel(t, leave.leave_type),
         },
         {
             key: 'date',
-            header: '日期',
+            header: t('hrPages.shared.col.date'),
             cell: (leave) => (
                 <span className="whitespace-nowrap">
                     {formatDate(leave.start_date)}
@@ -62,23 +63,23 @@ export function LeavePendingApprovalsTab({
         },
         {
             key: 'hours',
-            header: '時數',
-            cell: (leave) => formatLeaveHours(leave),
+            header: t('hrPages.shared.col.hours'),
+            cell: (leave) => formatLeaveHours(t, leave),
         },
         {
             key: 'reason',
-            header: '事由',
+            header: t('hrPages.shared.col.reason'),
             className: 'max-w-[200px] whitespace-normal break-words',
             cell: (leave) => leave.reason,
         },
         {
             key: 'status',
-            header: '狀態',
-            cell: (leave) => LEAVE_STATUS_NAMES[leave.status] || leave.status,
+            header: t('hrPages.shared.col.status'),
+            cell: (leave) => leaveStatusLabel(t, leave.status),
         },
         {
             key: 'actions',
-            header: '操作',
+            header: t('common.actions'),
             className: 'text-right',
             // 依當前使用者於此列的角色顯示對應動作：
             //   can_confirm_proxy → 代理人「確認 / 退回」；can_approve → 主管/負責人「核准 / 駁回」。
@@ -93,7 +94,7 @@ export function LeavePendingApprovalsTab({
                                 disabled={proxyConfirmPending}
                             >
                                 <UserCheck className="h-4 w-4 mr-1" />
-                                確認代理
+                                {t('hrPages.shared.action.confirmDelegate')}
                             </Button>
                             <Button
                                 variant="destructive"
@@ -102,7 +103,7 @@ export function LeavePendingApprovalsTab({
                                 disabled={proxyRejectPending}
                             >
                                 <XCircle className="h-4 w-4 mr-1" />
-                                退回
+                                {t('hrPages.shared.action.return')}
                             </Button>
                         </div>
                     )
@@ -124,8 +125,8 @@ export function LeavePendingApprovalsTab({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>待我審核</CardTitle>
-                <CardDescription>您需要審核，或身為職務代理人需確認的請假申請</CardDescription>
+                <CardTitle>{t('hrPages.shared.pendingMyReview')}</CardTitle>
+                <CardDescription>{t('hrPages.leaves.pending.description')}</CardDescription>
             </CardHeader>
             <CardContent>
                 <DataTable
@@ -133,7 +134,7 @@ export function LeavePendingApprovalsTab({
                     data={leaves}
                     isLoading={isLoading}
                     emptyIcon={FileText}
-                    emptyTitle="沒有待審核的請假"
+                    emptyTitle={t('hrPages.leaves.pending.empty')}
                     rowKey={(row) => row.id}
                 />
             </CardContent>

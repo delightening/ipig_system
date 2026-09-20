@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { useToggle } from '@/hooks/useToggle'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
 import { checkPasswordComplexity, getStrengthColor, PASSWORD_MIN_LENGTH } from '@/lib/passwordValidation'
@@ -16,6 +17,7 @@ import { Loader2, Lock, ArrowLeft, CheckCircle, AlertCircle, Eye, EyeOff, Shield
 type ResetPasswordFormData = { password: string; confirmPassword: string }
 
 export function ResetPasswordPage() {
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
 
@@ -52,21 +54,21 @@ export function ResetPasswordPage() {
     onSuccess: () => {
       setSuccess(true)
       toast({
-        title: '密碼重設成功',
-        description: '您可以使用新密碼登入了',
+        title: t('auth.resetPassword.successToastTitle'),
+        description: t('auth.resetPassword.successToastDescription'),
       })
     },
     onError: (error: unknown) => {
-      const message = getErrorMessage(error) || '密碼重設失敗'
+      const message = getErrorMessage(error) || t('auth.resetPassword.failedFallback')
       if (message.includes('expired') || message.includes('invalid')) {
         toast({
-          title: '連結已失效',
-          description: '此密碼重設連結已失效或過期，請重新申請',
+          title: t('auth.resetPassword.linkExpiredTitle'),
+          description: t('auth.resetPassword.linkExpiredDescription'),
           variant: 'destructive',
         })
       } else {
         toast({
-          title: '錯誤',
+          title: t('common.error'),
           description: message,
           variant: 'destructive',
         })
@@ -88,22 +90,22 @@ export function ResetPasswordPage() {
           <CardContent className="pt-8 pb-8 text-center space-y-6">
             <AlertCircle className="h-12 w-12 text-destructive mx-auto" strokeWidth={1.5} />
             <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-foreground">無效的連結</h2>
+              <h2 className="text-xl font-semibold text-foreground">{t('auth.resetPassword.invalidLinkTitle')}</h2>
               <p className="text-muted-foreground">
-                此密碼重設連結無效或已過期，請重新申請密碼重設。
+                {t('auth.resetPassword.invalidLinkDescription')}
               </p>
             </div>
             <div className="pt-4">
               <Link to="/forgot-password">
                 <Button className="bg-primary hover:bg-primary/90">
-                  重新申請密碼重設
+                  {t('auth.resetPassword.requestAgain')}
                 </Button>
               </Link>
             </div>
             <div className="pt-2">
               <Link to="/login" className="text-primary hover:text-primary/80 text-sm">
                 <ArrowLeft className="h-4 w-4 inline mr-1" />
-                返回登入頁面
+                {t('auth.backToLoginPage')}
               </Link>
             </div>
           </CardContent>
@@ -122,15 +124,15 @@ export function ResetPasswordPage() {
           <CardContent className="pt-8 pb-8 text-center space-y-6">
             <CheckCircle className="h-12 w-12 text-status-success-text mx-auto" strokeWidth={1.5} />
             <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-foreground">密碼重設成功！</h2>
+              <h2 className="text-xl font-semibold text-foreground">{t('auth.resetPassword.successTitle')}</h2>
               <p className="text-muted-foreground">
-                您的密碼已成功重設，請使用新密碼登入。
+                {t('auth.resetPassword.successDescription')}
               </p>
             </div>
             <div className="pt-4">
               <Link to="/login">
                 <Button className="bg-primary hover:bg-primary/90 w-full">
-                  前往登入
+                  {t('auth.resetPassword.goToLogin')}
                 </Button>
               </Link>
             </div>
@@ -151,25 +153,25 @@ export function ResetPasswordPage() {
             <ShieldCheck className="h-6 w-6 text-primary" />
           </div>
           <CardTitle className="text-2xl font-bold text-center text-foreground">
-            設定新密碼
+            {t('auth.resetPassword.title')}
           </CardTitle>
           <CardDescription className="text-center text-muted-foreground">
-            請輸入您的新密碼
+            {t('auth.resetPassword.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onValid)} className="space-y-6">
             <div className="space-y-2">
-              <FormField label="新密碼" htmlFor="newPassword" error={errors.password?.message}>
+              <FormField label={t('password.newPassword')} htmlFor="newPassword" error={errors.password?.message}>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="newPassword"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="請輸入新密碼"
+                    placeholder={t('auth.fields.newPasswordPlaceholder')}
                     {...register('password', {
-                      required: '請輸入新密碼',
-                      minLength: { value: PASSWORD_MIN_LENGTH, message: `密碼至少 ${PASSWORD_MIN_LENGTH} 個字元` },
+                      required: t('auth.validation.newPasswordRequired'),
+                      minLength: { value: PASSWORD_MIN_LENGTH, message: t('auth.passwordRules.minLengthShort', { min: PASSWORD_MIN_LENGTH }) },
                     })}
                     className="pl-9 pr-10 bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring"
                     autoComplete="new-password"
@@ -200,36 +202,36 @@ export function ResetPasswordPage() {
                   </div>
                   <div className="text-xs space-y-1 text-muted-foreground">
                     <p className={passwordChecks.length ? 'text-status-success-text' : ''}>
-                      {passwordChecks.length ? '\u2713' : '\u25CB'} {`\u81F3\u5C11 ${PASSWORD_MIN_LENGTH} \u500B\u5B57\u5143`}
+                      {passwordChecks.length ? '\u2713' : '\u25CB'} {t('auth.passwordChecks.minLength', { min: PASSWORD_MIN_LENGTH })}
                     </p>
                     <p className={passwordChecks.uppercase ? 'text-status-success-text' : ''}>
-                      {passwordChecks.uppercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5927\u5BEB\u5B57\u6BCD'}
+                      {passwordChecks.uppercase ? '\u2713' : '\u25CB'} {t('auth.passwordChecks.uppercase')}
                     </p>
                     <p className={passwordChecks.lowercase ? 'text-status-success-text' : ''}>
-                      {passwordChecks.lowercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5C0F\u5BEB\u5B57\u6BCD'}
+                      {passwordChecks.lowercase ? '\u2713' : '\u25CB'} {t('auth.passwordChecks.lowercase')}
                     </p>
                     <p className={passwordChecks.number ? 'text-status-success-text' : ''}>
-                      {passwordChecks.number ? '\u2713' : '\u25CB'} {'\u5305\u542B\u6578\u5B57'}
+                      {passwordChecks.number ? '\u2713' : '\u25CB'} {t('auth.passwordChecks.number')}
                     </p>
                     <p className={passwordChecks.notCommon ? 'text-status-success-text' : ''}>
-                      {passwordChecks.notCommon ? '\u2713' : '\u25CB'} {'\u975E\u5E38\u898B\u5F31\u5BC6\u78BC'}
+                      {passwordChecks.notCommon ? '\u2713' : '\u25CB'} {t('auth.passwordChecks.notCommon')}
                     </p>
                   </div>
                 </div>
               )}
             </div>
 
-            <FormField label="確認新密碼" htmlFor="confirmPassword" error={errors.confirmPassword?.message}>
+            <FormField label={t('password.confirmPassword')} htmlFor="confirmPassword" error={errors.confirmPassword?.message}>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="confirmPassword"
                   type={showConfirmPassword ? 'text' : 'password'}
-                  placeholder="再次輸入新密碼"
+                  placeholder={t('auth.fields.confirmNewPasswordPlaceholder')}
                   {...register('confirmPassword', {
-                    required: '請確認新密碼',
+                    required: t('auth.validation.confirmNewPasswordRequired'),
                     validate: (value, formValues) =>
-                      value === formValues.password || '兩次輸入的密碼不一致',
+                      value === formValues.password || t('auth.resetPassword.passwordsDoNotMatch'),
                   })}
                   className="pl-9 pr-10 bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring"
                   autoComplete="new-password"
@@ -243,7 +245,7 @@ export function ResetPasswordPage() {
                 </button>
               </div>
               {confirmPassword && newPassword === confirmPassword && newPassword && (
-                <p className="text-xs text-status-success-text">✓ 密碼一致</p>
+                <p className="text-xs text-status-success-text">✓ {t('auth.passwordChecks.match')}</p>
               )}
             </FormField>
 
@@ -255,17 +257,17 @@ export function ResetPasswordPage() {
               {resetPasswordMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  處理中...
+                  {t('common.processed')}
                 </>
               ) : (
-                '確認重設密碼'
+                t('auth.resetPassword.submit')
               )}
             </Button>
 
             <div className="text-center pt-2">
               <Link to="/login" className="text-primary hover:text-primary/80 text-sm">
                 <ArrowLeft className="h-4 w-4 inline mr-1" />
-                返回登入頁面
+                {t('auth.backToLoginPage')}
               </Link>
             </div>
           </form>

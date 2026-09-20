@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -47,6 +48,7 @@ export function DrugCheckInput({
   drug: AnesthesiaDrug
   onChange: (drug: AnesthesiaDrug) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="flex items-center gap-3">
       <Checkbox
@@ -57,7 +59,7 @@ export function DrugCheckInput({
       {drug.enabled && (
         <Input
           className="w-32"
-          placeholder="劑量"
+          placeholder={t('animalRecords.shared.dosePlaceholder')}
           value={drug.dose}
           onChange={(e) => onChange({ ...drug, dose: e.target.value })}
         />

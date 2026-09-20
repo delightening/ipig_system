@@ -1,5 +1,9 @@
 import { test, expect } from './fixtures/admin-context'
 import { ensureAdminOnPage } from './auth-helpers'
+import { txt } from './helpers/i18n'
+
+// 分頁文字含圖示旁的 label，用「包含」比對；en 是 "Attendance Records"，不含舊正則的 history
+const HISTORY_TAB = txt('hrPages.attendance.tabs.history', { exact: false })
 
 test.describe('HR 出勤打卡', () => {
     test.beforeEach(async ({ page }) => {
@@ -23,9 +27,7 @@ test.describe('HR 出勤打卡', () => {
 
     test('切換至出勤記錄 Tab 後日期選擇應可運作', async ({ page }) => {
         // 點擊「出勤記錄」tab（history tab）
-        const historyTab = page.locator('[role="tab"]').filter({
-            hasText: /出勤記錄|history|歷史/i,
-        })
+        const historyTab = page.locator('[role="tab"]').filter({ hasText: HISTORY_TAB })
         await expect(historyTab.first()).toBeVisible({ timeout: 10_000 })
         await historyTab.first().click()
         await page.waitForTimeout(500)
@@ -42,9 +44,7 @@ test.describe('HR 出勤打卡', () => {
 
     test('出勤記錄 Tab 應顯示表格或空狀態', async ({ page }) => {
         // 點擊「出勤記錄」tab
-        const historyTab = page.locator('[role="tab"]').filter({
-            hasText: /出勤記錄|history|歷史/i,
-        })
+        const historyTab = page.locator('[role="tab"]').filter({ hasText: HISTORY_TAB })
         await expect(historyTab.first()).toBeVisible({ timeout: 10_000 })
         await historyTab.first().click()
         await page.waitForTimeout(1000)

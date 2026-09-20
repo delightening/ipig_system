@@ -13,6 +13,7 @@
 //        版面拆為 BasicInfoSection / CategorySection / EntryCard /
 //        ReportPhotosSection / FooterActions；本檔僅組裝。
 
+import { useTranslation } from 'react-i18next'
 import { Stethoscope, Loader2 } from 'lucide-react'
 import {
     Dialog,
@@ -35,6 +36,7 @@ interface VetPatrolReportDialogProps {
 }
 
 export function VetPatrolReportDialog({ open, onOpenChange, editReportId }: VetPatrolReportDialogProps) {
+    const { t } = useTranslation()
     const vm = useVetPatrolReport({ open, onOpenChange, editReportId })
 
     return (
@@ -43,11 +45,11 @@ export function VetPatrolReportDialog({ open, onOpenChange, editReportId }: VetP
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-status-success-solid">
                         <Stethoscope className="h-5 w-5" />
-                        獸醫巡場報告
+                        {t('animalActions.vetPatrol.title')}
                         {vm.isSaving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                     </DialogTitle>
                     <DialogDescription className="sr-only">
-                        建立 / 編輯獸醫巡場報告：填寫觀察、建議、追蹤改善，並指派追蹤者完成兩階段流程。
+                        {t('animalActions.vetPatrol.dialogDescription')}
                     </DialogDescription>
                 </DialogHeader>
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { cn, uiLocale } from '@/lib/utils'
 import { notificationTargetPath } from '@/lib/notificationRoute'
@@ -23,6 +24,7 @@ const TAB_PANEL_ID = 'notifications-panel'
 const isEntry = (v: string | null): v is NotificationEntry => v === 'bell' || v === 'todo'
 
 export default function NotificationsPage() {
+    const { t } = useTranslation()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
     const [searchParams, setSearchParams] = useSearchParams()
@@ -72,7 +74,7 @@ export default function NotificationsPage() {
         mutationFn: async () => api.post('/notifications/read-all'),
         onSuccess: () => {
             invalidateAll()
-            toast({ title: '已全部標記為已讀' })
+            toast({ title: t('notificationsPage.markAllReadToast') })
         },
     })
 
@@ -102,14 +104,14 @@ export default function NotificationsPage() {
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         {isTodo ? <CircleAlert className="h-6 w-6" /> : <Bell className="h-6 w-6" />}
-                        {isTodo ? '待處理' : '通知中心'}
+                        {isTodo ? t('common.actionRequired') : t('notificationsPage.title')}
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
                         {isTodo
                             ? total > 0
-                                ? `${total} 件待你處理，完成後會自動消失`
-                                : '目前沒有待處理事項'
-                            : `共 ${total} 筆通知`}
+                                ? t('notificationsPage.todoCount', { count: total })
+                                : t('common.noActionRequired')
+                            : t('notificationsPage.totalCount', { count: total })}
                     </p>
                 </div>
                 {/* 待處理分頁刻意沒有「全部標記已讀」：待辦不可手動略過 */}
@@ -121,15 +123,15 @@ export default function NotificationsPage() {
                         disabled={markAllReadMutation.isPending}
                     >
                         <CheckCheck className="h-4 w-4 mr-1" />
-                        全部標記已讀
+                        {t('common.markAllRead')}
                     </Button>
                 )}
             </div>
 
             <div className="flex gap-1 border-b" role="tablist">
                 {([
-                    { key: 'bell' as const, label: '通知', icon: Bell },
-                    { key: 'todo' as const, label: '待處理', icon: CircleAlert },
+                    { key: 'bell' as const, label: t('common.notifications'), icon: Bell },
+                    { key: 'todo' as const, label: t('common.actionRequired'), icon: CircleAlert },
                 ]).map(({ key, label, icon: Icon }) => (
                     <button
                         key={key}
@@ -160,7 +162,7 @@ export default function NotificationsPage() {
                 {isLoading ? (
                     <div className="p-8 text-center text-muted-foreground">
                         <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-                        載入中...
+                        {t('common.loading')}
                     </div>
                 ) : notifications.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground">
@@ -168,12 +170,12 @@ export default function NotificationsPage() {
                             <>
                                 {/* 「沒有待辦」是好消息，用完成色而非灰色空狀態 */}
                                 <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-status-success-solid" />
-                                目前沒有待處理事項
+                                {t('common.noActionRequired')}
                             </>
                         ) : (
                             <>
                                 <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                尚無通知
+                                {t('notificationsPage.empty')}
                             </>
                         )}
                     </div>
@@ -206,7 +208,7 @@ export default function NotificationsPage() {
                             {isResolvedAction && (
                                 <span className="inline-flex items-center gap-1 mb-1 text-xs font-medium px-1.5 py-0.5 rounded bg-status-success-bg text-status-success-text">
                                     <CheckCircle2 className="h-3 w-3" />
-                                    已完成
+                                    {t('common.actionCompleted')}
                                 </span>
                             )}
                             <p className={cn('text-sm', (isTodo || !n.is_read) && 'font-semibold')}>
@@ -220,7 +222,7 @@ export default function NotificationsPage() {
                             <div className="flex items-center gap-2 mt-1">
                                 <span className="text-xs text-muted-foreground">
                                     {/* 待辦看的是「拖多久了」，通知看的是「什麼時候發生的」 */}
-                                    {isTodo && days >= 1 ? `已等待 ${days} 天` : formatTime(n.created_at)}
+                                    {isTodo && days >= 1 ? t('common.waitingDays', { count: days }) : formatTime(n.created_at)}
                                 </span>
                                 <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                                     {notificationTypeNames[n.type] ?? n.type}
@@ -246,7 +248,7 @@ export default function NotificationsPage() {
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <span className="text-sm text-muted-foreground">
-                        第 {page} / {totalPages} 頁
+                        {t('notificationsPage.pageIndicator', { page, totalPages })}
                     </span>
                     <Button
                         variant="outline"

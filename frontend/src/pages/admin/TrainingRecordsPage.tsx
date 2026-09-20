@@ -7,6 +7,7 @@
  * - Card 內搜尋 + 員工標籤選擇
  */
 
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { PageTabs, PageTabContent } from '@/components/ui/page-tabs'
@@ -20,6 +21,7 @@ import { TrainingExpiringTab } from './components/TrainingExpiringTab'
 import { TrainingFormDialog } from './components/TrainingFormDialog'
 
 export function TrainingRecordsPage() {
+  const { t } = useTranslation()
   const isGuestUser = useAuthIsGuest()
   const {
     canManage,
@@ -57,12 +59,12 @@ export function TrainingRecordsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="人員訓練紀錄"
-        description="GLP 合規：管理人員訓練與證照有效期限"
+        title={t('adminUsers.trainingRecords.title')}
+        description={t('adminUsers.trainingRecords.description')}
         actions={(canManage || isGuestUser) ? (
-          <Button size="sm" onClick={isGuestUser ? undefined : openCreateDialog} disabled={isGuestUser} title={isGuestUser ? '訪客模式' : undefined}>
+          <Button size="sm" onClick={isGuestUser ? undefined : openCreateDialog} disabled={isGuestUser} title={isGuestUser ? t('admin.trainingRecordsTab.guestMode') : undefined}>
             <Plus className="h-4 w-4 mr-2" />
-            新增訓練紀錄
+            {t('adminUsers.trainingRecords.addButton')}
           </Button>
         ) : undefined}
       />
@@ -71,8 +73,8 @@ export function TrainingRecordsPage() {
 
       <PageTabs
         tabs={[
-          { value: 'records', label: '員工訓練紀錄', icon: User },
-          { value: 'expiring', label: '證照即將到期', icon: AlertTriangle, badge: expiringSoonCount },
+          { value: 'records', label: t('adminUsers.trainingRecords.tabRecords'), icon: User },
+          { value: 'expiring', label: t('adminUsers.trainingRecords.tabExpiring'), icon: AlertTriangle, badge: expiringSoonCount },
         ]}
         defaultTab="records"
       >

@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -53,6 +54,7 @@ interface Props {
 }
 
 export function ObservationPainSection({ observationId, entries, onChange }: Props) {
+    const { t } = useTranslation()
     const [isOpen, setIsOpen] = useState(false)
     const [showAddForm, setShowAddForm] = useState(false)
     const [addForm, setAddForm] = useState<PainAssessmentEntry>({ ...emptyPainEntry })
@@ -115,12 +117,12 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
                 onClick={() => setIsOpen(!isOpen)}
             >
                 <span className="flex items-center gap-2">
-                    疼痛評估
+                    {t('animalDetail.tabs.painAssessment')}
                     {totalCount > 0 && (
-                        <Badge variant="secondary" className="text-xs">{totalCount} 筆</Badge>
+                        <Badge variant="secondary" className="text-xs">{t('animalRecords.painAssessment.entryCount', { count: totalCount })}</Badge>
                     )}
                     {hasNewEntries && (
-                        <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">待儲存</Badge>
+                        <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">{t('animalRecords.painAssessment.pendingSave')}</Badge>
                     )}
                 </span>
                 {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -139,7 +141,7 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
                                 const grade = getPainGrade(total)
                                 const meds = entry.post_medications
                                     .map((m) => m.name + (m.dose ? ` ${m.dose}${m.dosage_unit || ''}` : ''))
-                                    .join('、')
+                                    .join(t('animalRecords.shared.listSeparator'))
 
                                 return (
                                     <div key={entry.id || `new-${idx}`}
@@ -150,18 +152,18 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
                                                 D{entry.post_op_days || '?'}-{entry.time_period}
                                             </span>
                                             {total !== null && (
-                                                <span>總分: <strong>{total}</strong></span>
+                                                <span>{t('animalRecords.painAssessment.totalLabel')} <strong>{total}</strong></span>
                                             )}
                                             {grade && (
                                                 <Badge variant={grade.variant} className="text-xs">
-                                                    {grade.label.split('（')[0]}
+                                                    {t(grade.labelKey)}
                                                 </Badge>
                                             )}
                                             {meds && (
                                                 <span className="text-xs text-muted-foreground">{meds}</span>
                                             )}
                                             {!entry.id && (
-                                                <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">新增</Badge>
+                                                <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">{t('animalRecords.painAssessment.newBadge')}</Badge>
                                             )}
                                         </div>
                                         {!entry.id && (
@@ -185,29 +187,29 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
                     {showAddForm ? (
                         <div className="border rounded-md p-4 space-y-4 bg-background">
                             <div className="flex items-center justify-between">
-                                <Label className="text-sm font-semibold">新增疼痛評估</Label>
+                                <Label className="text-sm font-semibold">{t('animalRecords.painAssessment.add')}</Label>
                                 <Button type="button" variant="ghost" size="sm"
                                     onClick={() => { setShowAddForm(false); setAddForm({ ...emptyPainEntry }) }}>
-                                    取消
+                                    {t('common.cancel')}
                                 </Button>
                             </div>
 
                             {/* 術後天數 & 時段 */}
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1">
-                                    <Label className="text-xs">術後天數</Label>
+                                    <Label className="text-xs">{t('animalRecords.painAssessment.postOpDays')}</Label>
                                     <Input type="number" min={0} value={addForm.post_op_days}
                                         onChange={(e) => setAddForm({ ...addForm, post_op_days: e.target.value })}
                                         placeholder="D1, D2..." className="h-8" />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label className="text-xs">時段</Label>
+                                    <Label className="text-xs">{t('animalRecords.painAssessment.timePeriod')}</Label>
                                     <Select value={addForm.time_period}
                                         onValueChange={(v) => setAddForm({ ...addForm, time_period: v })}>
                                         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="AM">上午 (AM)</SelectItem>
-                                            <SelectItem value="PM">下午 (PM)</SelectItem>
+                                            <SelectItem value="AM">{t('animalRecords.painAssessment.timeAm')}</SelectItem>
+                                            <SelectItem value="PM">{t('animalRecords.painAssessment.timePm')}</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -215,39 +217,39 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
 
                             {/* 評估項目 */}
                             <div className="space-y-2">
-                                <CompactAssessmentRow label="傷口狀況" options={INCISION_OPTIONS}
+                                <CompactAssessmentRow label={t('animalRecords.painAssessment.items.incision')} options={INCISION_OPTIONS}
                                     value={addForm.incision} onChange={(v) => setAddForm({ ...addForm, incision: v })} />
-                                <CompactAssessmentRow label="態度/行為" options={ATTITUDE_OPTIONS}
+                                <CompactAssessmentRow label={t('animalRecords.painAssessment.items.attitude')} options={ATTITUDE_OPTIONS}
                                     value={addForm.attitude_behavior} onChange={(v) => setAddForm({ ...addForm, attitude_behavior: v })} />
-                                <CompactAssessmentRow label="食慾" options={APPETITE_OPTIONS}
+                                <CompactAssessmentRow label={t('animalRecords.painAssessment.items.appetite')} options={APPETITE_OPTIONS}
                                     value={addForm.appetite} onChange={(v) => setAddForm({ ...addForm, appetite: v })} />
-                                <CompactAssessmentRow label="排便" options={FECES_OPTIONS}
+                                <CompactAssessmentRow label={t('animalRecords.painAssessment.items.feces')} options={FECES_OPTIONS}
                                     value={addForm.feces} onChange={(v) => setAddForm({ ...addForm, feces: v })} />
-                                <CompactAssessmentRow label="排尿" options={URINE_OPTIONS}
+                                <CompactAssessmentRow label={t('animalRecords.painAssessment.items.urine')} options={URINE_OPTIONS}
                                     value={addForm.urine} onChange={(v) => setAddForm({ ...addForm, urine: v })} />
-                                <CompactAssessmentRow label="疼痛分數" options={PAIN_SCORE_OPTIONS}
+                                <CompactAssessmentRow label={t('animalRecords.painAssessment.items.painScore')} options={PAIN_SCORE_OPTIONS}
                                     value={addForm.pain_score} onChange={(v) => setAddForm({ ...addForm, pain_score: v })} />
                             </div>
 
                             {/* 總分 & 疼痛分級 */}
                             {addFormTotal !== null && addFormGrade && (
                                 <div className="flex items-center gap-4 rounded-md bg-muted/40 px-3 py-2 text-sm">
-                                    <span>總分: <strong className="text-lg">{addFormTotal}</strong></span>
+                                    <span>{t('animalRecords.painAssessment.totalLabel')} <strong className="text-lg">{addFormTotal}</strong></span>
                                     <Badge variant={addFormGrade.variant}>
-                                        第{addFormGrade.grade}級：{addFormGrade.label.split('（')[0]}
+                                        {t('animalRecords.painAssessment.gradeLevelLabel', { grade: addFormGrade.grade, label: t(addFormGrade.labelKey) })}
                                     </Badge>
-                                    <span className="text-xs text-muted-foreground">{addFormGrade.advice}</span>
+                                    <span className="text-xs text-muted-foreground">{t(addFormGrade.adviceKey)}</span>
                                 </div>
                             )}
 
                             {/* 術後給藥 */}
                             <div className="space-y-1">
-                                <Label className="text-xs font-medium">術後給藥</Label>
+                                <Label className="text-xs font-medium">{t('animalRecords.painAssessment.postMedication')}</Label>
                                 <Repeater<MedicationItem>
                                     value={addForm.post_medications}
                                     onChange={(post_medications) => setAddForm({ ...addForm, post_medications })}
                                     defaultItem={() => ({ name: '', dose: '', drug_option_id: undefined, dosage_unit: '' })}
-                                    addLabel="新增藥物"
+                                    addLabel={t('animalRecords.painAssessment.addDrug')}
                                     renderItem={(item, _index, onItemChange) => (
                                         <DrugCombobox
                                             value={{
@@ -269,16 +271,16 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
                                     )}
                                 />
                                 <p className="text-xs text-muted-foreground pt-1">
-                                    Ketorolac (IM)：體重 &gt;50kg 給 60mg，≤50kg 給 30mg
+                                    {t('animalRecords.painAssessment.ketorolacHint')}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                    Meloxicam：0.1–0.4 mg/kg (SID)
+                                    {t('animalRecords.painAssessment.meloxicamHint')}
                                 </p>
                             </div>
 
                             <Button type="button" size="sm" onClick={handleAddEntry}
                                 className="w-full bg-status-purple-solid hover:bg-status-purple-solid/90">
-                                確認新增此筆評估
+                                {t('animalRecords.painAssessment.confirmAdd')}
                             </Button>
                         </div>
                     ) : (
@@ -290,7 +292,7 @@ export function ObservationPainSection({ observationId, entries, onChange }: Pro
                             onClick={() => setShowAddForm(true)}
                         >
                             <Plus className="h-4 w-4 mr-1" />
-                            新增疼痛評估
+                            {t('animalRecords.painAssessment.add')}
                         </Button>
                     )}
                 </div>
@@ -306,12 +308,13 @@ function CompactAssessmentRow({ label, options, value, onChange }: {
     value: string
     onChange: (v: string) => void
 }) {
+    const { t } = useTranslation()
     return (
         <div className="grid grid-cols-[90px_1fr] items-center gap-2">
             <Label className="text-xs text-right">{label}</Label>
             <Select value={value} onValueChange={onChange}>
                 <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="選擇..." />
+                    <SelectValue placeholder={t('animalRecords.painAssessment.selectPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                     {options.map((opt) => (
@@ -320,7 +323,7 @@ function CompactAssessmentRow({ label, options, value, onChange }: {
                                 <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-muted text-[10px] font-bold shrink-0">
                                     {opt.score}
                                 </span>
-                                <span className="text-xs">{opt.label}</span>
+                                <span className="text-xs">{t(opt.labelKey)}</span>
                             </span>
                         </SelectItem>
                     ))}

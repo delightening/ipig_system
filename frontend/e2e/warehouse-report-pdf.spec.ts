@@ -8,6 +8,7 @@
  */
 import { test, expect } from './fixtures/admin-context'
 import { ensureAdminOnPage } from './auth-helpers'
+import { txt } from './helpers/i18n'
 
 test.describe('R35-10 倉庫報表 PDF 列印', () => {
     test('列印按鈕應觸發 PDF 抓取並開新分頁', async ({ page, context }) => {
@@ -39,12 +40,12 @@ test.describe('R35-10 倉庫報表 PDF 列印', () => {
 
         await page.goto(`/inventory/warehouse-report/${warehouseId}`)
         await page.waitForLoadState('domcontentloaded')
-        // 等報表資料 query 完成（顯示 "倉庫現況報表" 標題）
-        await expect(page.getByRole('heading', { name: '倉庫現況報表' })).toBeVisible({
+        // 等報表資料 query 完成（顯示報表標題）
+        await expect(page.getByRole('heading', { name: txt('erpDocs.warehouse.report.title') })).toBeVisible({
             timeout: 15_000,
         })
 
-        const printButton = page.getByRole('button', { name: /列印/ })
+        const printButton = page.getByRole('button', { name: txt('erpDocs.warehouse.report.print') })
         await expect(printButton).toBeEnabled({ timeout: 5_000 })
 
         // window.open(blob, _blank) 觸發 popup；同時驗 PDF API

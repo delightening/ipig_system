@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { useToggle } from '@/hooks/useToggle'
 
 import { Card, CardContent } from '@/components/ui/card'
@@ -23,6 +24,7 @@ type SystemSettings = Record<string, string>
 const SMTP_MASK = '********'
 
 export function SettingsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const hasPermission = useAuthHasPermission()
   const [showPassword, togglePassword] = useToggle()
@@ -57,10 +59,10 @@ export function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['system-settings'] })
       settingsForm.clearDirty()
-      toast({ title: '成功', description: '系統設定已儲存' })
+      toast({ title: t('common.success'), description: t('adminUsers.settings.systemSaved') })
     },
     onError: (error: unknown) => {
-      toast({ title: '錯誤', description: getErrorMessage(error) || '儲存失敗', variant: 'destructive' })
+      toast({ title: t('common.error'), description: getErrorMessage(error) || t('adminUsers.shared.saveFailed'), variant: 'destructive' })
     },
   })
 
@@ -88,10 +90,10 @@ export function SettingsPage() {
     onSuccess: (data) => {
       setNotificationSettings(data)
       queryClient.invalidateQueries({ queryKey: ['notification-settings'] })
-      toast({ title: '成功', description: '通知設定已儲存' })
+      toast({ title: t('common.success'), description: t('adminUsers.settings.notificationSaved') })
     },
     onError: (error: unknown) => {
-      toast({ title: '錯誤', description: getErrorMessage(error) || '儲存失敗', variant: 'destructive' })
+      toast({ title: t('common.error'), description: getErrorMessage(error) || t('adminUsers.shared.saveFailed'), variant: 'destructive' })
     },
   })
 
@@ -122,8 +124,8 @@ export function SettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="系統設定"
-        description="管理系統的全域設定參數"
+        title={t('nav.adminSettings')}
+        description={t('adminUsers.settings.description')}
       />
 
       {isLoadingSys && (
@@ -136,7 +138,7 @@ export function SettingsPage() {
         <Card className="border-destructive bg-status-error-bg">
           <CardContent className="flex items-center gap-3 py-6">
             <AlertCircle className="h-5 w-5 text-destructive" />
-            <span className="text-status-error-text">無法載入系統設定，請確認您有管理員權限</span>
+            <span className="text-status-error-text">{t('adminUsers.settings.loadError')}</span>
           </CardContent>
         </Card>
       )}
@@ -162,7 +164,7 @@ export function SettingsPage() {
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              儲存系統設定
+              {t('adminUsers.settings.saveButton')}
             </Button>
           </div>
         </>

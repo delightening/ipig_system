@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import {
     Select,
     SelectContent,
@@ -7,6 +9,8 @@ import {
 } from '@/components/ui/select'
 import { FilterBar } from '@/components/ui/filter-bar'
 import { DRUG_CATEGORIES } from '@/types/treatment-drug'
+
+import { drugCategoryLabel } from '../constants'
 
 interface DrugFilterBarProps {
     keyword: string
@@ -25,31 +29,32 @@ export function DrugFilterBar({
     filterActive,
     onActiveChange,
 }: DrugFilterBarProps) {
+    const { t } = useTranslation()
     return (
         <FilterBar
             search={keyword}
             onSearchChange={onKeywordChange}
-            searchPlaceholder="搜尋藥物名稱..."
+            searchPlaceholder={t('adminOps.treatmentDrugs.filter.searchPlaceholder')}
         >
             <Select value={filterCategory} onValueChange={onCategoryChange}>
                 <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="分類" />
+                    <SelectValue placeholder={t('adminOps.treatmentDrugs.filter.categoryPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="all">全部分類</SelectItem>
+                    <SelectItem value="all">{t('adminOps.treatmentDrugs.filter.allCategories')}</SelectItem>
                     {DRUG_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        <SelectItem key={cat} value={cat}>{drugCategoryLabel(cat, t)}</SelectItem>
                     ))}
                 </SelectContent>
             </Select>
             <Select value={filterActive} onValueChange={onActiveChange}>
                 <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="狀態" />
+                    <SelectValue placeholder={t('adminOps.treatmentDrugs.filter.statusPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="all">全部</SelectItem>
-                    <SelectItem value="active">啟用中</SelectItem>
-                    <SelectItem value="inactive">已停用</SelectItem>
+                    <SelectItem value="all">{t('adminOps.treatmentDrugs.filter.all')}</SelectItem>
+                    <SelectItem value="active">{t('adminOps.treatmentDrugs.filter.active')}</SelectItem>
+                    <SelectItem value="inactive">{t('adminOps.treatmentDrugs.filter.inactive')}</SelectItem>
                 </SelectContent>
             </Select>
         </FilterBar>

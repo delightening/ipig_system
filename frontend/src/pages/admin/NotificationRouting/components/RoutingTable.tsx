@@ -14,6 +14,7 @@ import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useState } from 'react'
 import { Bell, Pencil, Trash2, FileCheck, PawPrint, Package, Users, Wrench, Link2, ChevronRight, ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import type { NotificationRouting, RoutingRuleRecipients } from '../types'
 import type { GroupKey } from '../constants'
@@ -104,6 +105,7 @@ function GroupTable({
     onDelete: (rule: NotificationRouting) => void
     onToggleActive: (id: string, isActive: boolean) => void
 }) {
+    const { t } = useTranslation()
     const { sortedData, sort, toggleSort } = useTableSort(rules)
 
     return (
@@ -111,12 +113,12 @@ function GroupTable({
             <Table>
                 <TableHeader>
                     <TableRow className="bg-muted/50 hover:bg-muted/50">
-                        <SortableTableHead sortKey="event_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[200px]">事件類型</SortableTableHead>
-                        <SortableTableHead sortKey="target_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[180px]">收件人來源</SortableTableHead>
-                        <SortableTableHead sortKey="channel" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[160px]">通知管道</SortableTableHead>
-                        <TableHead className="w-[80px] text-center">啟用</TableHead>
-                        <TableHead>描述</TableHead>
-                        <TableHead className="w-[100px] text-right">操作</TableHead>
+                        <SortableTableHead sortKey="event_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[200px]">{t('adminOps.notificationRouting.table.colEventType')}</SortableTableHead>
+                        <SortableTableHead sortKey="target_value" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[180px]">{t('adminOps.notificationRouting.table.colRecipientSource')}</SortableTableHead>
+                        <SortableTableHead sortKey="channel" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[160px]">{t('adminOps.notificationRouting.channelLabel')}</SortableTableHead>
+                        <TableHead className="w-[80px] text-center">{t('adminOps.notificationRouting.table.colActive')}</TableHead>
+                        <TableHead>{t('adminOps.notificationRouting.descriptionLabel')}</TableHead>
+                        <TableHead className="w-[100px] text-right">{t('common.actions')}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -134,7 +136,7 @@ function GroupTable({
                             />
                         ))
                     ) : (
-                        <TableEmptyRow colSpan={6} icon={Bell} title="此分類尚無通知路由規則，可點擊「新增規則」建立" />
+                        <TableEmptyRow colSpan={6} icon={Bell} title={t('adminOps.notificationRouting.table.emptyTitle')} />
                     )}
                 </TableBody>
             </Table>
@@ -161,6 +163,7 @@ function RoutingRow({
     onDelete,
     onToggleActive,
 }: RoutingRowProps) {
+    const { t } = useTranslation()
     const [expanded, setExpanded] = useState(false)
     const isResolver = rule.target_kind === 'resolver'
 
@@ -186,18 +189,18 @@ function RoutingRow({
                             type="button"
                             onClick={() => setExpanded((e) => !e)}
                             className="text-muted-foreground hover:text-foreground shrink-0"
-                            aria-label={expanded ? '收合收件人' : '展開收件人'}
+                            aria-label={expanded ? t('adminOps.notificationRouting.table.collapseRecipients') : t('adminOps.notificationRouting.table.expandRecipients')}
                         >
                             {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </button>
                         {isResolver ? (
-                            <Badge variant="secondary" className="gap-1" title="關係型：收件人由事件動態決定，不可調整">
+                            <Badge variant="secondary" className="gap-1" title={t('adminOps.notificationRouting.table.resolverBadgeTitle')}>
                                 <Link2 className="h-3 w-3" />
-                                {recipientLabel(rule, roleNameMap)}
+                                {recipientLabel(rule, roleNameMap, t)}
                             </Badge>
                         ) : (
                             <Badge variant="outline">
-                                {recipientLabel(rule, roleNameMap)}
+                                {recipientLabel(rule, roleNameMap, t)}
                             </Badge>
                         )}
                     </div>
@@ -216,10 +219,10 @@ function RoutingRow({
                 </TableCell>
                 <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => onEdit(rule)} aria-label="編輯">
+                        <Button variant="ghost" size="icon" onClick={() => onEdit(rule)} aria-label={t('common.edit')}>
                             <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => onDelete(rule)} aria-label="刪除">
+                        <Button variant="ghost" size="icon" onClick={() => onDelete(rule)} aria-label={t('common.delete')}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                     </div>
@@ -237,25 +240,26 @@ function RoutingRow({
 }
 
 function RecipientDetail({ recipients }: { recipients?: RoutingRuleRecipients }) {
+    const { t } = useTranslation()
     if (!recipients) {
-        return <div className="pl-6 text-sm text-muted-foreground">載入收件人中…</div>
+        return <div className="pl-6 text-sm text-muted-foreground">{t('adminOps.notificationRouting.table.recipientsLoading')}</div>
     }
     if (recipients.target_kind === 'resolver') {
         return (
             <div className="pl-6 text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">{recipients.label}</span>
-                {recipients.description ? `：${recipients.description}` : ''}
-                <span className="ml-2 text-xs">（關係型，依事件動態決定，不可調整）</span>
+                {recipients.description ? t('adminOps.notificationRouting.table.resolverDescription', { description: recipients.description }) : ''}
+                <span className="ml-2 text-xs">{t('adminOps.notificationRouting.table.resolverNote')}</span>
             </div>
         )
     }
     if (recipients.members.length === 0) {
-        return <div className="pl-6 text-sm text-muted-foreground">目前無持有此角色的使用者</div>
+        return <div className="pl-6 text-sm text-muted-foreground">{t('adminOps.notificationRouting.table.noMembers')}</div>
     }
     return (
         <div className="pl-6 space-y-1">
             <div className="text-xs text-muted-foreground">
-                實際收件人（{recipients.members.length} 人）：
+                {t('adminOps.notificationRouting.table.actualRecipients', { count: recipients.members.length })}
             </div>
             <ul className="flex flex-wrap gap-x-4 gap-y-1">
                 {recipients.members.map((m) => (

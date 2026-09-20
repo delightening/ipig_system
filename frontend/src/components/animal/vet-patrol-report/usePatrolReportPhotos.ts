@@ -1,6 +1,8 @@
 // Report-level 整體環境照片邏輯（R82-7 由 VetPatrolReportDialog.tsx 抽出）
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+
 import api from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -16,6 +18,7 @@ export function usePatrolReportPhotos({
     open: boolean
     onCommitted: () => void
 }) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const photosQueryKey = ['vet-patrol-photos', savedReportId]
 
@@ -44,10 +47,10 @@ export function usePatrolReportPhotos({
         onSuccess: () => {
             onCommitted()
             queryClient.invalidateQueries({ queryKey: photosQueryKey })
-            toast({ title: '成功', description: '照片已上傳' })
+            toast({ title: t('common.success'), description: t('animalActions.vetPatrol.photoUploaded') })
         },
         onError: (error: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '照片上傳失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('animalActions.vetPatrol.photoUploadFailed')), variant: 'destructive' })
         },
     })
 

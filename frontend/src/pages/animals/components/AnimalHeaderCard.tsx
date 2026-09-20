@@ -1,12 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api, {
   Animal,
   AnimalWeight,
   ProtocolListItem,
-  allAnimalStatusNames,
-  animalGenderNames,
   facilityApi,
 } from '@/lib/api'
 import { animalSpeciesLabel } from '@/lib/animalSpecies'
@@ -38,7 +37,8 @@ export function AnimalHeaderCard({
   approvedProtocols,
   assignTrialMutation,
 }: AnimalHeaderCardProps) {
-  const penLocation = getPenLocationDisplay(animal, () => '\u72A7\u7272')
+  const { t } = useTranslation()
+  const penLocation = getPenLocationDisplay(animal, t)
 
   return (
     <Card className="bg-gradient-to-r from-muted to-muted/50 border-border">
@@ -58,6 +58,7 @@ export function AnimalHeaderCard({
 }
 
 function PenLocationField({ animal, animalId, penLocation }: { animal: Animal; animalId: string; penLocation: string }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const queryClient = useQueryClient()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -76,10 +77,10 @@ function PenLocationField({ animal, animalId, penLocation }: { animal: Animal; a
       queryClient.invalidateQueries({ queryKey: ['animal', animalId] })
       queryClient.invalidateQueries({ queryKey: ['animals'] })
       setEditing(false)
-      toast({ title: '成功', description: '欄號已更新' })
+      toast({ title: t('common.success'), description: t('animalPages.headerCard.penUpdated') })
     },
     onError: (error: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(error, '更新失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(error, t('animalPages.shared.updateFailed')), variant: 'destructive' })
     },
   })
 
@@ -107,9 +108,9 @@ function PenLocationField({ animal, animalId, penLocation }: { animal: Animal; a
           options={penOptions}
           value={animal.pen_location ?? ''}
           onValueChange={(v) => mutation.mutate(v)}
-          placeholder="選擇欄號"
-          searchPlaceholder="搜尋欄號..."
-          emptyMessage="找不到此欄號"
+          placeholder={t('animalPages.shared.selectPen')}
+          searchPlaceholder={t('animalPages.headerCard.penSearchPlaceholder')}
+          emptyMessage={t('animalPages.headerCard.penNotFound')}
           className="w-36"
         />
       </div>
@@ -123,7 +124,7 @@ function PenLocationField({ animal, animalId, penLocation }: { animal: Animal; a
           type="button"
           onClick={() => setEditing(true)}
           className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-gray-500 text-white text-sm font-medium hover:bg-gray-600 transition-colors"
-          title="點擊編輯欄號"
+          title={t('animalPages.headerCard.clickToEditPen')}
         >
           {penLocation}
         </button>
@@ -133,21 +134,22 @@ function PenLocationField({ animal, animalId, penLocation }: { animal: Animal; a
 }
 
 function LeftColumn({ animal, animalId, penLocation }: { animal: Animal; animalId: string; penLocation: string }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-3">
       <div>
-        <span className="text-sm text-muted-foreground">{'\u8033\u865F'}</span>
+        <span className="text-sm text-muted-foreground">{t('animals.earTag')}</span>
         <p className="text-2xl font-bold text-status-warning-text">{animal.ear_tag}</p>
       </div>
       <div>
-        <span className="text-sm text-muted-foreground">{'\u6B04\u865F'}</span>
+        <span className="text-sm text-muted-foreground">{t('animalPages.headerCard.penNumber')}</span>
         <div className="mt-0.5">
           <PenLocationField animal={animal} animalId={animalId} penLocation={penLocation} />
         </div>
       </div>
       <div>
-        <span className="text-sm text-muted-foreground">{'\u54C1\u7A2E'}</span>
-        <p className="font-medium">{animalSpeciesLabel(animal)}</p>
+        <span className="text-sm text-muted-foreground">{t('animals.breed')}</span>
+        <p className="font-medium">{animalSpeciesLabel(animal, (b) => t(`animals.breedLabels.${b}`))}</p>
       </div>
     </div>
   )
@@ -160,10 +162,11 @@ function MiddleColumn({
   animal: Animal
   weights: AnimalWeight[] | undefined
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-3">
       <div>
-        <span className="text-sm text-muted-foreground">{'\u51FA\u751F\u65E5\u671F'}</span>
+        <span className="text-sm text-muted-foreground">{t('animals.birthDate')}</span>
         <p className="font-medium">
           {animal.birth_date
             ? new Date(animal.birth_date).toLocaleDateString(uiLocale(), {
@@ -174,12 +177,12 @@ function MiddleColumn({
       </div>
       <div>
         <span className="text-sm text-muted-foreground">IACUC No.</span>
-        <p className="font-medium">{animal.iacuc_no || '\u672A\u5206\u914D'}</p>
+        <p className="font-medium">{animal.iacuc_no || t('animals.notAssigned')}</p>
       </div>
       {animal.status !== 'unassigned' &&
         (animal.experiment_assigned_by_name || animal.experiment_date) && (
           <div>
-            <span className="text-sm text-muted-foreground">{'\u5BE6\u9A57\u5206\u914D'}</span>
+            <span className="text-sm text-muted-foreground">{t('animalPages.headerCard.experimentAssignment')}</span>
             <p className="font-medium text-sm">
               {animal.experiment_assigned_by_name && (
                 <span>{animal.experiment_assigned_by_name}</span>
@@ -197,12 +200,12 @@ function MiddleColumn({
           </div>
         )}
       <div>
-        <span className="text-sm text-muted-foreground">{'\u6700\u8FD1\u9AD4\u91CD'}</span>
+        <span className="text-sm text-muted-foreground">{t('animalPages.headerCard.latestWeight')}</span>
         <p className="font-medium">
           {weights && weights.length > 0
             ? `${weights[0].weight} kg`
             : animal.entry_weight
-              ? `${animal.entry_weight} kg (\u9032\u5834)`
+              ? t('animalPages.headerCard.entryWeightValue', { weight: animal.entry_weight })
               : '-'}
         </p>
       </div>
@@ -219,16 +222,17 @@ function RightColumn({
   approvedProtocols: ProtocolListItem[] | undefined
   assignTrialMutation: ReturnType<typeof useMutation<unknown, unknown, string>>
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-3">
       <div>
-        <span className="text-sm text-muted-foreground">{'\u7CFB\u7D71\u865F'}</span>
+        <span className="text-sm text-muted-foreground">{t('animals.systemNo')}</span>
         <p className="font-medium" title={animal.id}>
           {animal.id.slice(0, 8)}
         </p>
       </div>
       <div>
-        <span className="text-sm text-muted-foreground">{'\u52D5\u7269\u72C0\u614B'}</span>
+        <span className="text-sm text-muted-foreground">{t('animals.tabGroups.status')}</span>
         <div className="mt-0.5 flex items-center gap-1.5">
           <StatusBadge
             animal={animal}
@@ -239,8 +243,8 @@ function RightColumn({
         </div>
       </div>
       <div>
-        <span className="text-sm text-muted-foreground">{'\u6027\u5225'}</span>
-        <p className="font-medium">{animalGenderNames[animal.gender]}</p>
+        <span className="text-sm text-muted-foreground">{t('animals.gender')}</span>
+        <p className="font-medium">{t(`animals.genderLabels.${animal.gender}`)}</p>
       </div>
     </div>
   )
@@ -255,6 +259,7 @@ function StatusBadge({
   approvedProtocols: ProtocolListItem[] | undefined
   assignTrialMutation: ReturnType<typeof useMutation<unknown, unknown, string>>
 }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -269,7 +274,7 @@ function StatusBadge({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [editing])
 
-  const statusName = allAnimalStatusNames[animal.status]
+  const statusName = t(`animals.statusLabels.${animal.status}`)
 
   if (animal.status === 'unassigned' && editing) {
     const protocolOptions = (approvedProtocols ?? []).map((p) => ({
@@ -287,9 +292,9 @@ function StatusBadge({
               setEditing(false)
             }
           }}
-          placeholder={'\u9078\u64C7\u8A66\u9A57\u2026'}
-          searchPlaceholder={'\u641C\u5C0B\u8A66\u9A57\u2026'}
-          emptyMessage={'\u76EE\u524D\u7121\u9032\u884C\u4E2D\u7684\u8A66\u9A57'}
+          placeholder={t('animalPages.headerCard.selectStudy')}
+          searchPlaceholder={t('animalPages.headerCard.searchStudy')}
+          emptyMessage={t('animalPages.headerCard.noActiveStudies')}
           disabled={assignTrialMutation.isPending}
           className="w-48"
         />
@@ -313,7 +318,7 @@ function StatusBadge({
             type="button"
             onClick={() => setEditing(true)}
             className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-gray-500 text-white text-sm font-medium hover:bg-gray-600 transition-colors"
-            title={'\u9EDE\u64CA\u5206\u914D\u8A66\u9A57'}
+            title={t('animalPages.headerCard.clickToAssignStudy')}
           >
             {statusName}
           </button>
@@ -326,7 +331,7 @@ function StatusBadge({
     <button
       type="button"
       className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-gray-500 text-white text-sm font-medium cursor-default"
-      title={'\u72C0\u614B\u8B8A\u66F4\u9700\u900F\u904E\u8F49\u8B93\u7A0B\u5E8F'}
+      title={t('animalPages.headerCard.statusChangeViaTransfer')}
     >
       {statusName}
     </button>

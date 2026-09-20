@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -31,10 +33,16 @@ export function ProductPagination({
   isFetching,
   isLoading,
 }: ProductPaginationProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex items-center justify-between">
       <div className="text-sm text-muted-foreground">
-        顯示 {(listState.page - 1) * listState.perPage + 1}-{Math.min(listState.page * listState.perPage, totalItems)} 共 {totalItems} 筆
+        {t('erpMaster.products.pagination.showing', {
+          from: (listState.page - 1) * listState.perPage + 1,
+          to: Math.min(listState.page * listState.perPage, totalItems),
+          total: totalItems,
+        })}
         {isFetching && !isLoading && (
           <Loader2 className="inline-block ml-2 h-3 w-3 animate-spin" />
         )}
@@ -56,6 +64,8 @@ export function ProductPagination({
 
 /** 每頁筆數選擇器 */
 function PerPageSelect({ perPage, onChange }: { perPage: number; onChange: (v: number) => void }) {
+  const { t } = useTranslation()
+
   return (
     <Select
       value={perPage.toString()}
@@ -65,10 +75,10 @@ function PerPageSelect({ perPage, onChange }: { perPage: number; onChange: (v: n
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="10">10 筆/頁</SelectItem>
-        <SelectItem value="20">20 筆/頁</SelectItem>
-        <SelectItem value="50">50 筆/頁</SelectItem>
-        <SelectItem value="100">100 筆/頁</SelectItem>
+        <SelectItem value="10">{t('erpMaster.products.pagination.perPage', { count: 10 })}</SelectItem>
+        <SelectItem value="20">{t('erpMaster.products.pagination.perPage', { count: 20 })}</SelectItem>
+        <SelectItem value="50">{t('erpMaster.products.pagination.perPage', { count: 50 })}</SelectItem>
+        <SelectItem value="100">{t('erpMaster.products.pagination.perPage', { count: 100 })}</SelectItem>
       </SelectContent>
     </Select>
   )
@@ -84,12 +94,14 @@ function PageButtons({
   totalPages: number
   onPageChange: (p: number) => void
 }) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex items-center gap-1">
-      <Button variant="outline" size="icon" onClick={() => onPageChange(1)} disabled={page === 1} aria-label="第一頁">
+      <Button variant="outline" size="icon" onClick={() => onPageChange(1)} disabled={page === 1} aria-label={t('erpMaster.products.pagination.first')}>
         <ChevronsLeft className="h-4 w-4" />
       </Button>
-      <Button variant="outline" size="icon" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page === 1} aria-label="上一頁">
+      <Button variant="outline" size="icon" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page === 1} aria-label={t('common.previous')}>
         <ChevronLeft className="h-4 w-4" />
       </Button>
       <div className="flex items-center gap-1 px-2">
@@ -117,10 +129,10 @@ function PageButtons({
           )
         })}
       </div>
-      <Button variant="outline" size="icon" onClick={() => onPageChange(Math.min(totalPages, page + 1))} disabled={page === totalPages} aria-label="下一頁">
+      <Button variant="outline" size="icon" onClick={() => onPageChange(Math.min(totalPages, page + 1))} disabled={page === totalPages} aria-label={t('common.next')}>
         <ChevronRight className="h-4 w-4" />
       </Button>
-      <Button variant="outline" size="icon" onClick={() => onPageChange(totalPages)} disabled={page === totalPages} aria-label="最後一頁">
+      <Button variant="outline" size="icon" onClick={() => onPageChange(totalPages)} disabled={page === totalPages} aria-label={t('erpMaster.products.pagination.last')}>
         <ChevronsRight className="h-4 w-4" />
       </Button>
     </div>

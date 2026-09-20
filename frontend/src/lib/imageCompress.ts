@@ -11,6 +11,8 @@
 // import，見 heicDecode.ts）解碼為 Canvas，直接作為 createImageBitmap 來源走下方同一條
 // 壓縮流程，避免「HEIC→JPEG→再解碼」的雙重編解碼。
 
+import i18n from '@/lib/i18n'
+
 import { heicToCanvas, isHeic } from './heicDecode'
 
 export interface CompressOptions {
@@ -55,7 +57,7 @@ export async function compressImage(
     canvas.width = w
     canvas.height = h
     const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Canvas 2D context 不可用')
+    if (!ctx) throw new Error(i18n.t('errors.image.canvasUnavailable'))
     ctx.drawImage(bitmap, 0, 0, w, h)
     bitmap.close()
 
@@ -67,7 +69,7 @@ export async function compressImage(
 
     const blob: Blob = await new Promise((resolve, reject) => {
         canvas.toBlob(
-            b => (b ? resolve(b) : reject(new Error('Canvas toBlob 失敗'))),
+            b => (b ? resolve(b) : reject(new Error(i18n.t('errors.image.toBlobFailed')))),
             outputType,
             outputQuality,
         )

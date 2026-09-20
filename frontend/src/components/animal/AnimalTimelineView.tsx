@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
-import { Animal, AnimalObservation, AnimalSurgery, AnimalSacrifice, AnimalSuddenDeath, AnimalWeight, AnimalTransfer, AnimalEvent, RecordType, recordTypeNames, transferStatusNames, transferTypeNames } from '@/lib/api'
+import { Animal, AnimalObservation, AnimalSurgery, AnimalSacrifice, AnimalSuddenDeath, AnimalWeight, AnimalTransfer, AnimalEvent, RecordType } from '@/lib/api'
 import { uiLocale } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +45,13 @@ interface TimelineItem {
     raw?: unknown
 }
 
+/** 觀察紀錄類型 → i18n key（原 recordTypeNames 的顯示文字改由語言包提供）。 */
+const RECORD_TYPE_KEYS: Record<RecordType, string> = {
+    abnormal: 'animalActions.recordType.abnormal',
+    experiment: 'animalActions.recordType.experiment',
+    observation: 'animalActions.recordType.observation',
+}
+
 /** 里程碑型別：以較大軸點 + 粗體標題強調（生命週期 / 臨床重大事件）。 */
 const MILESTONE_TYPES = new Set<TimelineItemType>([
     'created', 'surgery', 'sacrificed', 'euthanized', 'sudden_death', 'completed', 'transferred',
@@ -58,13 +66,13 @@ const FILTER_TYPES: Record<Exclude<FilterKey, 'all' | 'weight'>, TimelineItemTyp
     death: ['sacrificed', 'euthanized', 'sudden_death'],
     other: ['created', 'completed', 'transferred', 'iacuc_change'],
 }
-const FILTER_LABELS: { key: FilterKey; label: string }[] = [
-    { key: 'all', label: '全部' },
-    { key: 'observation', label: '觀察' },
-    { key: 'surgery', label: '手術' },
-    { key: 'weight', label: '體重' },
-    { key: 'death', label: '犧牲/死亡' },
-    { key: 'other', label: '其他事件' },
+const FILTER_LABELS: { key: FilterKey; labelKey: string }[] = [
+    { key: 'all', labelKey: 'animalActions.timeline.filter.all' },
+    { key: 'observation', labelKey: 'animalActions.common.observation' },
+    { key: 'surgery', labelKey: 'animalActions.timeline.filter.surgery' },
+    { key: 'weight', labelKey: 'animalActions.timeline.filter.weight' },
+    { key: 'death', labelKey: 'animalActions.timeline.filter.death' },
+    { key: 'other', labelKey: 'animalActions.timeline.filter.other' },
 ]
 
 const ICONS: Record<TimelineItemType, typeof ClipboardList> = {
@@ -102,16 +110,16 @@ function taipeiYmd(d: Date): string {
     return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' })
 }
 
-function relativeDay(d: Date): string {
+function relativeDay(d: Date, t: TFunction): string {
     const today = Date.parse(`${taipeiYmd(new Date())}T00:00:00Z`)
     const day = Date.parse(`${taipeiYmd(d)}T00:00:00Z`)
     const diff = Math.round((today - day) / 86_400_000)
-    if (diff <= 0) return '今天'
-    if (diff === 1) return '昨天'
-    if (diff < 7) return `${diff} 天前`
-    if (diff < 30) return `${Math.floor(diff / 7)} 週前`
-    if (diff < 365) return `${Math.floor(diff / 30)} 個月前`
-    return `${Math.floor(diff / 365)} 年前`
+    if (diff <= 0) return t('animalActions.timeline.today')
+    if (diff === 1) return t('animalActions.timeline.yesterday')
+    if (diff < 7) return t('common.daysAgo', { count: diff })
+    if (diff < 30) return t('animalActions.timeline.weeksAgo', { count: Math.floor(diff / 7) })
+    if (diff < 365) return t('animalActions.timeline.monthsAgo', { count: Math.floor(diff / 30) })
+    return t('animalActions.timeline.yearsAgo', { count: Math.floor(diff / 365) })
 }
 
 export function AnimalTimelineView({
@@ -120,24 +128,28 @@ export function AnimalTimelineView({
 }: Props) {
     const [filter, setFilter] = useState<FilterKey>('all')
     // 訂閱語系：切換 zh/en 時重算日期標頭格式（locale 進 groups deps）。
-    const { i18n } = useTranslation()
+    const { t, i18n } = useTranslation()
     const locale = i18n.language || 'zh-TW'
+
+    const sep = t('animalActions.common.listSeparator')
 
     const items = useMemo<TimelineItem[]>(() => [
         ...observations.map((obs) => ({
             id: `obs-${obs.id}`, originalId: obs.id, type: 'observation' as const,
-            date: new Date(obs.event_date), title: recordTypeNames[obs.record_type as RecordType],
+            date: new Date(obs.event_date), title: t(RECORD_TYPE_KEYS[obs.record_type as RecordType]),
             content: obs.content, actor: obs.created_by_name, vetRead: obs.vet_read, raw: obs,
         })),
         ...surgeries.map((surg) => ({
             id: `surg-${surg.id}`, originalId: surg.id, type: 'surgery' as const,
-            date: new Date(surg.surgery_date), title: surg.is_first_experiment ? '首次手術' : '手術紀錄',
+            date: new Date(surg.surgery_date), title: surg.is_first_experiment ? t('animalActions.timeline.firstSurgery') : t('animalDetail.tabs.surgeries'),
             content: surg.surgery_site, actor: surg.created_by_name, vetRead: surg.vet_read, raw: surg,
         })),
         ...(animal ? [{
             id: 'animal-created', originalId: 0, type: 'created' as const,
-            date: new Date(animal.entry_date || animal.created_at), title: '資料建立 · 進場',
-            content: `耳號 ${animal.ear_tag} 進場${animal.entry_weight ? `，進場體重 ${animal.entry_weight} kg` : ''}`,
+            date: new Date(animal.entry_date || animal.created_at), title: t('animalActions.timeline.createdEntry'),
+            content: animal.entry_weight
+                ? t('animalActions.timeline.createdContentWithWeight', { earTag: animal.ear_tag, weight: animal.entry_weight })
+                : t('animalActions.timeline.createdContent', { earTag: animal.ear_tag }),
             actor: null, raw: animal,
         }] : []),
         // 安樂死動物的犧牲/採樣併入下方「已安樂死」單一事件，故此處排除 euthanized
@@ -145,60 +157,60 @@ export function AnimalTimelineView({
         // 犧牲、status=completed）仍獨立顯示。
         ...(sacrifice && sacrifice.sacrifice_date && animal?.status !== 'euthanized' ? [{
             id: 'sacrifice-record', originalId: sacrifice.id, type: 'sacrificed' as const,
-            date: new Date(sacrifice.sacrifice_date), title: '犧牲/採樣',
+            date: new Date(sacrifice.sacrifice_date), title: t('animalActions.timeline.sacrificeSampling'),
             content: [
-                sacrifice.method_electrocution ? '電擊' : null,
-                sacrifice.method_bloodletting ? '放血' : null,
+                sacrifice.method_electrocution ? t('animalActions.timeline.electrocution') : null,
+                sacrifice.method_bloodletting ? t('animalActions.sacrifice.bloodletting') : null,
                 sacrifice.method_other ? sacrifice.method_other : null,
-                sacrifice.blood_volume_ml ? `採血 ${sacrifice.blood_volume_ml} ml` : null,
+                sacrifice.blood_volume_ml ? t('animalActions.timeline.bloodDraw', { volume: sacrifice.blood_volume_ml }) : null,
                 (sacrifice.sampling || sacrifice.sampling_other)
-                    ? `採樣：${[sacrifice.sampling, sacrifice.sampling_other].filter(Boolean).join('、')}` : null,
-            ].filter(Boolean).join('、') || '已犧牲',
+                    ? t('animalActions.timeline.samplingDetail', { value: [sacrifice.sampling, sacrifice.sampling_other].filter(Boolean).join(sep) }) : null,
+            ].filter(Boolean).join(sep) || t('animalActions.timeline.sacrificed'),
             actor: sacrifice.created_by_name || null, raw: sacrifice,
         }] : []),
         ...(animal && animal.status === 'completed' && !(sacrifice && sacrifice.sacrifice_date) ? [{
             id: 'experiment-completed', originalId: 0, type: 'completed' as const,
-            date: new Date(animal.updated_at), title: '實驗完成',
-            content: `耳號 ${animal.ear_tag} 實驗已完成`, actor: null, raw: animal,
+            date: new Date(animal.updated_at), title: t('animals.statusLabels.completed'),
+            content: t('animalActions.timeline.completedContent', { earTag: animal.ear_tag }), actor: null, raw: animal,
         }] : []),
         // 已安樂死＝安樂死與其犧牲/採樣的單一合併事件（含電擊/放血/採血/採樣明細）。
         ...(animal && animal.status === 'euthanized' ? [{
             id: 'euthanized-event', originalId: 0, type: 'euthanized' as const,
-            date: new Date(sacrifice?.sacrifice_date || animal.updated_at), title: '已安樂死',
+            date: new Date(sacrifice?.sacrifice_date || animal.updated_at), title: t('animals.statusLabels.euthanized'),
             content: [
-                sacrifice?.method_electrocution ? '電擊' : null,
-                sacrifice?.method_bloodletting ? '放血' : null,
+                sacrifice?.method_electrocution ? t('animalActions.timeline.electrocution') : null,
+                sacrifice?.method_bloodletting ? t('animalActions.sacrifice.bloodletting') : null,
                 sacrifice?.method_other ? sacrifice.method_other : null,
-                sacrifice?.blood_volume_ml ? `採血 ${sacrifice.blood_volume_ml} ml` : null,
+                sacrifice?.blood_volume_ml ? t('animalActions.timeline.bloodDraw', { volume: sacrifice.blood_volume_ml }) : null,
                 (sacrifice?.sampling || sacrifice?.sampling_other)
-                    ? `採樣：${[sacrifice?.sampling, sacrifice?.sampling_other].filter(Boolean).join('、')}` : null,
-            ].filter(Boolean).join('、') || `耳號 ${animal.ear_tag} 已安樂死`,
+                    ? t('animalActions.timeline.samplingDetail', { value: [sacrifice?.sampling, sacrifice?.sampling_other].filter(Boolean).join(sep) }) : null,
+            ].filter(Boolean).join(sep) || t('animalActions.timeline.euthanizedContent', { earTag: animal.ear_tag }),
             actor: sacrifice?.created_by_name || null, raw: sacrifice || animal,
         }] : []),
         ...(suddenDeath ? [{
             id: 'sudden-death-event', originalId: 0, type: 'sudden_death' as const,
-            date: new Date(suddenDeath.discovered_at), title: '猝死',
+            date: new Date(suddenDeath.discovered_at), title: t('animals.statusLabels.sudden_death'),
             content: [
-                suddenDeath.probable_cause ? `可能原因：${suddenDeath.probable_cause}` : null,
-                suddenDeath.location ? `地點：${suddenDeath.location}` : null,
-                suddenDeath.requires_pathology ? '需要病理檢查' : null,
-            ].filter(Boolean).join('、') || '動物猝死',
+                suddenDeath.probable_cause ? t('animalActions.timeline.probableCause', { value: suddenDeath.probable_cause }) : null,
+                suddenDeath.location ? t('animalActions.timeline.location', { value: suddenDeath.location }) : null,
+                suddenDeath.requires_pathology ? t('animalActions.timeline.requiresPathology') : null,
+            ].filter(Boolean).join(sep) || t('animalActions.timeline.suddenDeathContent'),
             actor: null, raw: suddenDeath,
         }] : []),
-        ...(transfers || []).map((t) => ({
-            id: `transfer-${t.id}`, originalId: 0, type: 'transferred' as const,
-            date: new Date(t.completed_at || t.created_at),
-            title: t.status === 'completed' ? '轉讓完成' : t.status === 'rejected' ? '轉讓拒絕' : '轉讓進行中',
-            content: `${t.from_iacuc_no} → ${t.to_iacuc_no || '待定'} · ${transferTypeNames[t.transfer_type === 'external' ? 'external' : 'internal']} (${transferStatusNames[t.status]})`,
-            actor: null, raw: t,
+        ...(transfers || []).map((tr) => ({
+            id: `transfer-${tr.id}`, originalId: 0, type: 'transferred' as const,
+            date: new Date(tr.completed_at || tr.created_at),
+            title: tr.status === 'completed' ? t('animalActions.transfer.status.completed') : tr.status === 'rejected' ? t('animalActions.timeline.transferRejected') : t('animalActions.timeline.transferInProgress'),
+            content: `${tr.from_iacuc_no} → ${tr.to_iacuc_no || t('animalActions.timeline.tbd')} · ${t(`animalActions.transfer.type.${tr.transfer_type === 'external' ? 'external' : 'internal'}`)} (${t(`animalActions.transfer.status.${tr.status}`)})`,
+            actor: null, raw: tr,
         })),
         ...(iacucEvents || []).map((evt) => ({
             id: `iacuc-${evt.id}`, originalId: 0, type: 'iacuc_change' as const,
-            date: new Date(evt.created_at), title: 'IACUC No. 變更',
-            content: `${evt.before_data?.iacuc_no || '（無）'} → ${evt.after_data?.iacuc_no || '（無）'}`,
+            date: new Date(evt.created_at), title: t('animalActions.timeline.iacucChange'),
+            content: `${evt.before_data?.iacuc_no || t('animalActions.timeline.none')} → ${evt.after_data?.iacuc_no || t('animalActions.timeline.none')}`,
             actor: evt.actor_name || null, raw: evt,
         })),
-    ].sort((a, b) => b.date.getTime() - a.date.getTime()), [observations, surgeries, animal, sacrifice, suddenDeath, transfers, iacucEvents])
+    ].sort((a, b) => b.date.getTime() - a.date.getTime()), [observations, surgeries, animal, sacrifice, suddenDeath, transfers, iacucEvents, t, sep])
 
     const rows = useMemo(() => {
         if (filter === 'all') return items
@@ -225,7 +237,7 @@ export function AnimalTimelineView({
         <div className="space-y-4">
             {/* 型別篩選 */}
             <div className="flex flex-wrap gap-2">
-                {FILTER_LABELS.map(({ key, label }) => (
+                {FILTER_LABELS.map(({ key, labelKey }) => (
                     <button
                         key={key}
                         type="button"
@@ -234,7 +246,7 @@ export function AnimalTimelineView({
                             ? 'border-primary bg-primary/10 font-medium text-primary'
                             : 'border-border bg-card text-muted-foreground hover:bg-muted'}`}
                     >
-                        {label}
+                        {t(labelKey)}
                     </button>
                 ))}
             </div>
@@ -243,7 +255,7 @@ export function AnimalTimelineView({
                 <Card className="border-dashed">
                     <CardContent className="py-12 text-center text-muted-foreground">
                         <ClipboardList className="mx-auto mb-4 h-12 w-12" />
-                        <p>此篩選下尚無紀錄</p>
+                        <p>{t('animalActions.timeline.emptyFiltered')}</p>
                     </CardContent>
                 </Card>
             ) : (
@@ -257,7 +269,7 @@ export function AnimalTimelineView({
                                 {/* 日期分組標頭（吸頂） */}
                                 <div className="sticky top-0 z-10 flex items-center gap-2 bg-background py-1">
                                     <span className="text-sm font-bold text-foreground">{day}</span>
-                                    <span className="text-xs text-muted-foreground">{relativeDay(dayItems[0].date)}</span>
+                                    <span className="text-xs text-muted-foreground">{relativeDay(dayItems[0].date, t)}</span>
                                     <span className="h-px flex-1 bg-border" />
                                 </div>
                                 {dayItems.map((item) => {
@@ -281,22 +293,22 @@ export function AnimalTimelineView({
                                                 <p className="mt-1 text-sm text-muted-foreground">{item.content}</p>
                                                 <div className="mt-2 flex items-center justify-between gap-2">
                                                     <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                        記錄者：{item.actor || '系統'}
+                                                        {t('animalActions.timeline.recordedBy', { name: item.actor || t('animalActions.common.system') })}
                                                         {item.vetRead && (
-                                                            <Badge className="bg-status-success-bg text-status-success-text hover:bg-status-success-bg">獸醫已讀</Badge>
+                                                            <Badge className="bg-status-success-bg text-status-success-text hover:bg-status-success-bg">{t('animalActions.timeline.vetRead')}</Badge>
                                                         )}
                                                     </span>
                                                     {editable && (
                                                         <span className="flex shrink-0 gap-1">
-                                                            <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="編輯"
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={t('common.edit')}
                                                                 onClick={() => item.raw && onEdit(item.type as 'observation' | 'surgery', item.raw as AnimalObservation | AnimalSurgery)}>
                                                                 <Edit2 className="h-3.5 w-3.5" />
                                                             </Button>
-                                                            <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="檢視"
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={t('common.view')}
                                                                 onClick={() => onView(item.type as 'observation' | 'surgery', item.originalId as number)}>
                                                                 <Eye className="h-3.5 w-3.5" />
                                                             </Button>
-                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-status-error-solid hover:text-status-error-text" aria-label="刪除"
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-status-error-solid hover:text-status-error-text" aria-label={t('common.delete')}
                                                                 onClick={() => onDelete(item.type as 'observation' | 'surgery', item.originalId as number)}>
                                                                 <Trash2 className="h-3.5 w-3.5" />
                                                             </Button>

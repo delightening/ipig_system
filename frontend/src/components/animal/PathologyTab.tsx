@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { GuestHide } from '@/components/ui/guest-hide'
 import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
@@ -37,6 +38,7 @@ interface PathologyTabProps {
 }
 
 export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const [showUploadDialog, setShowUploadDialog] = useState(false)
@@ -64,14 +66,14 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-pathology', animalId] })
-      toast({ title: '成功', description: '病理報告已上傳' })
+      toast({ title: t('common.success'), description: t('animalRecords.pathology.uploaded') })
       setShowUploadDialog(false)
       setFiles([])
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '上傳失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('animalRecords.pathology.uploadFailed')),
         variant: 'destructive',
       })
     },
@@ -82,14 +84,14 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
       <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>病理組織報告</CardTitle>
-            <CardDescription>病理組織報告檔案</CardDescription>
+            <CardTitle>{t('animalDetail.tabs.pathology')}</CardTitle>
+            <CardDescription>{t('animalRecords.pathology.description')}</CardDescription>
           </div>
           <GuestHide>
             <Can permission={PERMISSIONS.ANIMAL_PATHOLOGY_UPLOAD}>
               <Button className="bg-status-purple-solid hover:bg-status-purple-solid/90" onClick={() => setShowUploadDialog(true)}>
                 <Upload className="h-4 w-4 mr-2" />
-                上傳檔案
+                {t('animalRecords.pathology.uploadFile')}
               </Button>
             </Can>
           </GuestHide>
@@ -102,15 +104,15 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
               <Table className="w-full" style={{ minWidth: 448 }}>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <SortableTableHead sortKey="file_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ minWidth: 150 }}>檔案名稱</SortableTableHead>
-                    <SortableTableHead sortKey="file_size" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: 90 }}>檔案大小</SortableTableHead>
-                    <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: 160 }}>上傳時間</SortableTableHead>
-                    <TableHead style={{ width: 48 }} className="text-right">操作</TableHead>
+                    <SortableTableHead sortKey="file_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ minWidth: 150 }}>{t('animalRecords.pathology.fileName')}</SortableTableHead>
+                    <SortableTableHead sortKey="file_size" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: 90 }}>{t('animalRecords.pathology.fileSize')}</SortableTableHead>
+                    <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} style={{ width: 160 }}>{t('animalRecords.pathology.uploadedAt')}</SortableTableHead>
+                    <TableHead style={{ width: 48 }} className="text-right">{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {!pathology || !pathology.attachments || pathology.attachments.length === 0 ? (
-                    <TableEmptyRow colSpan={4} icon={FileText} title="尚無病理組織報告" />
+                    <TableEmptyRow colSpan={4} icon={FileText} title={t('animalRecords.pathology.emptyTitle')} />
                   ) : (
                     (sortedAttachments ?? pathology.attachments).map((file) => (
                       <TableRow key={file.id}>
@@ -118,7 +120,7 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
                         <TableCell style={{ width: 90 }}>{formatFileSize(file.file_size)}</TableCell>
                         <TableCell style={{ width: 160 }} className="text-xs text-muted-foreground">{new Date(file.created_at).toLocaleString(uiLocale(), { timeZone: 'Asia/Taipei' })}</TableCell>
                         <TableCell style={{ width: 48 }} className="text-right">
-                          <Button variant="outline" size="icon" title="下載">
+                          <Button variant="outline" size="icon" title={t('animalRecords.pathology.download')}>
                             <Download className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -134,7 +136,7 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
               {!pathology || !pathology.attachments || pathology.attachments.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                   <FileText className="h-8 w-8" />
-                  <p className="text-sm">尚無病理組織報告</p>
+                  <p className="text-sm">{t('animalRecords.pathology.emptyTitle')}</p>
                 </div>
               ) : (
                 (sortedAttachments ?? pathology.attachments).map((file) => (
@@ -149,7 +151,7 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
                       {formatFileSize(file.file_size)}
                     </div>
                     <div className="flex justify-end pt-1 border-t">
-                      <Button variant="outline" size="icon" title="下載">
+                      <Button variant="outline" size="icon" title={t('animalRecords.pathology.download')}>
                         <Download className="h-4 w-4" />
                       </Button>
                     </div>
@@ -165,22 +167,22 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>上傳病理組織報告</DialogTitle>
-            <DialogDescription>耳號：{earTag}</DialogDescription>
+            <DialogTitle>{t('animalRecords.pathology.uploadTitle')}</DialogTitle>
+            <DialogDescription>{t('animalRecords.shared.earTagLine', { earTag })}</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <FileUpload
               value={files}
               onChange={setFiles}
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.tiff"
-              placeholder="拖曳病理報告檔案到此處，或點擊選擇檔案"
+              placeholder={t('animalRecords.pathology.dropPlaceholder')}
               maxSize={50}
               maxFiles={20}
             />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowUploadDialog(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={() => uploadMutation.mutate(files)}
@@ -188,7 +190,7 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
               className="bg-status-success-solid hover:bg-status-success-solid/90"
             >
               {uploadMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              上傳
+              {t('animalRecords.pathology.upload')}
             </Button>
           </DialogFooter>
         </DialogContent>

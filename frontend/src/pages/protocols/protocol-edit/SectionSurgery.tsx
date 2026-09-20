@@ -384,7 +384,7 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData: _s
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-destructive"
-                                aria-label="刪除"
+                                aria-label={t('common.delete')}
                                 onClick={() => {
                                   const newDrugs = [...formData.working_content.surgery.drugs]
                                   newDrugs.splice(index, 1)

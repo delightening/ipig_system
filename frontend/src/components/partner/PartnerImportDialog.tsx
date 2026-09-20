@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -40,6 +41,7 @@ interface Props {
 }
 
 export function PartnerImportDialog({ open, onOpenChange }: Props) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState<PartnerImportResult | null>(null)
@@ -65,21 +67,21 @@ export function PartnerImportDialog({ open, onOpenChange }: Props) {
       queryClient.invalidateQueries({ queryKey: ['equipment-suppliers-summary'] })
       if (data.error_count === 0) {
         toast({
-          title: '匯入成功',
-          description: `成功匯入 ${data.success_count} 筆夥伴`,
+          title: t('erpMaster.import.toast.success'),
+          description: t('erpMaster.import.partner.toastSuccessDescription', { count: data.success_count }),
         })
       } else {
         toast({
-          title: '匯入完成（部分失敗）',
-          description: `成功: ${data.success_count} 筆，失敗: ${data.error_count} 筆`,
+          title: t('erpMaster.import.toast.partial'),
+          description: t('erpMaster.import.toast.partialDescription', { success: data.success_count, failed: data.error_count }),
           variant: 'destructive',
         })
       }
     },
     onError: (error: unknown) => {
       toast({
-        title: '匯入失敗',
-        description: getApiErrorMessage(error, '發生未知錯誤'),
+        title: t('erpMaster.import.result.failed'),
+        description: getApiErrorMessage(error, t('common.unknown_error')),
         variant: 'destructive',
       })
     },
@@ -94,7 +96,7 @@ export function PartnerImportDialog({ open, onOpenChange }: Props) {
 
   const handleImport = () => {
     if (!file) {
-      toast({ title: '錯誤', description: '請先選擇檔案', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('erpMaster.import.toast.selectFileFirst'), variant: 'destructive' })
       return
     }
     importMutation.mutate(file)
@@ -132,14 +134,14 @@ export function PartnerImportDialog({ open, onOpenChange }: Props) {
     },
     onSuccess: () => {
       toast({
-        title: '下載成功',
-        description: '範本檔案已開始下載',
+        title: t('erpMaster.import.toast.downloaded'),
+        description: t('erpMaster.import.toast.downloadedDescription'),
       })
     },
     onError: (error: unknown) => {
       toast({
-        title: '下載失敗',
-        description: getApiErrorMessage(error, '無法下載範本檔案'),
+        title: t('common.downloadFailed'),
+        description: getApiErrorMessage(error, t('erpMaster.import.toast.downloadFailedDescription')),
         variant: 'destructive',
       })
     },
@@ -151,10 +153,10 @@ export function PartnerImportDialog({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            匯入供應商/客戶
+            {t('erpMaster.import.partner.title')}
           </DialogTitle>
           <DialogDescription>
-            支援 Excel (.xlsx, .xls) 或 CSV 格式，批次匯入多筆供應商與客戶資料
+            {t('erpMaster.import.partner.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -163,7 +165,7 @@ export function PartnerImportDialog({ open, onOpenChange }: Props) {
           <div className="flex items-center justify-between p-3 bg-status-info-bg rounded-lg">
             <div className="flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5 text-status-info-text" />
-              <span className="text-sm text-status-info-text">下載範本檔案</span>
+              <span className="text-sm text-status-info-text">{t('erpMaster.import.downloadTemplateHint')}</span>
             </div>
             <Button
               variant="outline"
@@ -173,14 +175,14 @@ export function PartnerImportDialog({ open, onOpenChange }: Props) {
               disabled={downloadTemplateMutation.isPending}
             >
               <Download className="h-4 w-4 mr-1" />
-              下載範本 (XLSX)
+              {t('erpMaster.import.downloadTemplate')}
             </Button>
           </div>
 
           {/* File Upload */}
           {!result && (
             <label className="block space-y-2">
-              <span className="block text-sm font-medium leading-none">選擇檔案</span>
+              <span className="block text-sm font-medium leading-none">{t('erpMaster.import.selectFile')}</span>
               <input
                 type="file"
                 accept=".xlsx,.xls,.csv"
@@ -211,20 +213,20 @@ export function PartnerImportDialog({ open, onOpenChange }: Props) {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 text-status-success-text">
                     <CheckCircle2 className="h-5 w-5" />
-                    <span className="font-medium">成功匯入</span>
+                    <span className="font-medium">{t('erpMaster.import.result.success')}</span>
                   </div>
                   <p className="text-2xl font-bold text-status-success-text mt-1">
-                    {result.success_count} 筆
+                    {t('erpMaster.import.result.rowCount', { count: result.success_count })}
                   </p>
                 </div>
                 {result.error_count > 0 && (
                   <div className="flex-1 border-l pl-4">
                     <div className="flex items-center gap-2 text-status-error-text">
                       <AlertCircle className="h-5 w-5" />
-                      <span className="font-medium">匯入失敗</span>
+                      <span className="font-medium">{t('erpMaster.import.result.failed')}</span>
                     </div>
                     <p className="text-2xl font-bold text-status-error-text mt-1">
-                      {result.error_count} 筆
+                      {t('erpMaster.import.result.rowCount', { count: result.error_count })}
                     </p>
                   </div>
                 )}
@@ -233,14 +235,14 @@ export function PartnerImportDialog({ open, onOpenChange }: Props) {
               {/* Error Details */}
               {result.errors && result.errors.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-status-error-text">錯誤明細</Label>
+                  <Label className="text-status-error-text">{t('erpMaster.import.result.errorDetails')}</Label>
                   <div className="max-h-40 overflow-y-auto border rounded-lg">
                     <table className="w-full text-sm">
                       <thead className="bg-muted sticky top-0">
                         <tr>
-                          <th className="px-3 py-2 text-left font-medium">列</th>
-                          <th className="px-3 py-2 text-left font-medium">代碼</th>
-                          <th className="px-3 py-2 text-left font-medium">錯誤訊息</th>
+                          <th className="px-3 py-2 text-left font-medium">{t('erpMaster.import.result.row')}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t('erpMaster.common.code')}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t('erpMaster.import.result.errorMessage')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -262,14 +264,14 @@ export function PartnerImportDialog({ open, onOpenChange }: Props) {
           {/* Instructions */}
           {!result && (
             <div className="text-sm text-muted-foreground space-y-1">
-              <p className="font-medium">注意事項：</p>
+              <p className="font-medium">{t('erpMaster.import.notesTitle')}</p>
               <ul className="list-disc list-inside space-y-0.5">
-                <li>類型為必填：supplier（供應商）或 customer（客戶）</li>
-                <li>名稱為必填欄位</li>
-                <li>供應商必須填寫供應商類別：drug/consumable/feed/equipment</li>
-                <li>客戶可填客戶分類：internal/external/research/other</li>
-                <li>代碼可選，未填時系統自動產生</li>
-                <li>CSV 欄位順序：類型、名稱、供應商類別、客戶分類、代碼、統編、電話、Email、地址、付款條件</li>
+                <li>{t('erpMaster.import.partner.noteType')}</li>
+                <li>{t('erpMaster.import.partner.noteName')}</li>
+                <li>{t('erpMaster.import.partner.noteSupplierCategory')}</li>
+                <li>{t('erpMaster.import.partner.noteCustomerCategory')}</li>
+                <li>{t('erpMaster.import.partner.noteCode')}</li>
+                <li>{t('erpMaster.import.partner.noteColumns')}</li>
               </ul>
             </div>
           )}
@@ -277,7 +279,7 @@ export function PartnerImportDialog({ open, onOpenChange }: Props) {
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>
-            {result ? '關閉' : '取消'}
+            {result ? t('common.closeDialog') : t('common.cancel')}
           </Button>
           {!result && (
             <Button
@@ -286,12 +288,12 @@ export function PartnerImportDialog({ open, onOpenChange }: Props) {
               className="bg-purple-600 hover:bg-purple-700"
             >
               {importMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              開始匯入
+              {t('erpMaster.import.startImport')}
             </Button>
           )}
           {result && result.error_count === 0 && (
             <Button onClick={handleClose} className="bg-status-success-solid hover:bg-green-700">
-              完成
+              {t('erpMaster.common.done')}
             </Button>
           )}
         </DialogFooter>

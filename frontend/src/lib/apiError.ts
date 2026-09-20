@@ -6,6 +6,8 @@
  */
 import { AxiosError } from 'axios'
 
+import i18n from '@/lib/i18n'
+
 /**
  * 從 Axios 錯誤中取得使用者友善的錯誤訊息
  *
@@ -15,17 +17,17 @@ import { AxiosError } from 'axios'
  * 也支援：
  *   { message: "..." } 或純文字字串
  */
-export function getApiErrorMessage(error: unknown, fallback = '操作失敗，請稍後再試'): string {
+export function getApiErrorMessage(error: unknown, fallback = i18n.t('errors.api.operationFailed')): string {
     if (error instanceof AxiosError) {
         // 網路錯誤（無回應）
         if (!error.response) {
             if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-                return '請求逾時，請檢查網路連線後再試'
+                return i18n.t('errors.api.timeout')
             }
             if (error.code === 'ERR_NETWORK') {
-                return '無法連線至伺服器，請確認網路狀態'
+                return i18n.t('errors.api.cannotConnect')
             }
-            return '網路連線異常，請稍後再試'
+            return i18n.t('errors.api.networkAbnormal')
         }
 
         // 有回應時，優先使用後端回傳的訊息
@@ -36,17 +38,17 @@ export function getApiErrorMessage(error: unknown, fallback = '操作失敗，�
 
         // 依 HTTP 狀態碼提供預設訊息
         const statusMessages: Record<number, string> = {
-            400: '請求格式有誤，請檢查輸入內容',
-            401: '登入已過期，請重新登入',
-            403: '權限不足，無法執行此操作',
-            404: '找不到相關資料',
-            409: '資料衝突，請重新整理後再試',
-            413: '上傳的檔案太大，請縮小檔案後重試',
-            422: '提交的資料不符合格式要求',
-            429: '操作過於頻繁，請稍後再試',
-            500: '伺服器發生錯誤，請稍後再試',
-            502: '伺服器暫時無法服務，請稍後再試',
-            503: '系統維護中，請稍後再試',
+            400: i18n.t('errors.api.status400'),
+            401: i18n.t('errors.api.status401'),
+            403: i18n.t('errors.api.status403'),
+            404: i18n.t('errors.api.status404'),
+            409: i18n.t('errors.api.status409'),
+            413: i18n.t('errors.api.status413'),
+            422: i18n.t('errors.api.status422'),
+            429: i18n.t('errors.api.status429'),
+            500: i18n.t('errors.api.status500'),
+            502: i18n.t('errors.api.status502'),
+            503: i18n.t('errors.api.status503'),
         }
         const status = error.response.status
         if (statusMessages[status]) return statusMessages[status]

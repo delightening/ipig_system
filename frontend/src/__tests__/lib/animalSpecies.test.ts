@@ -1,4 +1,18 @@
+import i18n from '@/lib/i18n'
 import { animalSpeciesLabel } from '@/lib/animalSpecies'
+
+// 品種對照表（animalBreedNames）改為 getter、依當下語言翻譯；以下斷言的是 zh-TW 文字，
+// 故固定在 zh-TW 下讀值，測完還原，避免影響同一 worker 的其他測試。
+let previousLanguage: string
+
+beforeAll(async () => {
+  previousLanguage = i18n.language
+  await i18n.changeLanguage('zh-TW')
+})
+
+afterAll(async () => {
+  await i18n.changeLanguage(previousLanguage)
+})
 
 /**
  * 品種顯示優先序。

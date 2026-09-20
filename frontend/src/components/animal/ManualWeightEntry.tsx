@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -64,6 +65,7 @@ interface Props {
 
 export const ManualWeightEntry = forwardRef<ManualWeightEntryHandle, Props>(
   function ManualWeightEntry({ onStatusChange }, ref) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const idCounter = useRef(0)
     const newId = () => `row-${idCounter.current++}`
@@ -145,7 +147,7 @@ export const ManualWeightEntry = forwardRef<ManualWeightEntryHandle, Props>(
                 })
                 nextSavedWeights[row.id] = animalId
               } catch (e) {
-                weightErrors.push({ id: row.id, earTag: row.earTag, message: getApiErrorMessage(e, '體重登錄失敗') })
+                weightErrors.push({ id: row.id, earTag: row.earTag, message: getApiErrorMessage(e, t('animalRecords.weights.manual.weightFailed')) })
                 return
               }
             }
@@ -165,7 +167,7 @@ export const ManualWeightEntry = forwardRef<ManualWeightEntryHandle, Props>(
                   })
                 }
               } catch (e) {
-                medErrors.push({ id: row.id, earTag: row.earTag, message: getApiErrorMessage(e, '施打登錄失敗') })
+                medErrors.push({ id: row.id, earTag: row.earTag, message: getApiErrorMessage(e, t('animalRecords.weights.manual.medFailed')) })
                 return
               }
             }
@@ -180,7 +182,7 @@ export const ManualWeightEntry = forwardRef<ManualWeightEntryHandle, Props>(
         queryClient.invalidateQueries({ queryKey: ['animals-stats'] })
         queryClient.invalidateQueries({ queryKey: ['animal-vaccinations'] })
         if (weightErrors.length === 0 && medErrors.length === 0) {
-          toast({ title: '登錄成功', description: `成功登錄 ${successCount} 筆` })
+          toast({ title: t('animalRecords.weights.manual.successTitle'), description: t('animalRecords.weights.manual.successDescription', { count: successCount }) })
           idCounter.current = 0
           setSavedWeights({})
           setResolved({})
@@ -189,8 +191,8 @@ export const ManualWeightEntry = forwardRef<ManualWeightEntryHandle, Props>(
         }
         setSavedWeights(nextSavedWeights)
         toast({
-          title: '部分失敗',
-          description: `成功 ${successCount} 筆，體重失敗 ${weightErrors.length} 筆，施打失敗 ${medErrors.length} 筆`,
+          title: t('animalRecords.weights.manual.partialTitle'),
+          description: t('animalRecords.weights.manual.partialDescription', { success: successCount, weight: weightErrors.length, med: medErrors.length }),
           variant: 'destructive',
         })
         // 保留兩類失敗列供修正後重送：體重未存者整列重送；體重已存但施打失敗者
@@ -209,7 +211,7 @@ export const ManualWeightEntry = forwardRef<ManualWeightEntryHandle, Props>(
         })
       },
       onError: (error: unknown) => {
-        toast({ title: '登錄失敗', description: getApiErrorMessage(error, '發生未知錯誤'), variant: 'destructive' })
+        toast({ title: t('animalRecords.weights.manual.failedTitle'), description: getApiErrorMessage(error, t('animalRecords.weights.manual.unknownError')), variant: 'destructive' })
       },
     })
 
@@ -227,7 +229,7 @@ export const ManualWeightEntry = forwardRef<ManualWeightEntryHandle, Props>(
     return (
       <div className="flex h-full flex-col gap-3">
         <div className="flex flex-none items-center justify-end gap-2">
-          <Label htmlFor="manual-weight-date" className="text-xs text-muted-foreground">測量日期</Label>
+          <Label htmlFor="manual-weight-date" className="text-xs text-muted-foreground">{t('animalRecords.weights.measureDate')}</Label>
           <Input
             id="manual-weight-date"
             type="date"
@@ -254,20 +256,20 @@ export const ManualWeightEntry = forwardRef<ManualWeightEntryHandle, Props>(
         </div>
 
         <Button type="button" variant="outline" size="sm" onClick={addRow} className="flex-none self-start">
-          <Plus className="mr-1 h-4 w-4" /> 新增一列
+          <Plus className="mr-1 h-4 w-4" /> {t('animalRecords.weights.manual.addRow')}
         </Button>
 
         {weightErrors.length > 0 && (
           <ul className="flex-none space-y-0.5 text-xs text-status-error-text">
             {weightErrors.map((err, i) => (
-              <li key={`weight-err-${i}`}>耳號 {err.earTag}：{err.message}</li>
+              <li key={`weight-err-${i}`}>{t('animalRecords.weights.manual.weightError', { earTag: err.earTag, message: err.message })}</li>
             ))}
           </ul>
         )}
         {medErrors.length > 0 && (
           <ul className="flex-none space-y-0.5 text-xs text-status-warning-text">
             {medErrors.map((err, i) => (
-              <li key={`med-err-${i}`}>耳號 {err.earTag}：體重已存，但施打登錄失敗（{err.message}）。該列已保留，修正後可直接重送——體重不會重複登錄</li>
+              <li key={`med-err-${i}`}>{t('animalRecords.weights.manual.medError', { earTag: err.earTag, message: err.message })}</li>
             ))}
           </ul>
         )}

@@ -148,7 +148,7 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
                 type={showNewPassword ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder={`${PASSWORD_MIN_LENGTH} 字元以上，含大小寫與數字`}
+                placeholder={t('password.placeholder', { min: PASSWORD_MIN_LENGTH })}
                 className="pr-10"
                 autoComplete="new-password"
               />
@@ -176,11 +176,11 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
                   ))}
                 </div>
                 <div className="text-xs space-y-0.5 text-muted-foreground">
-                  <p className={passwordChecks.length ? 'text-status-success-text' : ''}>{passwordChecks.length ? '\u2713' : '\u25CB'} {`\u81F3\u5C11 ${PASSWORD_MIN_LENGTH} \u500B\u5B57\u5143`}</p>
-                  <p className={passwordChecks.uppercase ? 'text-status-success-text' : ''}>{passwordChecks.uppercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5927\u5BEB\u5B57\u6BCD'}</p>
-                  <p className={passwordChecks.lowercase ? 'text-status-success-text' : ''}>{passwordChecks.lowercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5C0F\u5BEB\u5B57\u6BCD'}</p>
-                  <p className={passwordChecks.number ? 'text-status-success-text' : ''}>{passwordChecks.number ? '\u2713' : '\u25CB'} {'\u5305\u542B\u6578\u5B57'}</p>
-                  <p className={passwordChecks.notCommon ? 'text-status-success-text' : ''}>{passwordChecks.notCommon ? '\u2713' : '\u25CB'} {'\u975E\u5E38\u898B\u5F31\u5BC6\u78BC'}</p>
+                  <p className={passwordChecks.length ? 'text-status-success-text' : ''}>{passwordChecks.length ? '\u2713' : '\u25CB'} {t('password.checks.minLength', { min: PASSWORD_MIN_LENGTH })}</p>
+                  <p className={passwordChecks.uppercase ? 'text-status-success-text' : ''}>{passwordChecks.uppercase ? '\u2713' : '\u25CB'} {t('password.checks.uppercase')}</p>
+                  <p className={passwordChecks.lowercase ? 'text-status-success-text' : ''}>{passwordChecks.lowercase ? '\u2713' : '\u25CB'} {t('password.checks.lowercase')}</p>
+                  <p className={passwordChecks.number ? 'text-status-success-text' : ''}>{passwordChecks.number ? '\u2713' : '\u25CB'} {t('password.checks.number')}</p>
+                  <p className={passwordChecks.notCommon ? 'text-status-success-text' : ''}>{passwordChecks.notCommon ? '\u2713' : '\u25CB'} {t('password.checks.notCommon')}</p>
                 </div>
               </div>
             )}

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -25,6 +26,7 @@ interface TrialBalanceTabProps {
 }
 
 export function TrialBalanceTab({ asOfDate, onAsOfDateChange }: TrialBalanceTabProps) {
+  const { t } = useTranslation()
   const { data: trialBalance, isLoading } = useQuery<TrialBalanceRow[]>({
     queryKey: ['accounting-trial-balance', asOfDate],
     queryFn: async () => {
@@ -59,7 +61,7 @@ export function TrialBalanceTab({ asOfDate, onAsOfDateChange }: TrialBalanceTabP
     <div className="space-y-4">
       <div className="flex items-end gap-4">
         <div className="space-y-2">
-          <Label>截至日期</Label>
+          <Label>{t('reportsPages.shared.asOfDate')}</Label>
           <Input
             type="date"
             value={asOfDate}
@@ -69,7 +71,7 @@ export function TrialBalanceTab({ asOfDate, onAsOfDateChange }: TrialBalanceTabP
         </div>
         <Button onClick={exportCSV} disabled={!trialBalance?.length}>
           <Download className="mr-2 h-4 w-4" />
-          匯出 CSV
+          {t('reportsPages.shared.exportCsv')}
         </Button>
       </div>
       <GuestDateNotice />
@@ -77,11 +79,11 @@ export function TrialBalanceTab({ asOfDate, onAsOfDateChange }: TrialBalanceTabP
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortableTableHead sortKey="account_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>科目代碼</SortableTableHead>
-              <SortableTableHead sortKey="account_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>科目名稱</SortableTableHead>
-              <SortableTableHead sortKey="account_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>類型</SortableTableHead>
-              <SortableTableHead sortKey="debit_balance" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">借方餘額</SortableTableHead>
-              <SortableTableHead sortKey="credit_balance" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">貸方餘額</SortableTableHead>
+              <SortableTableHead sortKey="account_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.accountCode')}</SortableTableHead>
+              <SortableTableHead sortKey="account_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.accountName')}</SortableTableHead>
+              <SortableTableHead sortKey="account_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.trialBalance.type')}</SortableTableHead>
+              <SortableTableHead sortKey="debit_balance" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.accounting.trialBalance.debitBalance')}</SortableTableHead>
+              <SortableTableHead sortKey="credit_balance" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.accounting.trialBalance.creditBalance')}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -106,7 +108,7 @@ export function TrialBalanceTab({ asOfDate, onAsOfDateChange }: TrialBalanceTabP
                 </TableRow>
               ))
             ) : (
-              <TableEmptyRow colSpan={5} icon={FileText} title="尚無試算表資料" />
+              <TableEmptyRow colSpan={5} icon={FileText} title={t('reportsPages.accounting.trialBalance.emptyTitle')} />
             )}
           </TableBody>
         </Table>

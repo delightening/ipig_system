@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { AnimalListItem } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,6 +25,7 @@ export function AnimalPenView({
   onQuickMove,
   isQuickMovePending,
 }: AnimalPenViewProps) {
+  const { t } = useTranslation()
   const { buildings, zonesByBuilding, pensByZone, isLoading: facilityLoading } = useFacilityLayout()
   const [editingPenLocation, setEditingPenLocation] = useState<string | null>(null)
   const [editingEarTag, setEditingEarTag] = useState('')
@@ -121,9 +123,9 @@ export function AnimalPenView({
             <span className={`w-8 h-8 rounded-lg ${colors.header} text-white flex items-center justify-center font-bold text-lg shadow-md`} style={colors.headerStyle}>
               {zone.code}
             </span>
-            <span className={colors.text}>{zone.name ?? `${zone.code} 區`}</span>
+            <span className={colors.text}>{zone.name ?? t('animalPages.penView.zoneFallbackName', { code: zone.code })}</span>
             <Badge variant="outline" className={`ml-2 ${colors.text} ${colors.border}`} style={colors.borderStyle}>
-              共 {totalAnimals} 隻
+              {t('animalPages.penView.totalAnimals', { count: totalAnimals })}
             </Badge>
           </CardTitle>
         </CardHeader>
@@ -206,8 +208,8 @@ export function AnimalPenView({
                 <div key={z.id} className="flex items-center gap-2">
                   {i > 0 && <span className="text-muted-foreground">|</span>}
                   <span className={`w-8 h-8 rounded-lg ${c.header} text-white flex items-center justify-center font-bold text-lg shadow-md`} style={c.headerStyle}>{z.code}</span>
-                  <span className={c.text}>{z.name ?? `${z.code} 區`}</span>
-                  <Badge variant="outline" className={`${c.text} ${c.border}`} style={c.borderStyle}>{zoneAnimalCounts.get(z.id) ?? 0} 隻</Badge>
+                  <span className={c.text}>{z.name ?? t('animalPages.penView.zoneFallbackName', { code: z.code })}</span>
+                  <Badge variant="outline" className={`${c.text} ${c.border}`} style={c.borderStyle}>{t('animalPages.penView.animalCount', { count: zoneAnimalCounts.get(z.id) ?? 0 })}</Badge>
                 </div>
               )
             })}

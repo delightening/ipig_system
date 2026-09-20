@@ -1,7 +1,9 @@
+import { useTranslation } from 'react-i18next'
 import { Permission } from '@/lib/api'
 import { PermissionGroup } from './PermissionGroup'
 import { PermissionSearch } from './PermissionSearch'
 import { usePermissionManager } from '@/hooks/usePermissionManager'
+import { translateModuleName } from '@/hooks/permission/permissionConfig'
 import { Button } from '@/components/ui/button'
 import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
 
@@ -21,6 +23,7 @@ export function PermissionTree({
   showSearch = true,
   readOnly = false,
 }: PermissionTreeProps) {
+  const { t } = useTranslation()
   const {
     groupedPermissions,
     stats,
@@ -41,7 +44,7 @@ export function PermissionTree({
   // 模組選項
   const moduleOptions = groupedPermissions.map(g => ({
     value: g.module,
-    label: g.moduleName,
+    label: translateModuleName(t, g.moduleName),
   }))
 
   return (
@@ -69,7 +72,7 @@ export function PermissionTree({
               className="h-8 text-xs"
             >
               <ChevronsDownUp className="h-3 w-3 mr-1" />
-              展開全部
+              {t('adminUsers.permissions.tree.expandAll')}
             </Button>
             <Button
               variant="outline"
@@ -78,11 +81,11 @@ export function PermissionTree({
               className="h-8 text-xs"
             >
               <ChevronsUpDown className="h-3 w-3 mr-1" />
-              摺疊全部
+              {t('adminUsers.permissions.tree.collapseAll')}
             </Button>
           </div>
           <div className="text-sm text-muted-foreground">
-            共 {stats.total} 個權限，已選 {selectedPermissionIds.length} 個
+            {t('adminUsers.permissions.tree.summary', { total: stats.total, selected: selectedPermissionIds.length })}
           </div>
         </div>
       )}
@@ -91,7 +94,7 @@ export function PermissionTree({
       <div className="space-y-2">
         {groupedPermissions.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            {searchQuery ? '沒有找到符合條件的權限' : '沒有權限'}
+            {searchQuery ? t('adminUsers.permissions.tree.noMatch') : t('adminUsers.permissions.tree.empty')}
           </div>
         ) : (
           groupedPermissions.map((group) => (

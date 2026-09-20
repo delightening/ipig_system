@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -17,6 +18,7 @@ interface CreateLeavePayload {
 }
 
 export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
 
     const invalidateLeaveQueries = (keys: readonly (readonly string[])[]) => {
@@ -33,12 +35,12 @@ export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
         onSuccess: () => {
             invalidateLeaveQueries([queryKeys.hr.myLeaves])
             options?.onCreateSuccess?.()
-            toast({ title: '成功', description: '已建立請假申請' })
+            toast({ title: t('common.success'), description: t('hrPages.leaves.toast.created') })
         },
         onError: (error: unknown) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '建立失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('hrPages.shared.toast.createFailed')),
                 variant: 'destructive',
             })
         },
@@ -50,7 +52,7 @@ export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
         },
         onSuccess: () => {
             invalidateLeaveQueries([queryKeys.hr.myLeaves])
-            toast({ title: '成功', description: '已送出審核' })
+            toast({ title: t('common.success'), description: t('hrPages.shared.toast.submittedForReview') })
         },
     })
 
@@ -60,7 +62,7 @@ export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
         },
         onSuccess: () => {
             invalidateLeaveQueries([queryKeys.hr.pendingLeaves, queryKeys.hr.myLeaves])
-            toast({ title: '成功', description: '已核准' })
+            toast({ title: t('common.success'), description: t('hrPages.shared.toast.approved') })
         },
     })
 
@@ -70,7 +72,7 @@ export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
         },
         onSuccess: () => {
             invalidateLeaveQueries([queryKeys.hr.pendingLeaves])
-            toast({ title: '已駁回', description: '請假已被駁回' })
+            toast({ title: t('hrPages.shared.toast.rejectedTitle'), description: t('hrPages.leaves.toast.rejected') })
         },
     })
 
@@ -80,7 +82,7 @@ export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
         },
         onSuccess: () => {
             invalidateLeaveQueries([queryKeys.hr.myLeaves])
-            toast({ title: '成功', description: '已取消請假' })
+            toast({ title: t('common.success'), description: t('hrPages.leaves.toast.cancelled') })
         },
     })
 
@@ -91,7 +93,7 @@ export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
         },
         onSuccess: () => {
             invalidateLeaveQueries([queryKeys.hr.pendingLeaves, queryKeys.hr.myLeaves])
-            toast({ title: '成功', description: '已確認代理，申請進入審核' })
+            toast({ title: t('common.success'), description: t('hrPages.leaves.toast.delegateConfirmed') })
         },
     })
 
@@ -102,7 +104,7 @@ export function useLeaveMutations(options?: { onCreateSuccess?: () => void }) {
         },
         onSuccess: () => {
             invalidateLeaveQueries([queryKeys.hr.pendingLeaves, queryKeys.hr.myLeaves])
-            toast({ title: '已退回', description: '已退回申請人重新指定代理人' })
+            toast({ title: t('hrPages.leaves.toast.returnedTitle'), description: t('hrPages.leaves.toast.returned') })
         },
     })
 

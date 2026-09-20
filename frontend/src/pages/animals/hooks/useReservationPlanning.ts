@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import {
   reservationPlanningApi,
@@ -31,6 +32,7 @@ export function useReservable(query: ReservableQuery) {
 
 /** 備註 inline 編輯 mutation（Phase 5）。成功後刷新規劃 + 動物清單；失敗 toast（呼叫端負責還原）。 */
 export function useUpdateRemark() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (v: { animalId: string; remark: string }) =>
@@ -41,12 +43,17 @@ export function useUpdateRemark() {
       qc.invalidateQueries({ queryKey: ['animals'] })
     },
     onError: (e: unknown) =>
-      toast({ title: '錯誤', description: getApiErrorMessage(e, '備註儲存失敗'), variant: 'destructive' }),
+      toast({
+        title: t('common.error'),
+        description: getApiErrorMessage(e, t('animalPages.reservation.toast.remarkSaveFailed')),
+        variant: 'destructive',
+      }),
   })
 }
 
 /** 預約 / 解除預約 / 正式分配 mutations（成功後 invalidate 規劃 + 動物清單） */
 export function useReservationMutations() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: PLANNING_KEY })
@@ -59,20 +66,34 @@ export function useReservationMutations() {
     mutationFn: (body: ReserveBody) => reservationPlanningApi.reserve(body),
     onSuccess: (_d, vars) => {
       invalidate()
-      toast({ title: '已預約', description: `已預約 ${vars.animal_ids.length} 隻動物` })
+      toast({
+        title: t('animalPages.reservation.status.reserved'),
+        description: t('animalPages.reservation.toast.reservedCount', { count: vars.animal_ids.length }),
+      })
     },
     onError: (e: unknown) =>
-      toast({ title: '錯誤', description: getApiErrorMessage(e, '預約失敗'), variant: 'destructive' }),
+      toast({
+        title: t('common.error'),
+        description: getApiErrorMessage(e, t('animalPages.reservation.toast.reserveFailed')),
+        variant: 'destructive',
+      }),
   })
 
   const unreserve = useMutation({
     mutationFn: (animalIds: string[]) => reservationPlanningApi.unreserve(animalIds),
     onSuccess: () => {
       invalidate()
-      toast({ title: '已解除', description: '已解除預約' })
+      toast({
+        title: t('animalPages.reservation.toast.unreservedTitle'),
+        description: t('animalPages.reservation.toast.unreservedDescription'),
+      })
     },
     onError: (e: unknown) =>
-      toast({ title: '錯誤', description: getApiErrorMessage(e, '解除預約失敗'), variant: 'destructive' }),
+      toast({
+        title: t('common.error'),
+        description: getApiErrorMessage(e, t('animalPages.reservation.toast.unreserveFailed')),
+        variant: 'destructive',
+      }),
   })
 
   const assign = useMutation({
@@ -80,10 +101,17 @@ export function useReservationMutations() {
       reservationPlanningApi.assign(v.animalIds, v.iacucNo),
     onSuccess: () => {
       invalidate()
-      toast({ title: '已分配', description: '動物已正式分配進實驗中' })
+      toast({
+        title: t('animalPages.reservation.toast.assignedTitle'),
+        description: t('animalPages.reservation.toast.assignedDescription'),
+      })
     },
     onError: (e: unknown) =>
-      toast({ title: '錯誤', description: getApiErrorMessage(e, '正式分配失敗'), variant: 'destructive' }),
+      toast({
+        title: t('common.error'),
+        description: getApiErrorMessage(e, t('animalPages.reservation.toast.assignFailed')),
+        variant: 'destructive',
+      }),
   })
 
   return { reserve, unreserve, assign }

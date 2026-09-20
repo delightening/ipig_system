@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -22,7 +23,8 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import {
-    OVERTIME_TYPE_NAMES,
+    OVERTIME_TYPE_CODES,
+    overtimeTypeLabel,
     calculateOvertimeHours,
     calculateCompTime,
 } from '../constants'
@@ -52,6 +54,7 @@ export function CreateOvertimeDialog({
     onSubmit,
     isPending,
 }: CreateOvertimeDialogProps) {
+    const { t } = useTranslation()
     const {
         register,
         handleSubmit,
@@ -94,82 +97,82 @@ export function CreateOvertimeDialog({
             <DialogTrigger asChild>
                 <Button>
                     <Plus className="h-4 w-4 mr-2" />
-                    新增加班
+                    {t('hrPages.overtime.create.button')}
                 </Button>
             </DialogTrigger>
             <DialogContent size="md">
                 <DialogHeader>
-                    <DialogTitle>新增加班申請</DialogTitle>
-                    <DialogDescription>填寫加班資訊後送出審核</DialogDescription>
+                    <DialogTitle>{t('hrPages.overtime.create.title')}</DialogTitle>
+                    <DialogDescription>{t('hrPages.overtime.create.description')}</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit(onValid)}>
                     <div className="grid gap-4 py-4">
-                        <FormField label="加班日期" required error={errors.overtimeDate?.message}>
+                        <FormField label={t('hrPages.overtime.create.date')} required error={errors.overtimeDate?.message}>
                             <Input type="date" {...register('overtimeDate', {
-                                required: '請選擇加班日期',
-                                pattern: { value: DATE_PATTERN, message: '請選擇加班日期' },
-                            })} aria-label="加班日期" />
+                                required: t('hrPages.overtime.create.dateRequired'),
+                                pattern: { value: DATE_PATTERN, message: t('hrPages.overtime.create.dateRequired') },
+                            })} aria-label={t('hrPages.overtime.create.date')} />
                         </FormField>
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField label="開始時間" required>
+                            <FormField label={t('hrPages.overtime.create.startTime')} required>
                                 <Input type="time" {...register('startTime', {
-                                    required: '請選擇開始時間',
-                                    pattern: { value: TIME_PATTERN, message: '請選擇開始時間' },
-                                })} aria-label="開始時間" />
+                                    required: t('hrPages.overtime.create.startTimeRequired'),
+                                    pattern: { value: TIME_PATTERN, message: t('hrPages.overtime.create.startTimeRequired') },
+                                })} aria-label={t('hrPages.overtime.create.startTime')} />
                             </FormField>
-                            <FormField label="結束時間" required error={errors.endTime?.message}>
+                            <FormField label={t('hrPages.overtime.create.endTime')} required error={errors.endTime?.message}>
                                 <Input type="time" {...register('endTime', {
-                                    required: '請選擇結束時間',
-                                    pattern: { value: TIME_PATTERN, message: '請選擇結束時間' },
-                                    validate: (value, formValues) => value > formValues.startTime || '結束時間必須晚於開始時間（不支援跨午夜）',
-                                })} aria-label="結束時間" />
+                                    required: t('hrPages.overtime.create.endTimeRequired'),
+                                    pattern: { value: TIME_PATTERN, message: t('hrPages.overtime.create.endTimeRequired') },
+                                    validate: (value, formValues) => value > formValues.startTime || t('hrPages.overtime.create.endTimeAfterStart'),
+                                })} aria-label={t('hrPages.overtime.create.endTime')} />
                             </FormField>
                         </div>
-                        <FormField label="加班類型">
+                        <FormField label={t('hrPages.overtime.type')}>
                             <Select value={overtimeType} onValueChange={(v) => setValue('overtimeType', v)}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {Object.entries(OVERTIME_TYPE_NAMES).map(([code, name]) => (
+                                    {OVERTIME_TYPE_CODES.map((code) => (
                                         <SelectItem key={code} value={code}>
-                                            {name}
+                                            {overtimeTypeLabel(t, code)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </FormField>
-                        <FormField label="加班事由" required error={errors.reason?.message}>
+                        <FormField label={t('hrPages.overtime.create.reason')} required error={errors.reason?.message}>
                             <Textarea
-                                placeholder="請說明加班原因..."
+                                placeholder={t('hrPages.overtime.create.reasonPlaceholder')}
                                 {...register('reason', {
-                                    required: '請輸入加班事由',
-                                    maxLength: { value: 500, message: '加班事由不得超過 500 字元' },
+                                    required: t('hrPages.overtime.create.reasonRequired'),
+                                    maxLength: { value: 500, message: t('hrPages.overtime.create.reasonTooLong') },
                                 })}
                                 rows={3}
                             />
                         </FormField>
                         <div className="grid gap-2 p-3 bg-muted rounded-lg space-y-1">
                             <div className="flex justify-between items-center">
-                                <span className="text-sm text-muted-foreground">預估加班時數</span>
+                                <span className="text-sm text-muted-foreground">{t('hrPages.overtime.create.estimatedHours')}</span>
                                 <span className="text-lg font-semibold">
-                                    {calculateOvertimeHours(startTime, endTime).toFixed(1)} 小時
+                                    {t('hrPages.shared.hoursValue', { hours: calculateOvertimeHours(startTime, endTime).toFixed(1) })}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-sm text-muted-foreground">預估補休時數</span>
+                                <span className="text-sm text-muted-foreground">{t('hrPages.overtime.create.estimatedCompHours')}</span>
                                 <span className="text-lg font-semibold">
-                                    {calculateCompTime(overtimeType).toFixed(1)} 小時
+                                    {t('hrPages.shared.hoursValue', { hours: calculateCompTime(overtimeType).toFixed(1) })}
                                 </span>
                             </div>
                         </div>
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-                            取消
+                            {t('common.cancel')}
                         </Button>
                         <Button type="submit" disabled={isPending}>
-                            建立
+                            {t('hrPages.shared.action.create')}
                         </Button>
                     </DialogFooter>
                 </form>

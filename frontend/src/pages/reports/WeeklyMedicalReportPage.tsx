@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Download, Search, FileSpreadsheet, FileText } from 'lucide-react'
 
 import api from '@/lib/api'
@@ -28,6 +29,7 @@ function DateStack({ value }: { value: string | null | undefined }) {
 }
 
 export function WeeklyMedicalReportPage() {
+  const { t } = useTranslation()
   const [protocolId, setProtocolId] = useState('')
   const [earTags, setEarTags] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -79,19 +81,19 @@ export function WeeklyMedicalReportPage() {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center gap-3">
         <FileSpreadsheet className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold">豬隻病歷彙整報表</h1>
+        <h1 className="text-2xl font-bold">{t('reportsPages.weeklyMedical.title')}</h1>
       </div>
 
       <div className="p-4 border rounded-lg bg-muted/50 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label>計畫案</Label>
+            <Label>{t('reportsPages.weeklyMedical.protocol')}</Label>
             <select
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={protocolId}
               onChange={e => setProtocolId(e.target.value)}
             >
-              <option value="">全部計畫案</option>
+              <option value="">{t('reportsPages.weeklyMedical.allProtocols')}</option>
               {(protocols ?? []).map(p => (
                 <option key={p.id} value={p.id}>
                   {p.iacuc_no ? `${p.iacuc_no} — ` : ''}{p.title}
@@ -100,17 +102,17 @@ export function WeeklyMedicalReportPage() {
             </select>
           </div>
           <div>
-            <Label>耳號（逗號分隔，可留空）</Label>
+            <Label>{t('reportsPages.weeklyMedical.earTagsLabel')}</Label>
             <Input placeholder="640, 727, 784" value={earTags} onChange={e => setEarTags(e.target.value)} />
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label>開始日期</Label>
+            <Label>{t('reportsPages.shared.beginDate')}</Label>
             <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
           </div>
           <div>
-            <Label>結束日期</Label>
+            <Label>{t('reportsPages.shared.endDate')}</Label>
             <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
           </div>
         </div>
@@ -118,15 +120,15 @@ export function WeeklyMedicalReportPage() {
         <div className="flex items-center gap-2 pt-1">
           <Button onClick={handleSearch} disabled={isLoading}>
             <Search className="h-4 w-4 mr-1" />
-            查詢
+            {t('reportsPages.shared.query')}
           </Button>
           <Button variant="outline" onClick={() => handleExport('xlsx')} disabled={!!exporting}>
             <Download className="h-4 w-4 mr-1" />
-            {exporting === 'xlsx' ? '匯出中...' : 'Excel'}
+            {exporting === 'xlsx' ? t('reportsPages.shared.exporting') : 'Excel'}
           </Button>
           <Button variant="outline" onClick={() => handleExport('pdf')} disabled={!!exporting}>
             <FileText className="h-4 w-4 mr-1" />
-            {exporting === 'pdf' ? '匯出中...' : 'PDF'}
+            {exporting === 'pdf' ? t('reportsPages.shared.exporting') : 'PDF'}
           </Button>
         </div>
       </div>
@@ -142,15 +144,15 @@ export function WeeklyMedicalReportPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted">
               <tr>
-                <th className="px-3 py-2 text-left whitespace-nowrap">日期</th>
-                <th className="px-3 py-2 text-left whitespace-nowrap">耳號</th>
-                <th className="px-2 py-2 text-center whitespace-nowrap [writing-mode:vertical-rl] [text-orientation:upright]">類別</th>
-                <th className="px-3 py-2 text-left whitespace-nowrap">出生日期</th>
-                <th className="px-3 py-2 text-right whitespace-nowrap">體重(kg)</th>
-                <th className="px-3 py-2 text-left whitespace-nowrap">試驗單位</th>
-                <th className="px-3 py-2 text-left">試驗內容</th>
-                <th className="px-3 py-2 text-left whitespace-nowrap">特殊儀器</th>
-                <th className="px-3 py-2 text-left whitespace-nowrap">麻醉時間</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">{t('reportsPages.weeklyMedical.columns.date')}</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">{t('reportsPages.shared.earTag')}</th>
+                <th className="px-2 py-2 text-center whitespace-nowrap [writing-mode:vertical-rl] [text-orientation:upright]">{t('reportsPages.weeklyMedical.columns.type')}</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">{t('reportsPages.weeklyMedical.columns.birthDate')}</th>
+                <th className="px-3 py-2 text-right whitespace-nowrap">{t('reportsPages.weeklyMedical.columns.weightKg')}</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">{t('reportsPages.weeklyMedical.columns.studyUnit')}</th>
+                <th className="px-3 py-2 text-left">{t('reportsPages.weeklyMedical.columns.studyContent')}</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">{t('reportsPages.weeklyMedical.columns.specialEquipment')}</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">{t('reportsPages.weeklyMedical.columns.anesthesiaTime')}</th>
               </tr>
             </thead>
             <tbody>
@@ -164,9 +166,9 @@ export function WeeklyMedicalReportPage() {
                       : ev.event_type === 'BLOOD_TEST' ? 'bg-amber-500'
                       : 'bg-blue-500'
                     }`}>
-                      {ev.event_type === 'OBSERVATION' ? '觀察'
-                       : ev.event_type === 'SURGERY' ? '手術'
-                       : ev.event_type === 'BLOOD_TEST' ? '血檢'
+                      {ev.event_type === 'OBSERVATION' ? t('reportsPages.weeklyMedical.eventTypes.observation')
+                       : ev.event_type === 'SURGERY' ? t('reportsPages.weeklyMedical.eventTypes.surgery')
+                       : ev.event_type === 'BLOOD_TEST' ? t('reportsPages.weeklyMedical.eventTypes.bloodTest')
                        : ev.event_type}
                     </span>
                   </td>
@@ -189,12 +191,12 @@ export function WeeklyMedicalReportPage() {
               ))}
               {events.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">查無資料</td>
+                  <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">{t('reportsPages.shared.noResults')}</td>
                 </tr>
               )}
             </tbody>
           </table>
-          <div className="px-3 py-2 text-sm text-muted-foreground border-t">共 {events.length} 筆</div>
+          <div className="px-3 py-2 text-sm text-muted-foreground border-t">{t('common.totalItems', { count: events.length })}</div>
         </div>
       )}
     </div>

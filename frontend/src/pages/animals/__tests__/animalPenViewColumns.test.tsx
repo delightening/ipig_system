@@ -88,6 +88,13 @@ vi.mock('../hooks/useFacilityLayout', async (importOriginal) => {
   }
 })
 
+// PenGridHeader 的表頭改走 i18n：t(key) 回 key，斷言比對 key（不綁語言包內容）。
+// initReactI18next 是 lib/i18n（經 lib/utils 被拉進來）在 import 階段需要的 plugin 形狀。
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+  initReactI18next: { type: '3rdParty', init: () => {} },
+}))
+
 const { AnimalPenView } = await import('../components/AnimalPenView')
 
 function renderWithZone(zone: ZoneWithBuilding, pens: PenDetails[]) {
@@ -113,15 +120,15 @@ describe('AnimalPenView 區域卡片欄數', () => {
   it('單排區域只畫一欄，右半邊不會出現空白欄', () => {
     renderWithZone(SINGLE_ZONE, SINGLE_PENS)
 
-    // PenGridHeader 每欄各有一個「欄位」表頭
-    expect(screen.getAllByText('欄位')).toHaveLength(1)
+    // PenGridHeader 每欄各有一個「欄位」表頭（i18n 鍵 animals.pen）
+    expect(screen.getAllByText('animals.pen')).toHaveLength(1)
     expect(screen.getByText('S01')).toBeInTheDocument()
   })
 
   it('真正雙排的區域維持兩欄（不因此次修正而退化）', () => {
     renderWithZone(DOUBLE_ZONE, DOUBLE_PENS)
 
-    expect(screen.getAllByText('欄位')).toHaveLength(2)
+    expect(screen.getAllByText('animals.pen')).toHaveLength(2)
     expect(screen.getByText('A01')).toBeInTheDocument()
     expect(screen.getByText('A02')).toBeInTheDocument()
   })

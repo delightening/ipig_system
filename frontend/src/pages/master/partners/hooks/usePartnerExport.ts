@@ -1,3 +1,6 @@
+import { useTranslation } from 'react-i18next'
+
+import i18n from '@/lib/i18n'
 import { Partner } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import {
@@ -7,26 +10,45 @@ import {
 } from '../constants'
 
 export function usePartnerExport(partners: Partner[] | undefined) {
+  const { t } = useTranslation()
+
   const handleExportCSV = () => {
     if (!partners || partners.length === 0) {
-      toast({ title: '無資料可匯出', description: '請先新增夥伴', variant: 'destructive' })
+      toast({
+        title: t('erpMaster.products.toast.nothingToExport'),
+        description: t('erpMaster.partners.toast.nothingToExportHint'),
+        variant: 'destructive',
+      })
       return
     }
 
-    const headers = ['類型', '代碼', '名稱', '供應商類別', '客戶分類', '統編', '電話', 'Email', '地址', '狀態']
+    // 內部匯出檔固定中文（使用者裁定 2026-09-19）
+    const tZh = i18n.getFixedT('zh-TW')
+    const headers = [
+      tZh('erpMaster.partners.table.type'),
+      tZh('erpMaster.common.code'),
+      tZh('erpMaster.common.name'),
+      tZh('erpMaster.partners.supplierCategoryHeader'),
+      tZh('erpMaster.partners.customerCategoryLabel'),
+      tZh('erpMaster.partners.taxId'),
+      tZh('erpMaster.partners.phone'),
+      tZh('common.email'),
+      tZh('erpMaster.partners.address'),
+      tZh('erpMaster.common.status'),
+    ]
     const rows = partners.map(p => {
       const ext = p as Partner & { supplier_category?: string }
       return [
-        formatPartnerType(p.partner_type),
+        formatPartnerType(p.partner_type, 'zh-TW'),
         p.code,
         p.name,
-        formatSupplierCategory(ext.supplier_category),
-        formatCustomerCategory(p.customer_category),
+        formatSupplierCategory(ext.supplier_category, 'zh-TW'),
+        formatCustomerCategory(p.customer_category, 'zh-TW'),
         p.tax_id || '',
         p.phone || '',
         p.email || '',
         p.address || '',
-        p.is_active ? '啟用' : '停用',
+        p.is_active ? tZh('erpMaster.common.active') : tZh('erpMaster.common.inactive'),
       ]
     })
 
@@ -40,7 +62,10 @@ export function usePartnerExport(partners: Partner[] | undefined) {
     link.download = `partners_${new Date().toISOString().split('T')[0]}.csv`
     link.click()
     URL.revokeObjectURL(link.href)
-    toast({ title: '匯出成功', description: `已匯出 ${partners.length} 筆夥伴` })
+    toast({
+      title: t('common.exportSuccess'),
+      description: t('erpMaster.partners.toast.exported', { count: partners.length }),
+    })
   }
 
   return { handleExportCSV }

@@ -1,5 +1,6 @@
 // 單一類別區塊（可折疊 + 條目卡片）（R82-7 由 VetPatrolReportDialog.tsx 抽出）
 
+import { useTranslation } from 'react-i18next'
 import { Plus, ChevronDown, ChevronRight } from 'lucide-react'
 import { EntryCard } from './EntryCard'
 import type { CATEGORIES } from './constants'
@@ -8,6 +9,7 @@ import type { VetPatrolReportVM } from './useVetPatrolReport'
 type Category = typeof CATEGORIES[number]
 
 export function CategorySection({ vm, cat }: { vm: VetPatrolReportVM; cat: Category }) {
+    const { t } = useTranslation()
     const isCollapsed = vm.collapsedCategories.has(cat.key)
     const rows = vm.entries[cat.key]
     const filledCount = rows.filter(r => r.observation || r.suggestion || r.follow_up).length
@@ -35,9 +37,9 @@ export function CategorySection({ vm, cat }: { vm: VetPatrolReportVM; cat: Categ
                         ? <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         : <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     }
-                    <span className="text-sm font-semibold">{cat.label}</span>
+                    <span className="text-sm font-semibold">{t(cat.labelKey)}</span>
                     {filledCount > 0 && (
-                        <span className="text-xs text-muted-foreground">({filledCount} 筆)</span>
+                        <span className="text-xs text-muted-foreground">({t('animalActions.common.recordsCount', { count: filledCount })})</span>
                     )}
                 </button>
                 {canAddRow && (
@@ -46,7 +48,7 @@ export function CategorySection({ vm, cat }: { vm: VetPatrolReportVM; cat: Categ
                         onClick={() => vm.addRow(cat.key)}
                         className="flex items-center gap-1 px-3 py-2 text-xs text-status-success-solid hover:text-status-success-text transition-colors"
                     >
-                        <Plus className="h-3 w-3" /> 新增列
+                        <Plus className="h-3 w-3" /> {t('animalActions.vetPatrol.addRow')}
                     </button>
                 )}
             </div>
@@ -64,7 +66,7 @@ export function CategorySection({ vm, cat }: { vm: VetPatrolReportVM; cat: Categ
                             onClick={() => vm.addRow(cat.key)}
                             className="w-full py-2 border-2 border-dashed border-muted-foreground/30 rounded-lg text-xs text-muted-foreground hover:border-status-success-solid hover:text-status-success-solid transition-colors flex items-center justify-center gap-1"
                         >
-                            <Plus className="h-3 w-3" /> 新增列
+                            <Plus className="h-3 w-3" /> {t('animalActions.vetPatrol.addRow')}
                         </button>
                     )}
                 </div>

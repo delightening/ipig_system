@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { FileText, Send, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -5,9 +6,8 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { Card } from '@/components/ui/card'
 import { DataTable, type ColumnDef } from '@/components/ui/data-table'
 import { formatDate } from '@/lib/utils'
-import { LEAVE_TYPE_NAMES } from '@/types/hr'
 import type { LeaveRequestWithUser } from '@/types/hr'
-import { formatLeaveHours, getLeaveStatusVariant } from '../constants'
+import { formatLeaveHours, getLeaveStatusVariant, leaveTypeLabel } from '../constants'
 
 interface MyLeavesTabContentProps {
     leaves: LeaveRequestWithUser[] | undefined
@@ -26,15 +26,16 @@ export function MyLeavesTabContent({
     submitPending,
     cancelPending,
 }: MyLeavesTabContentProps) {
+    const { t } = useTranslation()
     const columns: ColumnDef<LeaveRequestWithUser>[] = [
         {
             key: 'leave_type',
-            header: '假別',
-            cell: (leave) => LEAVE_TYPE_NAMES[leave.leave_type] || leave.leave_type,
+            header: t('hrPages.shared.col.leaveType'),
+            cell: (leave) => leaveTypeLabel(t, leave.leave_type),
         },
         {
             key: 'date',
-            header: '日期',
+            header: t('hrPages.shared.col.date'),
             cell: (leave) => (
                 <span className="whitespace-nowrap">
                     {formatDate(leave.start_date)}
@@ -44,20 +45,20 @@ export function MyLeavesTabContent({
         },
         {
             key: 'hours',
-            header: '時數',
-            cell: (leave) => formatLeaveHours(leave),
+            header: t('hrPages.shared.col.hours'),
+            cell: (leave) => formatLeaveHours(t, leave),
         },
         {
             key: 'reason',
-            header: '事由',
+            header: t('hrPages.shared.col.reason'),
             className: 'max-w-[200px] whitespace-normal break-words',
             cell: (leave) => leave.reason,
         },
         {
             key: 'status',
-            header: '狀態',
+            header: t('hrPages.shared.col.status'),
             cell: (leave) => {
-                const status = getLeaveStatusVariant(leave.status)
+                const status = getLeaveStatusVariant(t, leave.status)
                 return (
                     <StatusBadge variant={status.variant}>
                         {status.label}
@@ -67,7 +68,7 @@ export function MyLeavesTabContent({
         },
         {
             key: 'actions',
-            header: '操作',
+            header: t('common.actions'),
             className: 'text-right',
             cell: (leave) => (
                 <div className="flex items-center justify-end gap-1">
@@ -80,7 +81,7 @@ export function MyLeavesTabContent({
                                 disabled={submitPending}
                             >
                                 <Send className="h-4 w-4 mr-1" />
-                                送審
+                                {t('hrPages.shared.action.submit')}
                             </Button>
                             <Button
                                 variant="destructive"
@@ -99,7 +100,7 @@ export function MyLeavesTabContent({
                             onClick={() => onCancel(leave.id)}
                             disabled={cancelPending}
                         >
-                            取消
+                            {t('common.cancel')}
                         </Button>
                     )}
                 </div>
@@ -114,7 +115,7 @@ export function MyLeavesTabContent({
                 data={leaves}
                 isLoading={isLoading}
                 emptyIcon={FileText}
-                emptyTitle="沒有請假記錄"
+                emptyTitle={t('hrPages.leaves.mine.empty')}
                 rowKey={(row) => row.id}
             />
         </Card>

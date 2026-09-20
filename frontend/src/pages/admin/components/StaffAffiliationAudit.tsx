@@ -13,6 +13,7 @@
  * 才明顯有問題。哪一位獸醫是外聘、哪一位是自己人，只有使用者知道。
  */
 import { useMemo } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +26,7 @@ interface StaffAffiliationAuditProps {
 }
 
 export function StaffAffiliationAudit({ users, onEdit }: StaffAffiliationAuditProps) {
+  const { t } = useTranslation()
   const mismatched = useMemo(
     () =>
       users.filter(u => {
@@ -46,15 +48,13 @@ export function StaffAffiliationAudit({ users, onEdit }: StaffAffiliationAuditPr
         <div className="min-w-0 flex-1 space-y-2">
           <div>
             <div className="text-sm font-medium">
-              有 {mismatched.length} 位使用者的身分與其角色不一致
+              {t('adminUsers.users.affiliationAudit.title', { count: mismatched.length })}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              下列人員的「本場受僱人員 / 外部人員」設定與其持有的角色相矛盾。
-              這不一定是錯的——外聘獸醫、外部審查委員本來就會這樣；
-              但具試驗工作人員等內部職能卻被標為外部的人，
-              <strong className="font-medium">預設不會出現在部門成員的候選名單裡</strong>
-              （需在部門成員對話框明確開啟「一併顯示外部人員」才列得出來、才能指派），
-              也不適用請假、加班等人事作業——連帶讓他的假單找不到單位主管簽核。請逐一確認。
+              <Trans
+                i18nKey="adminUsers.users.affiliationAudit.body"
+                components={{ strong: <strong className="font-medium" /> }}
+              />
             </p>
           </div>
           <ul className="space-y-1">
@@ -62,10 +62,14 @@ export function StaffAffiliationAudit({ users, onEdit }: StaffAffiliationAuditPr
               <li key={u.id} className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="font-medium">{u.display_name}</span>
                 <Badge variant="outline" className="text-xs">
-                  目前：{(u.is_internal ?? true) ? '本場受僱人員' : '外部人員'}
+                  {t('adminUsers.users.affiliationAudit.current', {
+                    status: (u.is_internal ?? true) ? t('adminUsers.shared.affiliation.internal') : t('adminUsers.shared.affiliation.external'),
+                  })}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  角色：{u.roles.join('、') || '（無）'}
+                  {t('adminUsers.users.affiliationAudit.roles', {
+                    roles: u.roles.join(t('adminUsers.shared.listSeparator')) || t('admin.departmentTab.none'),
+                  })}
                 </span>
                 <Button
                   variant="link"
@@ -73,7 +77,7 @@ export function StaffAffiliationAudit({ users, onEdit }: StaffAffiliationAuditPr
                   className="h-auto p-0 text-xs"
                   onClick={() => onEdit(u)}
                 >
-                  前往修改
+                  {t('adminUsers.users.affiliationAudit.goEdit')}
                 </Button>
               </li>
             ))}

@@ -2,6 +2,8 @@
  * 通知型別
  */
 
+import { createLabelMap } from '@/lib/i18nLabels'
+
 export type NotificationType =
     | 'low_stock'
     | 'expiry_warning'
@@ -15,19 +17,23 @@ export type NotificationType =
     | 'review_assignment'
     | 'review_comment'
 
-export const notificationTypeNames: Record<NotificationType, string> = {
-    low_stock: '低庫存預警',
-    expiry_warning: '效期預警',
-    document_approval: '單據審核',
-    protocol_status: '計畫狀態',
-    protocol_submitted: '計畫送審',
-    vet_recommendation: '獸醫師建議',
-    system_alert: '系統通知',
-    monthly_report: '月報',
-    leave_approval: '請假審核',
-    review_assignment: '審查指派',
-    review_comment: '審查意見',
-}
+/** 通知類型 → 顯示名稱（getter 版：每次讀取才依當下語言翻譯，見 `@/lib/i18nLabels`） */
+export const notificationTypeNames: Record<NotificationType, string> = createLabelMap(
+    'typesLabels.notificationType',
+    [
+        'low_stock',
+        'expiry_warning',
+        'document_approval',
+        'protocol_status',
+        'protocol_submitted',
+        'vet_recommendation',
+        'system_alert',
+        'monthly_report',
+        'leave_approval',
+        'review_assignment',
+        'review_comment',
+    ],
+)
 
 export interface NotificationItem {
     id: string
@@ -185,51 +191,51 @@ export interface RoleInfo {
     name: string
 }
 
-/** 事件類型中文名稱對照 */
-export const eventTypeNames: Record<string, string> = {
-    protocol_submitted: '計畫提交',
-    protocol_vet_review: '獸醫審查',
-    protocol_under_review: '委員審查',
-    protocol_resubmitted: '重新提交',
-    protocol_approved: '計畫核准',
-    protocol_rejected: '計畫駁回',
-    review_comment_created: '新審查意見',
-    all_reviews_completed: '所有審查意見送出',
-    all_comments_resolved: '所有意見已解決',
-    leave_submitted: '請假申請',
-    overtime_submitted: '加班申請',
-    leave_approved: '請假核准',
-    overtime_approved: '加班核准',
-    document_submitted: '採購單提交',
-    low_stock_alert: '低庫存預警',
-    expiry_alert: '效期預警',
-    emergency_medication: '緊急給藥',
-    animal_abnormal_record: '動物異常紀錄',
-    vet_recommendation_created: '獸醫師建議',
-    animal_sudden_death: '動物猝死',
-    euthanasia_order_created: '安樂死申請',
-    amendment_submitted: '修正案提交',
-    amendment_decision_recorded: '修正案審查決定',
-    amendment_approved: '修正案核准',
-    amendment_rejected: '修正案駁回',
-    leave_cancelled: '請假取消',
-    po_pending_receipt: '採購單未入庫提醒',
-}
+/** 事件類型名稱對照（getter 版：每次讀取才依當下語言翻譯，見 `@/lib/i18nLabels`） */
+export const eventTypeNames: Record<string, string> = createLabelMap(
+    'typesLabels.eventType',
+    [
+        'protocol_submitted',
+        'protocol_vet_review',
+        'protocol_under_review',
+        'protocol_resubmitted',
+        'protocol_approved',
+        'protocol_rejected',
+        'review_comment_created',
+        'all_reviews_completed',
+        'all_comments_resolved',
+        'leave_submitted',
+        'overtime_submitted',
+        'leave_approved',
+        'overtime_approved',
+        'document_submitted',
+        'low_stock_alert',
+        'expiry_alert',
+        'emergency_medication',
+        'animal_abnormal_record',
+        'vet_recommendation_created',
+        'animal_sudden_death',
+        'euthanasia_order_created',
+        'amendment_submitted',
+        'amendment_decision_recorded',
+        'amendment_approved',
+        'amendment_rejected',
+        'leave_cancelled',
+        'po_pending_receipt',
+    ],
+)
 
-/** 通道中文名稱對照 */
-export const channelNames: Record<string, string> = {
-    in_app: '站內通知',
-    email: 'Email',
-    both: '兩者',
-}
+/** 通道名稱對照（getter 版，見 `@/lib/i18nLabels`） */
+export const channelNames: Record<string, string> = createLabelMap(
+    'typesLabels.channel',
+    ['in_app', 'email', 'both'],
+)
 
-/** 頻率中文名稱對照 */
-export const frequencyNames: Record<NotificationFrequency, string> = {
-    immediate: '即時',
-    daily: '每日',
-    weekly: '每週',
-    monthly: '每月',
-}
+/** 頻率名稱對照（getter 版，見 `@/lib/i18nLabels`） */
+export const frequencyNames: Record<NotificationFrequency, string> = createLabelMap(
+    'typesLabels.frequency',
+    ['immediate', 'daily', 'weekly', 'monthly'],
+)
 
 /** 可設定批次頻率的事件類型（非 event-driven） */
 export const BATCH_EVENT_TYPES = new Set([

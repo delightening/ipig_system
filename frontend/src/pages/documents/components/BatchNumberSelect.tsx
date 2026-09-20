@@ -3,6 +3,7 @@
  */
 import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { StockLedgerDetail, DocType } from '@/lib/api'
 import { Input } from '@/components/ui/input'
 import {
@@ -34,6 +35,7 @@ export function BatchNumberSelect({
   onBlur,
   inputRef,
 }: BatchNumberSelectProps) {
+  const { t } = useTranslation()
   const isSalesDoc = docType === 'SO'
   const isPurchaseDoc = ['PO', 'GRN', 'PR'].includes(docType)
 
@@ -104,22 +106,22 @@ export function BatchNumberSelect({
         type="text"
         value={batchNo}
         onChange={(e) => onBatchChange(e.target.value)}
-        placeholder="輸入批號"
+        placeholder={t('erpDocs.documents.batch.enterBatchNo')}
         onBlur={onBlur}
-        aria-label="批號"
+        aria-label={t('erpDocs.shared.batchNo')}
       />
     )
   }
 
   if (isSalesDoc) {
     if (!productId || !warehouseId) {
-      return <Input type="text" value={batchNo} readOnly placeholder="批號" disabled aria-label="批號" />
+      return <Input type="text" value={batchNo} readOnly placeholder={t('erpDocs.shared.batchNo')} disabled aria-label={t('erpDocs.shared.batchNo')} />
     }
     if (batchOptions.length > 0) {
       return (
         <Select value={batchNo} onValueChange={handleBatchChangeInternal}>
           <SelectTrigger>
-            <SelectValue placeholder="選擇批號" />
+            <SelectValue placeholder={t('erpDocs.documents.batch.selectBatchNo')} />
           </SelectTrigger>
           <SelectContent>
             {batchOptions.map((opt) => (
@@ -140,18 +142,17 @@ export function BatchNumberSelect({
                             : 'text-muted-foreground'
                       }
                     >
-                      {opt.expiry}
                       {opt.expired
-                        ? `（已過期 ${Math.abs(opt.daysLeft)} 天）`
+                        ? t('erpDocs.documents.batch.expiredDays', { expiry: opt.expiry, days: Math.abs(opt.daysLeft) })
                         : isExpiringSoon(opt)
-                          ? `（剩 ${opt.daysLeft} 天）`
-                          : ''}
+                          ? t('erpDocs.documents.batch.daysLeft', { expiry: opt.expiry, days: opt.daysLeft })
+                          : opt.expiry}
                     </span>
                   )}
                   {/* 有字串但判讀不出來 → 明白告訴使用者資料有問題，不靜默隱藏。 */}
                   {opt.daysLeft === null && opt.expiry && (
                     <span className="text-muted-foreground italic">
-                      {opt.expiry}（效期格式異常）
+                      {t('erpDocs.documents.batch.invalidExpiry', { expiry: opt.expiry })}
                     </span>
                   )}
                 </span>
@@ -161,7 +162,7 @@ export function BatchNumberSelect({
         </Select>
       )
     }
-    return <Input type="text" value={batchNo} readOnly placeholder="無可用批號" disabled aria-label="批號" />
+    return <Input type="text" value={batchNo} readOnly placeholder={t('erpDocs.documents.batch.noBatches')} disabled aria-label={t('erpDocs.shared.batchNo')} />
   }
 
   return (
@@ -170,9 +171,9 @@ export function BatchNumberSelect({
       type="text"
       value={batchNo}
       onChange={(e) => onBatchChange(e.target.value)}
-      placeholder="批號"
+      placeholder={t('erpDocs.shared.batchNo')}
       onBlur={onBlur}
-      aria-label="批號"
+      aria-label={t('erpDocs.shared.batchNo')}
     />
   )
 }

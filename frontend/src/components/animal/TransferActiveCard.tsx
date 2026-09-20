@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import type { AnimalTransfer } from '@/lib/api'
-import { transferStatusNames, transferTypeNames } from '@/lib/api'
 import { uiLocale } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +25,7 @@ interface TransferActiveCardProps {
 export function TransferActiveCard({
     animalId, transfer, canVetEvaluate, canAssignPlan, canApprove, canComplete, canReject,
 }: TransferActiveCardProps) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const invalidate = useTransferInvalidate(animalId, queryClient)
 
@@ -34,9 +35,9 @@ export function TransferActiveCard({
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-lg flex items-center gap-2">
                         <ArrowRightLeft className="h-5 w-5 text-status-info-text" />
-                        進行中的轉讓
+                        {t('animalActions.transfer.active.title')}
                     </CardTitle>
-                    <Badge className="bg-indigo-100 text-status-info-text">{transferStatusNames[transfer.status]}</Badge>
+                    <Badge className="bg-indigo-100 text-status-info-text">{t(`animalActions.transfer.status.${transfer.status}`)}</Badge>
                 </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -55,34 +56,35 @@ export function TransferActiveCard({
 // --- Transfer Info Grid ---
 
 function TransferInfoGrid({ transfer }: { transfer: AnimalTransfer }) {
+    const { t } = useTranslation()
     return (
         <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-                <span className="text-muted-foreground">轉讓類型</span>
-                <p className="font-medium">{transferTypeNames[transfer.transfer_type === 'external' ? 'external' : 'internal']}</p>
+                <span className="text-muted-foreground">{t('animalActions.transfer.typeLabel')}</span>
+                <p className="font-medium">{t(`animalActions.transfer.type.${transfer.transfer_type === 'external' ? 'external' : 'internal'}`)}</p>
             </div>
             <div>
-                <span className="text-muted-foreground">原計劃</span>
+                <span className="text-muted-foreground">{t('animalActions.transfer.active.fromPlan')}</span>
                 <p className="font-medium">{transfer.from_iacuc_no}</p>
             </div>
             {transfer.to_iacuc_no && (
                 <div>
-                    <span className="text-muted-foreground">新計劃</span>
+                    <span className="text-muted-foreground">{t('animalActions.transfer.active.toPlan')}</span>
                     <p className="font-medium">{transfer.to_iacuc_no}</p>
                 </div>
             )}
             <div className="col-span-2">
-                <span className="text-muted-foreground">原因</span>
+                <span className="text-muted-foreground">{t('animalActions.transfer.active.reason')}</span>
                 <p className="font-medium">{transfer.reason}</p>
             </div>
             {transfer.remark && (
                 <div className="col-span-2">
-                    <span className="text-muted-foreground">備註</span>
+                    <span className="text-muted-foreground">{t('animalActions.common.notes')}</span>
                     <p>{transfer.remark}</p>
                 </div>
             )}
             <div>
-                <span className="text-muted-foreground">發起時間</span>
+                <span className="text-muted-foreground">{t('animalActions.transfer.active.initiatedAt')}</span>
                 <p>{new Date(transfer.created_at).toLocaleString(uiLocale(), { timeZone: 'Asia/Taipei' })}</p>
             </div>
         </div>

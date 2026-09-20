@@ -1,5 +1,11 @@
+import { useTranslation } from 'react-i18next'
 import { Permission } from '@/lib/api'
 import { PermissionCategory, PermissionSubCategory } from '@/hooks/usePermissionManager'
+import {
+  translateCategoryName,
+  translateModuleName,
+  translateSubCategoryName,
+} from '@/hooks/permission/permissionConfig'
 import { Badge } from '@/components/ui/badge'
 import { Check, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -54,6 +60,7 @@ export function PermissionGroup({
   isSubCategoryExpanded,
   searchQuery = '',
 }: PermissionGroupProps) {
+  const { t } = useTranslation()
   // 計算統計
   const totalPermissions = categories.reduce((sum, cat) => sum + getCategoryPermissionCount(cat), 0)
   const selectedCount = categories.reduce(
@@ -124,14 +131,14 @@ export function PermissionGroup({
             ) : (
               <ChevronRight className="h-3 w-3" />
             )}
-            <span>{subCat.subCategoryName}</span>
+            <span>{translateSubCategoryName(t, subCat.subCategory)}</span>
             <Badge variant="outline" className="text-xs py-0 px-1.5">
               {subCatSelectedCount}/{subCat.permissions.length}
             </Badge>
           </button>
         ) : (
           <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <span>{subCat.subCategoryName}</span>
+            <span>{translateSubCategoryName(t, subCat.subCategory)}</span>
             <Badge variant="outline" className="text-xs py-0 px-1.5">
               {subCatSelectedCount}/{subCat.permissions.length}
             </Badge>
@@ -161,13 +168,13 @@ export function PermissionGroup({
           ) : (
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           )}
-          <h3 className="font-semibold text-base text-primary">{moduleName}</h3>
+          <h3 className="font-semibold text-base text-primary">{translateModuleName(t, moduleName)}</h3>
           <Badge variant="secondary" className="text-xs">
             {selectedCount}/{totalPermissions}
           </Badge>
         </div>
         <div className="text-sm text-muted-foreground">
-          {categories.length} 個分類
+          {t('adminUsers.permissions.tree.categoryCount', { count: categories.length })}
         </div>
       </button>
 
@@ -195,7 +202,7 @@ export function PermissionGroup({
                     ) : (
                       <ChevronRight className="h-3 w-3" />
                     )}
-                    <span>{cat.categoryName}</span>
+                    <span>{translateCategoryName(t, cat.category)}</span>
                     <Badge variant="outline" className="text-xs">
                       {catSelectedCount}/{catTotalCount}
                     </Badge>
@@ -203,7 +210,7 @@ export function PermissionGroup({
                 )}
                 {!onToggleCategory && (
                   <h4 className="text-sm font-medium text-muted-foreground">
-                    {cat.categoryName}
+                    {translateCategoryName(t, cat.category)}
                     <Badge variant="outline" className="ml-2 text-xs">
                       {catSelectedCount}/{catTotalCount}
                     </Badge>

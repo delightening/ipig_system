@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { AnimalStatus } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,7 @@ export function AnimalDetailActions({
   onEuthanasiaOrder,
   onSuddenDeath,
 }: AnimalDetailActionsProps) {
+  const { t } = useTranslation()
   if (status !== 'in_experiment' && status !== 'completed') return null
 
   return (
@@ -36,7 +38,7 @@ export function AnimalDetailActions({
                 onClick={onEmergencyMedication}
               >
                 <AlertTriangle className="h-4 w-4 mr-2" />
-                {'\u7DCA\u6025\u7D66\u85E5'}
+                {t('animalPages.detail.emergencyMedication')}
               </Button>
             </Can>
             {/* \u5F8C\u7AEF euthanasia.rs \u7684 create_order \u6AA2 animal.euthanasia.create\uFF08\u5DF2\u6388\u4E88 VET\uFF0C
@@ -48,7 +50,7 @@ export function AnimalDetailActions({
                 onClick={onEuthanasiaOrder}
               >
                 <AlertOctagon className="h-4 w-4 mr-2" />
-                {'\u958B\u7ACB\u5B89\u6A02\u6B7B\u55AE'}
+                {t('animalPages.detail.issueEuthanasiaOrder')}
               </Button>
             </Can>
           </>
@@ -61,7 +63,7 @@ export function AnimalDetailActions({
             onClick={onSuddenDeath}
           >
             <Zap className="h-4 w-4 mr-2" />
-            {'\u767B\u8A18\u731D\u6B7B'}
+            {t('animalPages.detail.registerSuddenDeath')}
           </Button>
         </Can>
       </div>

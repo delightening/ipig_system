@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures/admin-context'
 import { ensureAdminOnPage } from './auth-helpers'
+import { txt } from './helpers/i18n'
 
 test.describe('ERP GRN 入庫流程', () => {
     test.beforeEach(async ({ page }) => {
@@ -21,7 +22,7 @@ test.describe('ERP GRN 入庫流程', () => {
     test('選擇類別後應顯示表格或空狀態', async ({ page }) => {
         // 先點擊採購類按鈕以觸發表格顯示
         const purchasingBtn = page.locator('button').filter({
-            hasText: /採購類|採購/,
+            hasText: txt('erpDocs.documents.list.category.purchasing.label', { exact: false }),
         })
         await expect(purchasingBtn.first()).toBeVisible({ timeout: 15_000 })
         await purchasingBtn.first().click()

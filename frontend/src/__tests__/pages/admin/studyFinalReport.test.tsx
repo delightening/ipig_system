@@ -130,7 +130,7 @@ describe('最終報告列表', () => {
   it('「新增報告」不做前端權限判斷——建立權來自「是不是該計畫的 SD」，前端無從得知', async () => {
     hasPermission.mockReturnValue(false)
     renderPage()
-    expect(await screen.findByText('新增報告')).toBeInTheDocument()
+    expect(await screen.findByText('adminGlp.studyFinalReport.create')).toBeInTheDocument()
   })
 
   /**
@@ -168,8 +168,8 @@ describe('報告詳情對話框', () => {
     renderPage()
     await openDetail()
 
-    fireEvent.click(screen.getByText('編輯報告本文'))
-    fireEvent.click(screen.getByText('儲存'))
+    fireEvent.click(screen.getByText('adminGlp.studyFinalReport.detail.editBody'))
+    fireEvent.click(screen.getByText('common.save'))
 
     await waitFor(() => expect(updateStudyReport).toHaveBeenCalledTimes(1))
     expect(updateStudyReport.mock.calls[0][0]).toBe(DRAFT_REPORT.id)
@@ -181,10 +181,10 @@ describe('報告詳情對話框', () => {
     renderPage()
     await openDetail()
 
-    fireEvent.change(screen.getByPlaceholderText('密碼確認身分'), {
+    fireEvent.change(screen.getByPlaceholderText('adminGlp.studyFinalReport.detail.passwordPlaceholder'), {
       target: { value: 'pw' },
     })
-    fireEvent.click(screen.getByText('簽署'))
+    fireEvent.click(screen.getByText('adminGlp.studyFinalReport.detail.sign'))
 
     await waitFor(() => expect(signStudyReport).toHaveBeenCalledTimes(1))
     expect(signStudyReport.mock.calls[0][1]).toEqual({ password: 'pw' })
@@ -196,8 +196,8 @@ describe('報告詳情對話框', () => {
     renderPage()
     await openDetail(signed)
 
-    expect(screen.queryByText('編輯報告本文')).not.toBeInTheDocument()
-    expect(screen.queryByText('簽署')).not.toBeInTheDocument()
+    expect(screen.queryByText('adminGlp.studyFinalReport.detail.editBody')).not.toBeInTheDocument()
+    expect(screen.queryByText('adminGlp.studyFinalReport.detail.sign')).not.toBeInTheDocument()
   })
 
   /**
@@ -214,8 +214,10 @@ describe('報告詳情對話框', () => {
     renderPage()
     fireEvent.click(await screen.findByText(DRAFT_REPORT.title))
 
-    expect(await screen.findByText(/載入報告失敗|boom/)).toBeInTheDocument()
-    expect(screen.queryByText('載入中…')).not.toBeInTheDocument()
+    expect(
+      await screen.findByText(/adminGlp\.studyFinalReport\.detail\.loadFailed|boom/),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('adminGlp.shared.loading')).not.toBeInTheDocument()
   })
 })
 
@@ -225,8 +227,8 @@ describe('QAU 品保聲明與本文分開授權', () => {
     renderPage()
     await openDetail()
 
-    expect(screen.getByText('尚無品保聲明')).toBeInTheDocument()
-    expect(screen.queryByText('儲存品保聲明')).not.toBeInTheDocument()
+    expect(screen.getByText('adminGlp.studyFinalReport.detail.noQauStatement')).toBeInTheDocument()
+    expect(screen.queryByText('adminGlp.studyFinalReport.detail.saveQauStatement')).not.toBeInTheDocument()
   })
 
   it('有該權限時可填寫並送出 updateQauStatement，且不走本文那條路', async () => {
@@ -234,10 +236,10 @@ describe('QAU 品保聲明與本文分開授權', () => {
     renderPage()
     await openDetail()
 
-    fireEvent.change(screen.getByPlaceholderText('品保稽核結論…'), {
+    fireEvent.change(screen.getByPlaceholderText('adminGlp.studyFinalReport.detail.qauPlaceholder'), {
       target: { value: '已完成品保稽核' },
     })
-    fireEvent.click(screen.getByText('儲存品保聲明'))
+    fireEvent.click(screen.getByText('adminGlp.studyFinalReport.detail.saveQauStatement'))
 
     await waitFor(() => expect(updateQauStatement).toHaveBeenCalledTimes(1))
     expect(updateQauStatement).toHaveBeenCalledWith(DRAFT_REPORT.id, '已完成品保稽核')
@@ -266,7 +268,7 @@ describe('QAU 品保聲明與本文分開授權', () => {
     // defaultValue 也看得到；鑑別點是下面那個 click。
     expect(screen.getByDisplayValue('既有的品保聲明')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('儲存品保聲明'))
+    fireEvent.click(screen.getByText('adminGlp.studyFinalReport.detail.saveQauStatement'))
 
     await waitFor(() => expect(updateQauStatement).toHaveBeenCalledTimes(1))
     expect(updateQauStatement).toHaveBeenCalledWith(withStatement.id, '既有的品保聲明')

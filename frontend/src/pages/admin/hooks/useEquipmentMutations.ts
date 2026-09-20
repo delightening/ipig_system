@@ -3,6 +3,7 @@
  */
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { deleteResource } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -38,6 +39,7 @@ interface UseEquipmentMutationsOptions {
 }
 
 export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [equipSaving, setEquipSaving] = useState(false)
 
@@ -57,10 +59,10 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
     onSuccess: () => {
       invalidateEquip()
       invalidateCalib()
-      toast({ title: '成功', description: '已刪除設備' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.equipmentDeleted') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '刪除失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.deleteFailed')), variant: 'destructive' })
     },
   })
 
@@ -87,10 +89,10 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
       invalidateCalib()
       options.closeCalibCreate()
       options.resetCalibForm()
-      toast({ title: '成功', description: '已新增紀錄' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.recordCreated') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '新增失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.createFailed')), variant: 'destructive' })
     },
   })
 
@@ -101,10 +103,10 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
       invalidateCalib()
       options.closeCalibEdit()
       options.clearEditingCalib()
-      toast({ title: '成功', description: '已更新紀錄' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.recordUpdated') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '更新失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.updateFailed')), variant: 'destructive' })
     },
   })
 
@@ -112,10 +114,10 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
     mutationFn: (id: string) => deleteResource(`/equipment-calibrations/${id}`),
     onSuccess: () => {
       invalidateCalib()
-      toast({ title: '成功', description: '已刪除紀錄' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.recordDeleted') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '刪除失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.deleteFailed')), variant: 'destructive' })
     },
   })
 
@@ -135,7 +137,7 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
 
   const handleCreateEquip = async (form: EquipmentForm, partnerIds: string[]) => {
     if (!form.name.trim()) {
-      toast({ title: '錯誤', description: '設備名稱為必填', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('adminOps.equipment.validation.nameRequired'), variant: 'destructive' })
       return
     }
     setEquipSaving(true)
@@ -162,9 +164,9 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
       invalidateEquip()
       options.closeEquipCreate()
       options.resetEquipForm()
-      toast({ title: '成功', description: '已新增設備' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.equipmentCreated') })
     } catch (err: unknown) {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '新增失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.createFailed')), variant: 'destructive' })
     } finally {
       setEquipSaving(false)
     }
@@ -172,7 +174,7 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
 
   const handleUpdateEquip = async (id: string, form: EquipmentForm, partnerIds: string[]) => {
     if (!form.name.trim()) {
-      toast({ title: '錯誤', description: '設備名稱為必填', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('adminOps.equipment.validation.nameRequired'), variant: 'destructive' })
       return
     }
     setEquipSaving(true)
@@ -194,9 +196,9 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
       invalidateEquip()
       options.closeEquipEdit()
       options.clearEditingEquip()
-      toast({ title: '成功', description: '已更新設備' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.equipmentUpdated') })
     } catch (err: unknown) {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '更新失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.updateFailed')), variant: 'destructive' })
     } finally {
       setEquipSaving(false)
     }
@@ -204,7 +206,7 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
 
   const handleCreateCalib = (form: CalibrationForm) => {
     if (!form.equipment_id || !form.calibrated_at) {
-      toast({ title: '錯誤', description: '請選擇設備並填寫執行日期', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('adminOps.equipment.validation.calibEquipmentAndDateRequired'), variant: 'destructive' })
       return
     }
     createCalibMutation.mutate(form)
@@ -212,7 +214,7 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
 
   const handleUpdateCalib = (id: string, form: CalibrationForm) => {
     if (!form.calibrated_at) {
-      toast({ title: '錯誤', description: '執行日期為必填', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('adminOps.equipment.validation.calibDateRequired'), variant: 'destructive' })
       return
     }
     updateCalibMutation.mutate({

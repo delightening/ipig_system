@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import { useAuthHasPermission } from '@/stores/auth'
 import {
@@ -25,20 +26,21 @@ import { TableEmptyRow } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
 
+// labelKey 是 i18n 鍵（渲染時才 t()），避免 module 級常數凍結語言。
 const CATEGORIES = [
-  { value: 'technical', label: '技術' },
-  { value: 'operational', label: '營運' },
-  { value: 'compliance', label: '法規遵循' },
-  { value: 'safety', label: '安全' },
+  { value: 'technical', labelKey: 'adminGlp.riskRegister.category.technical' },
+  { value: 'operational', labelKey: 'adminGlp.riskRegister.category.operational' },
+  { value: 'compliance', labelKey: 'adminGlp.riskRegister.category.compliance' },
+  { value: 'safety', labelKey: 'adminGlp.riskRegister.category.safety' },
 ]
 
 const SEVERITY_OPTIONS = [1, 2, 3, 4, 5]
 
-const RISK_STATUS_LABELS: Record<string, string> = {
-  identified: '已辨識',
-  mitigated: '已緩解',
-  accepted: '已接受',
-  closed: '已結案',
+const RISK_STATUS_LABEL_KEYS: Record<string, string> = {
+  identified: 'adminGlp.riskRegister.status.identified',
+  mitigated: 'adminGlp.riskRegister.status.mitigated',
+  accepted: 'adminGlp.riskRegister.status.accepted',
+  closed: 'adminGlp.shared.statusLabel.closed',
 }
 
 const INITIAL_FORM = {
@@ -57,6 +59,7 @@ function riskScoreVariant(score: number): 'success' | 'warning' | 'destructive' 
 }
 
 export function RiskRegisterPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const hasPermission = useAuthHasPermission()
   const canManage = hasPermission('risk.register.manage')
@@ -88,22 +91,22 @@ export function RiskRegisterPage() {
       queryClient.invalidateQueries({ queryKey: ['risks'] })
       setShowCreate(false)
       setForm(INITIAL_FORM)
-      toast({ title: '風險已登記' })
+      toast({ title: t('adminGlp.riskRegister.toast.created') })
     },
-    onError: (err: unknown) => toast({ title: '建立失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
+    onError: (err: unknown) => toast({ title: t('adminGlp.shared.createFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
   })
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">風險登記簿</h1>
-          <p className="text-muted-foreground">ISO 17025 / ISO 9001 風險管理</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t('adminGlp.riskRegister.title')}</h1>
+          <p className="text-muted-foreground">{t('adminGlp.riskRegister.subtitle')}</p>
         </div>
         {canManage && (
           <Button onClick={() => setShowCreate(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            新增風險
+            {t('adminGlp.riskRegister.create')}
           </Button>
         )}
       </div>
@@ -113,25 +116,25 @@ export function RiskRegisterPage() {
           <div className="flex gap-4">
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="所有類別" />
+                <SelectValue placeholder={t('adminGlp.riskRegister.allCategories')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">所有類別</SelectItem>
+                <SelectItem value="">{t('adminGlp.riskRegister.allCategories')}</SelectItem>
                 {CATEGORIES.map((c) => (
-                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  <SelectItem key={c.value} value={c.value}>{t(c.labelKey)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="所有狀態" />
+                <SelectValue placeholder={t('adminGlp.shared.allStatuses')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">所有狀態</SelectItem>
-                <SelectItem value="identified">已辨識</SelectItem>
-                <SelectItem value="mitigated">已緩解</SelectItem>
-                <SelectItem value="accepted">已接受</SelectItem>
-                <SelectItem value="closed">已結案</SelectItem>
+                <SelectItem value="">{t('adminGlp.shared.allStatuses')}</SelectItem>
+                <SelectItem value="identified">{t(RISK_STATUS_LABEL_KEYS.identified)}</SelectItem>
+                <SelectItem value="mitigated">{t(RISK_STATUS_LABEL_KEYS.mitigated)}</SelectItem>
+                <SelectItem value="accepted">{t(RISK_STATUS_LABEL_KEYS.accepted)}</SelectItem>
+                <SelectItem value="closed">{t(RISK_STATUS_LABEL_KEYS.closed)}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -140,29 +143,30 @@ export function RiskRegisterPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead>風險編號</TableHead>
-                <TableHead>標題</TableHead>
-                <TableHead>類別</TableHead>
-                <TableHead>嚴重度</TableHead>
-                <TableHead>可能性</TableHead>
-                <TableHead>風險分數</TableHead>
-                <TableHead>狀態</TableHead>
-                <TableHead>負責人</TableHead>
+                <TableHead>{t('adminGlp.riskRegister.col.riskNumber')}</TableHead>
+                <TableHead>{t('adminGlp.shared.title')}</TableHead>
+                <TableHead>{t('adminGlp.shared.category')}</TableHead>
+                <TableHead>{t('adminGlp.shared.severity')}</TableHead>
+                <TableHead>{t('adminGlp.riskRegister.col.likelihood')}</TableHead>
+                <TableHead>{t('adminGlp.riskRegister.col.riskScore')}</TableHead>
+                <TableHead>{t('adminGlp.shared.status')}</TableHead>
+                <TableHead>{t('adminGlp.shared.owner')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={8} className="p-0"><TableSkeleton rows={5} cols={8} /></TableCell></TableRow>
               ) : risks.length === 0 ? (
-                <TableEmptyRow colSpan={8} icon={ShieldAlert} title="尚無風險紀錄" />
+                <TableEmptyRow colSpan={8} icon={ShieldAlert} title={t('adminGlp.riskRegister.empty')} />
               ) : (
                 risks.map((r) => {
                   const score = r.risk_score ?? r.severity * r.likelihood
+                  const category = CATEGORIES.find((c) => c.value === r.category)
                   return (
                     <TableRow key={r.id}>
                       <TableCell className="font-mono text-sm">{r.risk_number}</TableCell>
                       <TableCell className="font-medium">{r.title}</TableCell>
-                      <TableCell>{CATEGORIES.find((c) => c.value === r.category)?.label ?? r.category ?? '-'}</TableCell>
+                      <TableCell>{category ? t(category.labelKey) : r.category ?? '-'}</TableCell>
                       <TableCell>{r.severity}</TableCell>
                       <TableCell>{r.likelihood}</TableCell>
                       <TableCell>
@@ -171,7 +175,7 @@ export function RiskRegisterPage() {
                           {score}
                         </Badge>
                       </TableCell>
-                      <TableCell>{RISK_STATUS_LABELS[r.status] ?? r.status}</TableCell>
+                      <TableCell>{RISK_STATUS_LABEL_KEYS[r.status] ? t(RISK_STATUS_LABEL_KEYS[r.status]) : r.status}</TableCell>
                       <TableCell>{r.owner_name ?? '-'}</TableCell>
                     </TableRow>
                   )
@@ -184,26 +188,26 @@ export function RiskRegisterPage() {
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent>
-          <DialogHeader><DialogTitle>新增風險</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('adminGlp.riskRegister.create')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">標題 *</label>
+              <label className="text-sm font-medium">{t('adminGlp.shared.titleRequired')}</label>
               <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">類別 *</label>
+              <label className="text-sm font-medium">{t('adminGlp.riskRegister.dialog.categoryRequired')}</label>
               <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    <SelectItem key={c.value} value={c.value}>{t(c.labelKey)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">嚴重度 (1-5) *</label>
+                <label className="text-sm font-medium">{t('adminGlp.riskRegister.dialog.severityRange')}</label>
                 <Select value={form.severity} onValueChange={(v) => setForm((f) => ({ ...f, severity: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -214,7 +218,7 @@ export function RiskRegisterPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">可能性 (1-5) *</label>
+                <label className="text-sm font-medium">{t('adminGlp.riskRegister.dialog.likelihoodRange')}</label>
                 <Select value={form.likelihood} onValueChange={(v) => setForm((f) => ({ ...f, likelihood: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -226,7 +230,7 @@ export function RiskRegisterPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">描述</label>
+              <label className="text-sm font-medium">{t('adminGlp.shared.description')}</label>
               <textarea
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 value={form.description}
@@ -234,7 +238,7 @@ export function RiskRegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">緩解計畫</label>
+              <label className="text-sm font-medium">{t('adminGlp.riskRegister.dialog.mitigationPlan')}</label>
               <textarea
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 value={form.mitigation_plan}
@@ -243,9 +247,9 @@ export function RiskRegisterPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>取消</Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>{t('common.cancel')}</Button>
             <Button onClick={() => createMutation.mutate()} disabled={!form.title || createMutation.isPending}>
-              建立
+              {t('adminGlp.shared.create')}
             </Button>
           </DialogFooter>
         </DialogContent>

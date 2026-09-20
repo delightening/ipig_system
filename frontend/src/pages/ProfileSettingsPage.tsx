@@ -147,7 +147,7 @@ export function ProfileSettingsPage() {
 
     const handleSave = () => {
         if (!profile.display_name.trim()) {
-            setError('display_name', { message: '顯示名稱為必填欄位' })
+            setError('display_name', { message: t('profile.errors.displayNameRequired') })
             return
         }
         // 合併 profile fields + AUP fields。

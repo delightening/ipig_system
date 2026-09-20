@@ -4,6 +4,7 @@
  * 後端對應：`StocktakeScope { scope_type, category_codes, warehouse_ids, product_ids }`
  * 與 `DocumentService::generate_stocktake_lines`。
  */
+import i18n from '@/lib/i18n'
 import type { DocType } from '@/lib/api'
 import type { StocktakeScope } from './types'
 
@@ -60,7 +61,7 @@ export function stocktakeBlockReason(state: {
   error: boolean
 }): string | undefined {
   if (!state.needed) return undefined
-  if (state.loading) return '盤點品類清單載入中，請稍候再建立盤點單。'
-  if (state.error) return '盤點品類清單載入失敗，現在建單會盤到全部品項。請重試後再建立。'
+  if (state.loading) return i18n.t('erpDocs.documents.stocktake.blockLoading')
+  if (state.error) return i18n.t('erpDocs.documents.stocktake.blockError')
   return undefined
 }

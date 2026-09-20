@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
@@ -11,12 +13,13 @@ interface InventorySettingsCardProps {
 }
 
 export function InventorySettingsCard({ formData, setFormData, disabled }: InventorySettingsCardProps) {
+  const { t } = useTranslation()
   const includeBaseInSelect = formData.packagingLayers === 3
 
   return (
     <Card>
       <CardContent className="pt-6">
-        <h3 className="text-lg font-semibold mb-4">庫存設定</h3>
+        <h3 className="text-lg font-semibold mb-4">{t('erpMaster.productDetail.tabs.inventory')}</h3>
         <div className="space-y-6">
           {/* Tracking toggles */}
           <div className="flex gap-6">
@@ -28,7 +31,7 @@ export function InventorySettingsCard({ formData, setFormData, disabled }: Inven
                 disabled={disabled}
                 className="rounded"
               />
-              <span className="text-sm">追蹤批號</span>
+              <span className="text-sm">{t('erpMaster.products.trackBatch')}</span>
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -38,18 +41,18 @@ export function InventorySettingsCard({ formData, setFormData, disabled }: Inven
                 disabled={disabled}
                 className="rounded"
               />
-              <span className="text-sm">追蹤效期</span>
+              <span className="text-sm">{t('erpMaster.products.trackExpiry')}</span>
             </label>
           </div>
           {formData.category === 'DRG' && (
             <p className="text-xs text-status-warning-text dark:text-amber-400">
-              藥品建議開啟批號和效期追蹤
+              {t('erpMaster.createProduct.drugTrackHint')}
             </p>
           )}
 
           {/* Current Stock */}
           <div className="space-y-2">
-            <Label>當前值（單位）</Label>
+            <Label>{t('erpMaster.createProduct.currentValue')}</Label>
             <div className="flex items-center gap-3">
               <Input
                 type="number"
@@ -73,7 +76,7 @@ export function InventorySettingsCard({ formData, setFormData, disabled }: Inven
 
           {/* Safety Stock */}
           <div className="space-y-2">
-            <Label>安全庫存</Label>
+            <Label>{t('erpMaster.products.safetyStock')}</Label>
             <div className="flex items-center gap-3">
               <Input
                 type="number"
@@ -97,9 +100,9 @@ export function InventorySettingsCard({ formData, setFormData, disabled }: Inven
 
           {/* Reorder Point */}
           <div className="space-y-2">
-            <Label>補貨提醒點</Label>
+            <Label>{t('erpMaster.createProduct.reorderAlertPoint')}</Label>
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm text-muted-foreground">當庫存低於</span>
+              <span className="text-sm text-muted-foreground">{t('erpMaster.createProduct.whenStockBelow')}</span>
               <Input
                 type="number"
                 min={0}
@@ -116,7 +119,7 @@ export function InventorySettingsCard({ formData, setFormData, disabled }: Inven
                 includeBase
                 className="w-40"
               />
-              <span className="text-sm text-muted-foreground">時，發送補貨提醒</span>
+              <span className="text-sm text-muted-foreground">{t('erpMaster.createProduct.sendReorderAlert')}</span>
             </div>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { formatNumber, uiLocale } from '@/lib/utils'
 import {
@@ -36,6 +37,7 @@ export function JournalEntriesTab({
   onDateFromChange,
   onDateToChange,
 }: JournalEntriesTabProps) {
+  const { t } = useTranslation()
   const { data: journalEntries, isLoading } = useQuery<JournalEntryResponse[]>({
     queryKey: ['accounting-journal-entries', dateFrom, dateTo],
     queryFn: async () => {
@@ -52,7 +54,7 @@ export function JournalEntriesTab({
     <div className="space-y-4">
       <div className="flex items-end gap-4 flex-wrap">
         <div className="space-y-2">
-          <Label>日期起</Label>
+          <Label>{t('reportsPages.shared.dateFrom')}</Label>
           <Input
             type="date"
             value={dateFrom}
@@ -61,7 +63,7 @@ export function JournalEntriesTab({
           />
         </div>
         <div className="space-y-2">
-          <Label>日期訖</Label>
+          <Label>{t('reportsPages.shared.dateTo')}</Label>
           <Input
             type="date"
             value={dateTo}
@@ -76,10 +78,10 @@ export function JournalEntriesTab({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <SortableTableHead sortKey="entry.entry_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>傳票號</SortableTableHead>
-                <SortableTableHead sortKey="entry.entry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
-                <SortableTableHead sortKey="entry.description" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>說明</SortableTableHead>
-                <TableHead className="text-right">合計借方</TableHead>
+                <SortableTableHead sortKey="entry.entry_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.journalEntries.entryNo')}</SortableTableHead>
+                <SortableTableHead sortKey="entry.entry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.journalEntries.date')}</SortableTableHead>
+                <SortableTableHead sortKey="entry.description" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.journalEntries.description')}</SortableTableHead>
+                <TableHead className="text-right">{t('reportsPages.accounting.journalEntries.totalDebit')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -96,10 +98,10 @@ export function JournalEntriesTab({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <SortableTableHead sortKey="entry.entry_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>傳票號</SortableTableHead>
-                <SortableTableHead sortKey="entry.entry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
-                <SortableTableHead sortKey="entry.description" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>說明</SortableTableHead>
-                <TableHead className="text-right">合計借方</TableHead>
+                <SortableTableHead sortKey="entry.entry_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.journalEntries.entryNo')}</SortableTableHead>
+                <SortableTableHead sortKey="entry.entry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.journalEntries.date')}</SortableTableHead>
+                <SortableTableHead sortKey="entry.description" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.journalEntries.description')}</SortableTableHead>
+                <TableHead className="text-right">{t('reportsPages.accounting.journalEntries.totalDebit')}</TableHead>
               </TableRow>
             </TableHeader>
           </Table>
@@ -118,11 +120,11 @@ export function JournalEntriesTab({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="w-16">行號</TableHead>
-                    <TableHead>科目</TableHead>
-                    <TableHead>說明</TableHead>
-                    <TableHead className="text-right">借方</TableHead>
-                    <TableHead className="text-right">貸方</TableHead>
+                    <TableHead className="w-16">{t('reportsPages.accounting.journalEntries.lineNo')}</TableHead>
+                    <TableHead>{t('reportsPages.accounting.journalEntries.account')}</TableHead>
+                    <TableHead>{t('reportsPages.accounting.journalEntries.description')}</TableHead>
+                    <TableHead className="text-right">{t('reportsPages.accounting.journalEntries.debit')}</TableHead>
+                    <TableHead className="text-right">{t('reportsPages.accounting.journalEntries.credit')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -151,14 +153,14 @@ export function JournalEntriesTab({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <SortableTableHead sortKey="entry.entry_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>傳票號</SortableTableHead>
-                <SortableTableHead sortKey="entry.entry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>日期</SortableTableHead>
-                <SortableTableHead sortKey="entry.description" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>說明</SortableTableHead>
-                <TableHead className="text-right">合計借方</TableHead>
+                <SortableTableHead sortKey="entry.entry_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.journalEntries.entryNo')}</SortableTableHead>
+                <SortableTableHead sortKey="entry.entry_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.journalEntries.date')}</SortableTableHead>
+                <SortableTableHead sortKey="entry.description" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.accounting.journalEntries.description')}</SortableTableHead>
+                <TableHead className="text-right">{t('reportsPages.accounting.journalEntries.totalDebit')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableEmptyRow colSpan={4} icon={BookOpen} title="尚無傳票資料" />
+              <TableEmptyRow colSpan={4} icon={BookOpen} title={t('reportsPages.accounting.journalEntries.emptyTitle')} />
             </TableBody>
           </Table>
         </div>

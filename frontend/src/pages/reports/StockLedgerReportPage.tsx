@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api from '@/lib/api'
 import { formatNumber, formatDateTime } from '@/lib/utils'
@@ -55,6 +56,7 @@ function buildQueryString(from: string, to: string, warehouseId: string, product
 }
 
 export function StockLedgerReportPage() {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   // 從庫存列 drill-down 帶入的單一產品篩選（warehouse_id / product_id / sku 顯示用）
   const initialProductId = searchParams.get('product_id') ?? ''
@@ -89,9 +91,9 @@ export function StockLedgerReportPage() {
 
   const getDirectionBadge = (direction: string) => {
     if (direction.includes('in') || direction.includes('adjust_in')) {
-      return <Badge variant="success">入庫</Badge>
+      return <Badge variant="success">{t('reportsPages.stockLedger.directionIn')}</Badge>
     } else if (direction.includes('out') || direction.includes('adjust_out')) {
-      return <Badge variant="destructive">出庫</Badge>
+      return <Badge variant="destructive">{t('reportsPages.stockLedger.directionOut')}</Badge>
     }
     return <Badge variant="outline">{direction}</Badge>
   }
@@ -131,12 +133,12 @@ export function StockLedgerReportPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="庫存流水報表"
-        description="所有庫存異動記錄"
+        title={t('reportsPages.stockLedger.title')}
+        description={t('reportsPages.stockLedger.description')}
         actions={
           <Button size="sm" onClick={exportToCSV} disabled={!report?.length}>
             <Download className="mr-2 h-4 w-4" />
-            匯出 CSV
+            {t('reportsPages.shared.exportCsv')}
           </Button>
         }
       />
@@ -144,7 +146,7 @@ export function StockLedgerReportPage() {
       {/* 篩選條件 */}
       <div className="flex items-end gap-4 flex-wrap">
         <div className="space-y-2">
-          <Label>日期起</Label>
+          <Label>{t('reportsPages.shared.dateFrom')}</Label>
           <Input
             type="date"
             value={from}
@@ -153,7 +155,7 @@ export function StockLedgerReportPage() {
           />
         </div>
         <div className="space-y-2">
-          <Label>日期訖</Label>
+          <Label>{t('reportsPages.shared.dateTo')}</Label>
           <Input
             type="date"
             value={to}
@@ -162,13 +164,13 @@ export function StockLedgerReportPage() {
           />
         </div>
         <div className="space-y-2">
-          <Label>倉庫</Label>
+          <Label>{t('reportsPages.shared.warehouse')}</Label>
           <Select value={warehouseId} onValueChange={setWarehouseId}>
             <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="全部倉庫" />
+              <SelectValue placeholder={t('reportsPages.shared.allWarehouses')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部倉庫</SelectItem>
+              <SelectItem value="all">{t('reportsPages.shared.allWarehouses')}</SelectItem>
               {warehouses?.map(w => (
                 <SelectItem key={w.id} value={w.id}>
                   {w.code} - {w.name}
@@ -180,10 +182,10 @@ export function StockLedgerReportPage() {
 
         {productId && (
           <div className="space-y-2">
-            <Label>產品篩選</Label>
+            <Label>{t('reportsPages.stockLedger.productFilter')}</Label>
             <div className="flex h-10 items-center gap-2 rounded-md border border-primary/40 bg-primary/5 px-3">
               <span className="text-sm font-medium text-primary">
-                {productSku || '單一產品'}
+                {productSku || t('reportsPages.stockLedger.singleProduct')}
               </span>
               <Button
                 size="icon"
@@ -197,7 +199,7 @@ export function StockLedgerReportPage() {
                   next.delete('sku')
                   setSearchParams(next, { replace: true })
                 }}
-                aria-label="清除產品篩選"
+                aria-label={t('reportsPages.stockLedger.clearProductFilter')}
               >
                 <X className="h-3.5 w-3.5" />
               </Button>
@@ -211,15 +213,15 @@ export function StockLedgerReportPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <SortableTableHead sortKey="trx_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>交易時間</SortableTableHead>
-              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>倉庫</SortableTableHead>
-              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>產品</SortableTableHead>
-              <SortableTableHead sortKey="doc_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據類型</SortableTableHead>
-              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>單據編號</SortableTableHead>
-              <SortableTableHead sortKey="direction" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>方向</SortableTableHead>
-              <SortableTableHead sortKey="qty_base" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">數量</SortableTableHead>
-              <SortableTableHead sortKey="unit_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">單位成本</SortableTableHead>
-              <SortableTableHead sortKey="batch_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>批號</SortableTableHead>
+              <SortableTableHead sortKey="trx_date" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.stockLedger.trxTime')}</SortableTableHead>
+              <SortableTableHead sortKey="warehouse_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.warehouse')}</SortableTableHead>
+              <SortableTableHead sortKey="product_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.product')}</SortableTableHead>
+              <SortableTableHead sortKey="doc_type" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.docType')}</SortableTableHead>
+              <SortableTableHead sortKey="doc_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.shared.docNo')}</SortableTableHead>
+              <SortableTableHead sortKey="direction" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.stockLedger.direction')}</SortableTableHead>
+              <SortableTableHead sortKey="qty_base" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.shared.quantity')}</SortableTableHead>
+              <SortableTableHead sortKey="unit_cost" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="text-right">{t('reportsPages.stockLedger.unitCost')}</SortableTableHead>
+              <SortableTableHead sortKey="batch_no" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('reportsPages.stockLedger.batchNo')}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -264,7 +266,7 @@ export function StockLedgerReportPage() {
                 </TableRow>
               ))
             ) : (
-              <TableEmptyRow colSpan={9} icon={TrendingUp} title="尚無流水資料" />
+              <TableEmptyRow colSpan={9} icon={TrendingUp} title={t('reportsPages.stockLedger.emptyTitle')} />
             )}
           </TableBody>
         </Table>

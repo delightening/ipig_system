@@ -189,7 +189,7 @@ export function UserCreateDialog({
               // 原本的 `?? true` 會把它靜默補成「內部人員」——與 InvitationCreateDialog
               // 原本的 `?? false` 方向相反，正是本 PR 要修的那個「兩條路徑相反假設」。
               validate: v =>
-                typeof v === 'boolean' || '請選擇這個人是本場受僱人員或外部人員',
+                typeof v === 'boolean' || t('adminUsers.users.affiliationRequired'),
             })}
           />
           <StaffAffiliationField

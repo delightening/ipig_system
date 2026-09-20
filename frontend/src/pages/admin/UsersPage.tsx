@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { GuestHide } from '@/components/ui/guest-hide'
@@ -31,6 +32,7 @@ import { useToast } from '@/components/ui/use-toast'
 import type { ApiErrorPayload } from '@/types/error'
 
 export function UsersPage() {
+  const { t } = useTranslation()
   const mgmt = useUserManagement()
   const { toast } = useToast()
   // 邀請使用者：重用既有「邀請管理」流程（email + 名稱 + 角色 → 寄信 → 設密碼登入）
@@ -41,8 +43,8 @@ export function UsersPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="使用者管理"
-        description="管理系統使用者帳號與角色"
+        title={t('nav.adminUsers')}
+        description={t('adminUsers.users.description')}
         actions={
           <GuestHide>
             <div className="flex items-center gap-2">
@@ -52,23 +54,23 @@ export function UsersPage() {
                   checked={mgmt.showInactive}
                   onCheckedChange={mgmt.setShowInactive}
                 />
-                顯示停用帳號
+                {t('adminUsers.users.showInactive')}
               </label>
               <Button variant="outline" size="sm" onClick={mgmt.handleExportUsers} disabled={!mgmt.sortedUsers?.length || mgmt.isLoading}>
                 <Download className="h-4 w-4 mr-2" />
-                {mgmt.showInactive ? '匯出所有使用者' : '匯出啟用使用者'}
+                {mgmt.showInactive ? t('adminUsers.users.exportAll') : t('adminUsers.users.exportActive')}
               </Button>
               {canInvite && (
                 <Button variant="outline" size="sm" asChild>
                   <Link to="/hr/invitations">
                     <Mail className="h-4 w-4 mr-2" />
-                    邀請使用者
+                    {t('adminUsers.users.inviteButton')}
                   </Link>
                 </Button>
               )}
               <Button size="sm" data-testid="add-user-button" onClick={() => mgmt.setShowCreateDialog(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                新增使用者
+                {t('admin.userCreateDialog.title')}
               </Button>
             </div>
           </GuestHide>
@@ -157,7 +159,7 @@ export function UsersPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>此人身上還有未結清事項</AlertDialogTitle>
+            <AlertDialogTitle>{t('adminUsers.users.unsettled.title')}</AlertDialogTitle>
             <AlertDialogDescription>{mgmt.unsettledConflict?.message}</AlertDialogDescription>
           </AlertDialogHeader>
           <ul className="max-h-60 space-y-1 overflow-y-auto rounded-md border bg-muted/40 p-3 text-sm">
@@ -168,10 +170,10 @@ export function UsersPage() {
             ))}
           </ul>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             {isAdmin && (
               <AlertDialogAction onClick={mgmt.handleForceUpdateRoles}>
-                仍要移除（待辦將退回）
+                {t('adminUsers.users.unsettled.forceRemove')}
               </AlertDialogAction>
             )}
           </AlertDialogFooter>
@@ -204,9 +206,9 @@ export function UsersPage() {
             // 刪除失敗（非密碼問題），關閉刪除對話框並 toast 實際錯誤
             mgmt.setShowDeleteDialog(false)
             const message = isAxiosError(err)
-              ? (err.response?.data as ApiErrorPayload | undefined)?.error?.message ?? '刪除使用者失敗'
-              : '刪除使用者失敗'
-            toast({ title: '刪除失敗', description: message, variant: 'destructive' })
+              ? (err.response?.data as ApiErrorPayload | undefined)?.error?.message ?? t('adminUsers.users.deleteUserFailed')
+              : t('adminUsers.users.deleteUserFailed')
+            toast({ title: t('adminUsers.shared.deleteFailed'), description: message, variant: 'destructive' })
             // 不 re-throw：密碼已確認，讓 ConfirmPasswordModal 正常關閉
           }
         }}
@@ -218,10 +220,10 @@ export function UsersPage() {
           mgmt.setShowReauthForImpersonate(o)
           if (!o) mgmt.setUserToImpersonate(null)
         }}
-        title="模擬登入確認"
+        title={t('adminUsers.users.impersonate.title')}
         description={
           mgmt.userToImpersonate
-            ? `確定要以「${mgmt.userToImpersonate.display_name}」的身分登入？請輸入您的登入密碼以確認。`
+            ? t('adminUsers.users.impersonate.description', { name: mgmt.userToImpersonate.display_name })
             : ''
         }
         onSubmit={async (password) => {

@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AxiosError } from 'axios'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 
 import api from '@/lib/api'
 import { uiLocale } from '@/lib/utils'
@@ -54,13 +56,13 @@ export function prewarmGpsPosition(): void {
     )
 }
 
-function handleClockError(error: unknown): string {
+function handleClockError(error: unknown, t: TFunction): string {
     // 地理圍籬失敗後端回 422（BusinessRule）；保留 403 以相容部署過渡期的舊後端。
     if (error instanceof AxiosError && (error.response?.status === 422 || error.response?.status === 403)) {
         return (error.response?.data as { error?: { message?: string } })?.error?.message
-            || '請確認您已連接辦公室 WiFi 或允許定位權限'
+            || t('hrPages.attendance.toast.geoFallback')
     }
-    return getApiErrorMessage(error, '請稍後再試')
+    return getApiErrorMessage(error, t('hrPages.shared.tryAgainLater'))
 }
 
 interface UseAttendanceMutationsOptions {
@@ -73,6 +75,7 @@ interface UseAttendanceMutationsOptions {
 }
 
 export function useAttendanceMutations(opts: UseAttendanceMutationsOptions) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
 
     const clockInMutation = useMutation({
@@ -91,12 +94,14 @@ export function useAttendanceMutations(opts: UseAttendanceMutationsOptions) {
             } as AttendanceWithUser))
             opts.refetchToday()
             toast({
-                title: '打卡成功',
-                description: `上班打卡時間：${new Date(clockInTime).toLocaleTimeString(uiLocale(), { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}`,
+                title: t('hrPages.attendance.toast.clockSuccess'),
+                description: t('hrPages.attendance.toast.clockInTime', {
+                    time: new Date(clockInTime).toLocaleTimeString(uiLocale(), { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+                }),
             })
         },
         onError: (error: unknown) => {
-            toast({ title: '打卡失敗', description: handleClockError(error), variant: 'destructive' })
+            toast({ title: t('hrPages.attendance.toast.clockFailed'), description: handleClockError(error, t), variant: 'destructive' })
         },
     })
 
@@ -117,12 +122,14 @@ export function useAttendanceMutations(opts: UseAttendanceMutationsOptions) {
             opts.refetchToday()
             queryClient.invalidateQueries({ queryKey: queryKeys.hr.allAttendanceHistory })
             toast({
-                title: '打卡成功',
-                description: `下班打卡時間：${new Date(clockOutTime).toLocaleTimeString(uiLocale(), { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}`,
+                title: t('hrPages.attendance.toast.clockSuccess'),
+                description: t('hrPages.attendance.toast.clockOutTime', {
+                    time: new Date(clockOutTime).toLocaleTimeString(uiLocale(), { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+                }),
             })
         },
         onError: (error: unknown) => {
-            toast({ title: '打卡失敗', description: handleClockError(error), variant: 'destructive' })
+            toast({ title: t('hrPages.attendance.toast.clockFailed'), description: handleClockError(error, t), variant: 'destructive' })
         },
     })
 
@@ -146,10 +153,10 @@ export function useAttendanceMutations(opts: UseAttendanceMutationsOptions) {
             a.download = `attendance_records_${new Date().toISOString().slice(0, 10)}.xlsx`
             a.click()
             URL.revokeObjectURL(url)
-            toast({ title: '匯出成功', description: '出勤記錄已下載' })
+            toast({ title: t('common.exportSuccess'), description: t('hrPages.attendance.toast.exportDownloaded') })
         },
         onError: (error: unknown) => {
-            toast({ title: '匯出失敗', description: getApiErrorMessage(error, '請稍後再試'), variant: 'destructive' })
+            toast({ title: t('common.exportFailed'), description: getApiErrorMessage(error, t('hrPages.shared.tryAgainLater')), variant: 'destructive' })
         },
     })
 

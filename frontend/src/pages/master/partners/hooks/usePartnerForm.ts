@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useForm, type RegisterOptions, type UseFormRegister } from 'react-hook-form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api, { deleteResource, Partner } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
@@ -15,27 +16,29 @@ import {
 
 // R57-2: 改 React Hook Form 原生 validation rules（避開 Zod 4 CSP eval probe）
 // 對齊原 partnerFormZodSchema：name 必填、tax_id 8 碼、phone 9-10 碼、email 格式
+// ⚠️ 下方 message 是 **i18n 鍵**（不是顯示文字），由 PartnerFormDialog 的 FieldError 在顯示時 t()。
 const TAX_ID_PATTERN = /^\d{8}$/
 const PHONE_PATTERN = /^\d{9,10}$/
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const FIELD_RULES: Partial<Record<keyof PartnerFormData, RegisterOptions<PartnerFormData>>> = {
-  name: { required: '名稱為必填' },
+  name: { required: 'erpMaster.partners.validation.nameRequired' },
   tax_id: {
     validate: (v) =>
-      typeof v !== 'string' || v === '' || TAX_ID_PATTERN.test(v) || '統編必須為 8 碼數字',
+      typeof v !== 'string' || v === '' || TAX_ID_PATTERN.test(v) || 'validation.taxId',
   },
   phone: {
     validate: (v) =>
-      typeof v !== 'string' || v === '' || PHONE_PATTERN.test(v) || '電話必須為 9-10 碼數字',
+      typeof v !== 'string' || v === '' || PHONE_PATTERN.test(v) || 'erpMaster.partners.validation.phone',
   },
   email: {
     validate: (v) =>
-      typeof v !== 'string' || v === '' || EMAIL_PATTERN.test(v) || 'Email 格式不正確',
+      typeof v !== 'string' || v === '' || EMAIL_PATTERN.test(v) || 'validation.email',
   },
 }
 
 export function usePartnerForm(closeDialog: () => void) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null)
 
@@ -78,8 +81,8 @@ export function usePartnerForm(closeDialog: () => void) {
     },
     onError: (error: unknown) => {
       toast({
-        title: '生成代碼失敗',
-        description: getApiErrorMessage(error, '請重新整理頁面或聯繫管理員'),
+        title: t('erpMaster.partners.toast.generateCodeFailed'),
+        description: getApiErrorMessage(error, t('erpMaster.partners.toast.generateCodeFailedDescription')),
         variant: 'destructive',
       })
     },
@@ -116,18 +119,18 @@ export function usePartnerForm(closeDialog: () => void) {
 
   const onMutationSuccess = (message: string) => {
     invalidatePartnerRelated()
-    toast({ title: '成功', description: message })
+    toast({ title: t('common.success'), description: message })
     closeDialog()
     resetForm()
   }
 
   const createMutation = useMutation({
     mutationFn: (data: PartnerSubmissionData) => api.post('/partners', data),
-    onSuccess: () => onMutationSuccess('夥伴已建立'),
+    onSuccess: () => onMutationSuccess(t('erpMaster.partners.toast.created')),
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '建立失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpMaster.partners.toast.createFailed')),
         variant: 'destructive',
       })
     },
@@ -136,11 +139,11 @@ export function usePartnerForm(closeDialog: () => void) {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: PartnerSubmissionData }) =>
       api.put(`/partners/${id}`, data),
-    onSuccess: () => onMutationSuccess('夥伴已更新'),
+    onSuccess: () => onMutationSuccess(t('erpMaster.partners.toast.updated')),
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '更新失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpMaster.partners.toast.updateFailed')),
         variant: 'destructive',
       })
     },
@@ -152,14 +155,14 @@ export function usePartnerForm(closeDialog: () => void) {
     onSuccess: (_, variables) => {
       invalidatePartnerRelated()
       toast({
-        title: '成功',
-        description: variables.hard ? '夥伴已永久刪除' : '夥伴已刪除',
+        title: t('common.success'),
+        description: variables.hard ? t('erpMaster.partners.toast.hardDeleted') : t('erpMaster.partners.toast.deleted'),
       })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '刪除失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpMaster.partners.toast.deleteFailed')),
         variant: 'destructive',
       })
     },

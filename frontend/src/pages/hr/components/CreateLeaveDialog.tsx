@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Clock, ImagePlus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -23,8 +24,8 @@ import {
 import { toast } from '@/components/ui/use-toast'
 import api from '@/lib/api'
 import { useAuthHasRole } from '@/stores/auth'
-import { LEAVE_TYPE_NAMES } from '@/types/hr'
 import type { StaffInfo } from '@/types/hr'
+import { LEAVE_TYPE_CODES, leaveTypeLabel } from '../constants'
 import type { useLeaveRequestForm } from '../hooks/useLeaveRequestForm'
 
 interface CreateLeaveDialogProps {
@@ -48,6 +49,7 @@ export function CreateLeaveDialog({
     onSubmit,
     isPending,
 }: CreateLeaveDialogProps) {
+    const { t } = useTranslation()
     const isAnnualLeave = leaveForm.isAnnualLeave
     const errors = leaveForm.rhf?.formState?.errors
     const hasRole = useAuthHasRole()
@@ -66,10 +68,10 @@ export function CreateLeaveDialog({
         onSuccess: (data) => {
             const newUrls = data.map(r => `/api/uploads/${r.file_path}`)
             leaveForm.addSupportingImages(newUrls)
-            toast({ title: '成功', description: '圖片已上傳' })
+            toast({ title: t('common.success'), description: t('hrPages.leaves.create.imageUploaded') })
         },
         onError: () => {
-            toast({ title: '錯誤', description: '圖片上傳失敗', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('hrPages.leaves.create.imageUploadFailed'), variant: 'destructive' })
         },
     })
 
@@ -87,8 +89,8 @@ export function CreateLeaveDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent size="md">
                 <DialogHeader>
-                    <DialogTitle>新增請假申請</DialogTitle>
-                    <DialogDescription>填寫請假資訊後送出審核</DialogDescription>
+                    <DialogTitle>{t('hrPages.leaves.create.title')}</DialogTitle>
+                    <DialogDescription>{t('hrPages.leaves.create.description')}</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     {hasHistory && (
@@ -100,20 +102,20 @@ export function CreateLeaveDialog({
                                 onClick={onPrefillLastLeave}
                                 className="text-xs"
                             >
-                                基於上次申請預填
+                                {t('hrPages.leaves.create.prefillLast')}
                             </Button>
                         </div>
                     )}
                     <div className="grid gap-2">
-                        <Label>假別 *</Label>
+                        <Label>{t('hrPages.shared.col.leaveType')} *</Label>
                         <Select value={leaveForm.form.leaveType} onValueChange={(v) => leaveForm.updateField('leaveType', v)}>
                             <SelectTrigger>
-                                <SelectValue placeholder="選擇假別" />
+                                <SelectValue placeholder={t('hrPages.leaves.create.leaveTypePlaceholder')} />
                             </SelectTrigger>
                             <SelectContent>
-                                {Object.entries(LEAVE_TYPE_NAMES).map(([code, name]) => (
+                                {LEAVE_TYPE_CODES.map((code) => (
                                     <SelectItem key={code} value={code}>
-                                        {name}
+                                        {leaveTypeLabel(t, code)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -124,7 +126,7 @@ export function CreateLeaveDialog({
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
-                            <Label>開始日期 *</Label>
+                            <Label>{t('hrPages.shared.filter.startDate')} *</Label>
                             <Input
                                 type="date"
                                 value={leaveForm.form.startDate}
@@ -132,7 +134,7 @@ export function CreateLeaveDialog({
                             />
                         </div>
                         <div className="grid gap-2">
-                            <Label>結束日期 *</Label>
+                            <Label>{t('hrPages.shared.filter.endDate')} *</Label>
                             <Input
                                 type="date"
                                 value={leaveForm.form.endDate}
@@ -141,7 +143,7 @@ export function CreateLeaveDialog({
                         </div>
                     </div>
                     <div className="grid gap-2">
-                        <Label>時數 <span className="text-muted-foreground text-xs">(以 0.5 小時為單位)</span></Label>
+                        <Label>{t('hrPages.shared.col.hours')} <span className="text-muted-foreground text-xs">{t('hrPages.leaves.create.hoursHint')}</span></Label>
                         <Input
                             type="number"
                             step="0.5"
@@ -155,16 +157,16 @@ export function CreateLeaveDialog({
                     </div>
                     <div className="grid gap-2">
                         <Label>
-                            職務代理人 {!isDirector && '*'}
-                            {isDirector && <span className="text-muted-foreground text-xs ml-1">(選填)</span>}
+                            {t('hrPages.leaves.create.delegate')} {!isDirector && '*'}
+                            {isDirector && <span className="text-muted-foreground text-xs ml-1">{t('hrPages.shared.optionalParen')}</span>}
                         </Label>
                         <Select value={leaveForm.form.proxyUserId} onValueChange={(v) => leaveForm.updateField('proxyUserId', v)}>
                             <SelectTrigger>
-                                <SelectValue placeholder={isDirector ? '選擇代理人，或不指定...' : '選擇代理人...'} />
+                                <SelectValue placeholder={isDirector ? t('hrPages.leaves.create.delegatePlaceholderDirector') : t('hrPages.leaves.create.delegatePlaceholder')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {isDirector && (
-                                    <SelectItem value="__none__">不指定（報備制）</SelectItem>
+                                    <SelectItem value="__none__">{t('hrPages.leaves.create.noDelegate')}</SelectItem>
                                 )}
                                 {staffList?.map((staff) => (
                                     <SelectItem key={staff.id} value={staff.id}>
@@ -175,17 +177,17 @@ export function CreateLeaveDialog({
                         </Select>
                         <p className="text-xs text-muted-foreground">
                             {isDirector
-                                ? '代理人於您請假期間協助職務；不指定則以報備制送出，直接核准並扣除假別餘額'
-                                : '代理人於您請假期間協助職務；送審後會通知對方'}
+                                ? t('hrPages.leaves.create.delegateHintDirector')
+                                : t('hrPages.leaves.create.delegateHint')}
                         </p>
                     </div>
                     <div className="grid gap-2">
                         <Label>
-                            請假事由 {!isAnnualLeave && '*'}
-                            {isAnnualLeave && <span className="text-muted-foreground text-xs ml-1">(選填)</span>}
+                            {t('hrPages.leaves.create.reason')} {!isAnnualLeave && '*'}
+                            {isAnnualLeave && <span className="text-muted-foreground text-xs ml-1">{t('hrPages.shared.optionalParen')}</span>}
                         </Label>
                         <Textarea
-                            placeholder={isAnnualLeave ? "選填，可不填寫..." : "請說明請假原因..."}
+                            placeholder={isAnnualLeave ? t('hrPages.leaves.create.reasonPlaceholderOptional') : t('hrPages.leaves.create.reasonPlaceholder')}
                             value={leaveForm.form.reason}
                             onChange={(e) => leaveForm.updateField('reason', e.target.value)}
                             rows={3}
@@ -194,13 +196,13 @@ export function CreateLeaveDialog({
 
                     {/* 圖片附件上傳 */}
                     <div className="grid gap-2">
-                        <Label>附件圖片 <span className="text-muted-foreground text-xs">(選填)</span></Label>
+                        <Label>{t('hrPages.leaves.create.attachments')} <span className="text-muted-foreground text-xs">{t('hrPages.shared.optionalParen')}</span></Label>
                         <div className="flex flex-wrap gap-2">
                             {leaveForm.form.supportingImages.map((url, index) => (
                                 <div key={index} className="relative group">
                                     <img
                                         src={url}
-                                        alt={`附件 ${index + 1}`}
+                                        alt={t('hrPages.leaves.create.attachmentAlt', { index: index + 1 })}
                                         className="h-16 w-16 object-cover rounded border"
                                     />
                                     <button
@@ -229,16 +231,16 @@ export function CreateLeaveDialog({
                             </label>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            可上傳診斷證明、相關文件等
+                            {t('hrPages.leaves.create.attachmentsHint')}
                         </p>
                     </div>
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        取消
+                        {t('common.cancel')}
                     </Button>
                     <Button onClick={onSubmit} disabled={isPending}>
-                        建立
+                        {t('hrPages.shared.action.create')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

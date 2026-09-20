@@ -205,9 +205,9 @@ export function useProtocolDetail() {
 
   const handleSubmit = useCallback(async () => {
     const ok = await confirm({
-      title: '送出計畫書',
+      title: t('protocolPages.shared.submitConfirmTitle'),
       description: t('protocols.detail.submitConfirm'),
-      confirmLabel: '確認送出',
+      confirmLabel: t('protocolPages.shared.submitConfirmLabel'),
     })
     if (ok) submitMutation.mutate()
   }, [confirm, t, submitMutation])
@@ -254,9 +254,9 @@ export function useProtocolDetail() {
     // 送出前加二次確認。
     if (newStatus === 'APPROVED' || newStatus === 'APPROVED_WITH_CONDITIONS') {
       const ok = await confirm({
-        title: '確認核准計畫',
-        description: '核准後將生成 IACUC 編號並自動建立對應客戶，計畫進入「已核准」狀態。確認核准？',
-        confirmLabel: '確認核准',
+        title: t('protocolPages.detail.approveConfirmTitle'),
+        description: t('protocolPages.detail.approveConfirmDescription'),
+        confirmLabel: t('protocolPages.detail.approveConfirmLabel'),
       })
       if (!ok) return
     }

@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { Plus, Trash2 } from "lucide-react"
 import { Button } from "./button"
@@ -20,12 +21,13 @@ function Repeater<T>({
   onChange,
   renderItem,
   defaultItem,
-  addLabel = "新增項目",
+  addLabel,
   maxItems = 20,
   minItems = 0,
   className,
   disabled = false,
 }: RepeaterProps<T>) {
+  const { t } = useTranslation()
   const handleAdd = () => {
     if (value.length < maxItems && !disabled) {
       onChange([...value, defaultItem()])
@@ -76,7 +78,7 @@ function Repeater<T>({
           className="w-full border-dashed"
         >
           <Plus className="h-4 w-4 mr-2" />
-          {addLabel}
+          {addLabel ?? t('common.addItem')}
         </Button>
       )}
     </div>

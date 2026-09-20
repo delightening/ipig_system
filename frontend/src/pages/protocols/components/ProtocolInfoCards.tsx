@@ -59,7 +59,7 @@ export function ProtocolInfoCards({
           {realPiEmail ? (
             <p className="text-sm text-muted-foreground">{realPiEmail}</p>
           ) : (
-            <p className="text-sm text-destructive">待填</p>
+            <p className="text-sm text-destructive">{t('protocolPages.detail.piEmailPending')}</p>
           )}
         </CardContent>
       </Card>

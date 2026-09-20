@@ -12,6 +12,7 @@ import api, {
   AnimalEvent,
   transferApi,
 } from '@/lib/api'
+import i18n from '@/lib/i18n'
 import { getErrorMessage } from '@/types/error'
 import { logger } from '@/lib/logger'
 import { toast } from '@/components/ui/use-toast'
@@ -69,8 +70,9 @@ export function useAnimalDetailQueries({
     if (observationsError) {
       logger.error('Failed to load observations:', observationsError)
       toast({
-        title: '錯誤',
-        description: getErrorMessage(observationsError) || '載入觀察紀錄失敗',
+        // effect 內在錯誤發生當下取譯文；不放進 deps，避免切換語言時重複跳 toast
+        title: i18n.t('common.error'),
+        description: getErrorMessage(observationsError) || i18n.t('animalPages.mutations.loadObservationsFailed'),
         variant: 'destructive',
       })
     }

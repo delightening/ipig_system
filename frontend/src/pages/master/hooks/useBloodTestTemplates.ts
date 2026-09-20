@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { STALE_TIME } from '@/lib/query'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import {
   bloodTestTemplateApi,
   bloodTestPanelApi,
@@ -51,6 +52,7 @@ const defaultPanelValues: BloodTestPanelFormData = {
 }
 
 export function useBloodTestTemplates() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const [search, setSearch] = useState('')
@@ -133,19 +135,19 @@ export function useBloodTestTemplates() {
     if (search) {
       const q = search.toLowerCase()
       result = result.filter(
-        (t) =>
-          t.code.toLowerCase().includes(q) ||
-          t.name.toLowerCase().includes(q) ||
-          (t.default_unit && t.default_unit.toLowerCase().includes(q))
+        (tpl) =>
+          tpl.code.toLowerCase().includes(q) ||
+          tpl.name.toLowerCase().includes(q) ||
+          (tpl.default_unit && tpl.default_unit.toLowerCase().includes(q))
       )
     }
-    if (showFilter === 'active') result = result.filter((t) => t.is_active)
-    else if (showFilter === 'inactive') result = result.filter((t) => !t.is_active)
+    if (showFilter === 'active') result = result.filter((tpl) => tpl.is_active)
+    else if (showFilter === 'inactive') result = result.filter((tpl) => !tpl.is_active)
     if (selectedPanel !== 'all' && panels) {
       const panel = panels.find((p) => p.key === selectedPanel)
       if (panel) {
         const panelTemplateIds = new Set(panel.items.map((i) => i.id))
-        result = result.filter((t) => panelTemplateIds.has(t.id))
+        result = result.filter((tpl) => panelTemplateIds.has(tpl.id))
       }
     }
     const sorted = sortTemplates(result)
@@ -154,13 +156,13 @@ export function useBloodTestTemplates() {
       const usedIds = new Set<string>()
       for (const panel of panels) {
         const panelTemplateIds = new Set(panel.items.map((i) => i.id))
-        const panelItems = sorted.filter((t) => panelTemplateIds.has(t.id))
+        const panelItems = sorted.filter((tpl) => panelTemplateIds.has(tpl.id))
         if (panelItems.length > 0) {
           grouped.push({ panel, items: panelItems })
-          panelItems.forEach((t) => usedIds.add(t.id))
+          panelItems.forEach((tpl) => usedIds.add(tpl.id))
         }
       }
-      const uncategorized = sorted.filter((t) => !usedIds.has(t.id))
+      const uncategorized = sorted.filter((tpl) => !usedIds.has(tpl.id))
       if (uncategorized.length > 0) {
         grouped.push({ panel: null, items: uncategorized })
       }
@@ -175,14 +177,14 @@ export function useBloodTestTemplates() {
       queryClient.invalidateQueries({ queryKey: ['blood-test-templates'] })
       queryClient.invalidateQueries({ queryKey: ['blood-test-templates-all'] })
       queryClient.invalidateQueries({ queryKey: ['blood-test-panels-all'] })
-      toast({ title: '成功', description: '檢查項目已建立' })
+      toast({ title: t('common.success'), description: t('erpMaster.bloodTest.toast.templateCreated') })
       setDialogOpen(false)
       resetForm()
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '建立失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpMaster.bloodTest.toast.createFailed')),
         variant: 'destructive',
       })
     },
@@ -200,14 +202,14 @@ export function useBloodTestTemplates() {
       queryClient.invalidateQueries({ queryKey: ['blood-test-templates'] })
       queryClient.invalidateQueries({ queryKey: ['blood-test-templates-all'] })
       queryClient.invalidateQueries({ queryKey: ['blood-test-panels-all'] })
-      toast({ title: '成功', description: '檢查項目已更新' })
+      toast({ title: t('common.success'), description: t('erpMaster.bloodTest.toast.templateUpdated') })
       setDialogOpen(false)
       resetForm()
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '更新失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpMaster.bloodTest.toast.updateFailed')),
         variant: 'destructive',
       })
     },
@@ -220,14 +222,14 @@ export function useBloodTestTemplates() {
       queryClient.invalidateQueries({ queryKey: ['blood-test-templates'] })
       queryClient.invalidateQueries({ queryKey: ['blood-test-templates-all'] })
       toast({
-        title: '成功',
-        description: variables.is_active ? '項目已恢復啟用' : '項目已停用',
+        title: t('common.success'),
+        description: variables.is_active ? t('erpMaster.bloodTest.toast.itemRestored') : t('erpMaster.bloodTest.toast.itemDeactivated'),
       })
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '操作失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpMaster.bloodTest.toast.operationFailed')),
         variant: 'destructive',
       })
     },
@@ -237,14 +239,14 @@ export function useBloodTestTemplates() {
     mutationFn: (data: BloodTestPanelFormData) => bloodTestPanelApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blood-test-panels-all'] })
-      toast({ title: '成功', description: '分類已建立' })
+      toast({ title: t('common.success'), description: t('erpMaster.bloodTest.toast.panelCreated') })
       setPanelDialogOpen(false)
       panelForm.reset(defaultPanelValues)
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '建立分類失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpMaster.bloodTest.toast.createPanelFailed')),
         variant: 'destructive',
       })
     },
@@ -300,7 +302,7 @@ export function useBloodTestTemplates() {
     }
   }
 
-  const activeCount = templates?.filter((t) => t.is_active).length || 0
+  const activeCount = templates?.filter((tpl) => tpl.is_active).length || 0
   const totalCount = templates?.length || 0
 
   return {

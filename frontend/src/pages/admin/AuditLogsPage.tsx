@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -33,6 +34,7 @@ function getDefaultDateTo() {
 }
 
 export function AuditLogsPage() {
+  const { t } = useTranslation()
   const { from: dateFrom, to: dateTo, setFrom: setDateFrom, setTo: setDateTo } = useDateRangeFilter({
     initialFrom: getDefaultDateFrom,
     initialTo: getDefaultDateTo,
@@ -48,7 +50,10 @@ export function AuditLogsPage() {
   const hasPermission = useAuthHasPermission()
   const canInvalidateSignature = hasPermission('signature.invalidate')
 
-  const availableEntityTypes = categoryEntityMap[categoryFilter] || categoryEntityMap.all
+  const availableEntityTypes = (categoryEntityMap[categoryFilter] || categoryEntityMap.all).map((e) => ({
+    value: e.value,
+    label: t(e.labelKey),
+  }))
 
   const { data: users = [] } = useQuery({
     queryKey: ['users-list-audit'],
@@ -126,12 +131,12 @@ export function AuditLogsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="操作日誌"
-        description="追蹤所有使用者的操作記錄與變更歷史"
+        title={t('nav.adminAuditLogs')}
+        description={t('adminUsers.audit.logsPage.description')}
         actions={
           canInvalidateSignature ? (
             <Button variant="outline" onClick={() => setInvalidateOpen(true)}>
-              撤銷簽章
+              {t('adminUsers.audit.logsPage.invalidateSignature')}
             </Button>
           ) : undefined
         }

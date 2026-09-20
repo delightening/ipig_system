@@ -45,7 +45,7 @@ export function GuidelinesSection({ guidelines }: GuidelinesSectionProps) {
                     <CheckIndicator on={on} />
                     <span className={on ? 'font-medium' : ''}>
                       {code}. {t(`aup.guidelines.databases.${code}`)}
-                      <span className="sr-only">{on ? '（已選擇）' : '（未選擇）'}</span>
+                      <span className="sr-only">{on ? t('protocolComponents.content.srSelected') : t('protocolComponents.content.srNotSelected')}</span>
                       {on && db?.keywords && (
                         <span className="ml-2 font-normal text-muted-foreground">— {t('aup.guidelines.keywordsLabel')}: {db.keywords}</span>
                       )}

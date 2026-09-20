@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,28 +10,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { UOM_MAP } from '@/lib/utils'
+import { UOM_MAP, formatUom } from '@/lib/utils'
 import type { ProductEditFormReturn } from '../hooks/useProductEditForm'
 
-const UOM_OPTIONS = Object.entries(UOM_MAP).map(([code, name]) => ({ code, name }))
+// 單位代碼清單（顯示名稱在渲染時走 formatUom，語系切換後才會更新）
+const UOM_CODES = Object.keys(UOM_MAP)
 
 interface EditInventoryCardProps {
   formReturn: ProductEditFormReturn
 }
 
 export function EditInventoryCard({ formReturn }: EditInventoryCardProps) {
+  const { t } = useTranslation()
   const { form, updateField } = formReturn
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>庫存管理設定</CardTitle>
-        <CardDescription>安全庫存與補貨點</CardDescription>
+        <CardTitle>{t('erpMaster.productDetail.inventoryManagement')}</CardTitle>
+        <CardDescription>{t('erpMaster.productEdit.inventoryDescription')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="safetyStock">安全庫存</Label>
+            <Label htmlFor="safetyStock">{t('erpMaster.products.safetyStock')}</Label>
             <Input
               id="safetyStock"
               type="number"
@@ -41,22 +45,22 @@ export function EditInventoryCard({ formReturn }: EditInventoryCardProps) {
                   e.target.value === '' ? '' : parseFloat(e.target.value),
                 )
               }
-              placeholder="選填"
+              placeholder={t('erpMaster.common.optional')}
             />
           </div>
           <div className="grid gap-2">
-            <Label>安全庫存單位</Label>
+            <Label>{t('erpMaster.productEdit.safetyStockUnit')}</Label>
             <Select
               value={form.safetyStockUom}
               onValueChange={(v) => updateField('safetyStockUom', v)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="選擇單位" />
+                <SelectValue placeholder={t('erpMaster.packaging.selectUnit')} />
               </SelectTrigger>
               <SelectContent>
-                {UOM_OPTIONS.map((u) => (
-                  <SelectItem key={u.code} value={u.code}>
-                    {u.name}
+                {UOM_CODES.map((code) => (
+                  <SelectItem key={code} value={code}>
+                    {formatUom(code)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -65,7 +69,7 @@ export function EditInventoryCard({ formReturn }: EditInventoryCardProps) {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="reorderPoint">補貨點</Label>
+            <Label htmlFor="reorderPoint">{t('erpMaster.productDetail.reorderPoint')}</Label>
             <Input
               id="reorderPoint"
               type="number"
@@ -77,22 +81,22 @@ export function EditInventoryCard({ formReturn }: EditInventoryCardProps) {
                   e.target.value === '' ? '' : parseFloat(e.target.value),
                 )
               }
-              placeholder="選填"
+              placeholder={t('erpMaster.common.optional')}
             />
           </div>
           <div className="grid gap-2">
-            <Label>補貨點單位</Label>
+            <Label>{t('erpMaster.productEdit.reorderPointUnit')}</Label>
             <Select
               value={form.reorderPointUom}
               onValueChange={(v) => updateField('reorderPointUom', v)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="選擇單位" />
+                <SelectValue placeholder={t('erpMaster.packaging.selectUnit')} />
               </SelectTrigger>
               <SelectContent>
-                {UOM_OPTIONS.map((u) => (
-                  <SelectItem key={u.code} value={u.code}>
-                    {u.name}
+                {UOM_CODES.map((code) => (
+                  <SelectItem key={code} value={code}>
+                    {formatUom(code)}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -1,6 +1,7 @@
 import React from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { Trans, useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -39,6 +40,7 @@ import { DOC_TYPE_NAMES } from './types'
 export type AdjMode = 'add' | 'modify'
 
 export function DocumentEditPage() {
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const defaultType = (searchParams.get('type') as DocType) || ''
   const [adjMode, setAdjMode] = React.useState<AdjMode>('modify')
@@ -152,19 +154,19 @@ export function DocumentEditPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>單據資訊</CardTitle>
+            <CardTitle>{t('erpDocs.shared.docInfo')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>單據類型</Label>
+                <Label>{t('erpDocs.shared.docType')}</Label>
                 <Select
                   value={formData.doc_type || undefined}
                   onValueChange={(v) => updateField('doc_type', v as DocType)}
                   disabled={isEdit}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="選擇類型" />
+                    <SelectValue placeholder={t('erpDocs.documents.form.selectType')} />
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(DOC_TYPE_NAMES)
@@ -177,7 +179,7 @@ export function DocumentEditPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>單據日期</Label>
+                <Label>{t('erpDocs.shared.docDate')}</Label>
                 <Input
                   type="date"
                   value={formData.doc_date}
@@ -192,7 +194,7 @@ export function DocumentEditPage() {
             {isTransfer ? (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>來源倉庫 *</Label>
+                  <Label>{t('erpDocs.documents.form.sourceWarehouseRequired')}</Label>
                   <WarehouseShelfTreeSelect
                     value={formData.warehouse_from_id ? `wh:${formData.warehouse_from_id}` : ''}
                     onValueChange={(v: WarehouseShelfValue) => {
@@ -202,11 +204,11 @@ export function DocumentEditPage() {
                     selectLevel="warehouse"
                     allowAll={false}
                     className="w-full"
-                    placeholder="選擇來源倉庫"
+                    placeholder={t('erpDocs.documents.form.selectSourceWarehouse')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>目標倉庫 *</Label>
+                  <Label>{t('erpDocs.documents.form.targetWarehouseRequired')}</Label>
                   <WarehouseShelfTreeSelect
                     value={formData.warehouse_to_id ? `wh:${formData.warehouse_to_id}` : ''}
                     onValueChange={(v: WarehouseShelfValue) => {
@@ -216,12 +218,12 @@ export function DocumentEditPage() {
                     selectLevel="warehouse"
                     allowAll={false}
                     className="w-full"
-                    placeholder="選擇目標倉庫"
+                    placeholder={t('erpDocs.documents.form.selectTargetWarehouse')}
                   />
                 </div>
                 {formData.warehouse_from_id && (
                   <div className="space-y-2">
-                    <Label>批次套用來源儲位 (選填)</Label>
+                    <Label>{t('erpDocs.documents.form.batchSourceLocation')}</Label>
                     <WarehouseShelfTreeSelect
                       value={batchStorageLocationFromId ? `loc:${batchStorageLocationFromId}` : ''}
                       onValueChange={(v: WarehouseShelfValue) => {
@@ -232,13 +234,13 @@ export function DocumentEditPage() {
                       parentId={formData.warehouse_from_id}
                       allowAll={false}
                       className="w-full"
-                      placeholder="選擇來源儲位"
+                      placeholder={t('erpDocs.shared.selectSourceLocation')}
                     />
                   </div>
                 )}
                 {formData.warehouse_to_id && (
                   <div className="space-y-2">
-                    <Label>批次套用目標儲位 (選填)</Label>
+                    <Label>{t('erpDocs.documents.form.batchTargetLocation')}</Label>
                     <WarehouseShelfTreeSelect
                       value={batchStorageLocationToId ? `loc:${batchStorageLocationToId}` : ''}
                       onValueChange={(v: WarehouseShelfValue) => {
@@ -249,7 +251,7 @@ export function DocumentEditPage() {
                       parentId={formData.warehouse_to_id}
                       allowAll={false}
                       className="w-full"
-                      placeholder="選擇目標儲位"
+                      placeholder={t('erpDocs.shared.selectTargetLocation')}
                     />
                   </div>
                 )}
@@ -259,7 +261,11 @@ export function DocumentEditPage() {
                 <div className="space-y-2">
                   {/* SO 跨倉（#1004）：表頭倉庫僅為品項搜尋/批次套用的預設過濾，非必填；
                       每行實際倉庫＝該行儲位所屬倉。其他單據仍必填。 */}
-                  <Label>{formData.doc_type === 'SO' ? '預設倉庫（選填）' : '倉庫 *'}</Label>
+                  <Label>
+                    {formData.doc_type === 'SO'
+                      ? t('erpDocs.documents.form.defaultWarehouseOptional')
+                      : t('erpDocs.documents.form.warehouseRequired')}
+                  </Label>
                   <WarehouseShelfTreeSelect
                     value={formData.warehouse_id ? `wh:${formData.warehouse_id}` : ''}
                     onValueChange={(v: WarehouseShelfValue) => {
@@ -269,12 +275,16 @@ export function DocumentEditPage() {
                     selectLevel="warehouse"
                     allowAll={formData.doc_type === 'SO'}
                     className="w-full"
-                    placeholder={formData.doc_type === 'SO' ? '全部倉庫（跨倉）' : '選擇倉庫'}
+                    placeholder={
+                      formData.doc_type === 'SO'
+                        ? t('erpDocs.documents.form.allWarehousesCross')
+                        : t('erpDocs.shared.selectWarehouse')
+                    }
                   />
                 </div>
                 {formData.warehouse_id && needsShelf && (
                   <div className="space-y-2">
-                    <Label>批次套用儲位 (選填)</Label>
+                    <Label>{t('erpDocs.documents.form.batchLocation')}</Label>
                     <WarehouseShelfTreeSelect
                       value={batchStorageLocationId ? `loc:${batchStorageLocationId}` : ''}
                       onValueChange={(v: WarehouseShelfValue) => {
@@ -285,7 +295,7 @@ export function DocumentEditPage() {
                       parentId={formData.warehouse_id}
                       allowAll={false}
                       className="w-full"
-                      placeholder="選擇儲位"
+                      placeholder={t('erpDocs.shared.selectStorageLocation')}
                     />
                   </div>
                 )}
@@ -304,7 +314,7 @@ export function DocumentEditPage() {
             {needsSkuCategories && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>盤點品類 (選填)</Label>
+                  <Label>{t('erpDocs.documents.form.stocktakeCategories')}</Label>
                   {/* 載入中／失敗時一律停用：空清單與「沒有品類」在畫面上長得一樣，
                       讓人以為無從篩選而直接送出，就是一次非預期的全盤。 */}
                   <SearchableMultiSelect
@@ -316,18 +326,18 @@ export function DocumentEditPage() {
                     disabled={skuCategoriesLoading || skuCategoriesError}
                     placeholder={
                       skuCategoriesLoading
-                        ? '品類載入中…'
+                        ? t('erpDocs.documents.form.categoriesLoading')
                         : skuCategoriesError
-                          ? '品類載入失敗'
-                          : '全部品類（全盤）'
+                          ? t('erpDocs.documents.form.categoriesFailed')
+                          : t('erpDocs.documents.form.allCategories')
                     }
-                    searchPlaceholder="搜尋品類..."
+                    searchPlaceholder={t('erpDocs.documents.form.searchCategories')}
                     className="w-full"
                   />
                   {skuCategoriesError ? (
                     <div className="flex items-center gap-2">
                       <p className="text-xs text-destructive">
-                        品類清單載入失敗，暫時無法限定範圍。
+                        {t('erpDocs.documents.form.categoriesLoadFailedHint')}
                       </p>
                       <Button
                         type="button"
@@ -335,12 +345,12 @@ export function DocumentEditPage() {
                         variant="outline"
                         onClick={() => void refetchSkuCategories()}
                       >
-                        重試
+                        {t('common.retry')}
                       </Button>
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      不選＝全盤。選了就只有該品類的品項會出現在盤點底稿。
+                      {t('erpDocs.documents.form.categoriesHint')}
                     </p>
                   )}
                 </div>
@@ -351,7 +361,7 @@ export function DocumentEditPage() {
             {needsPartner && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>供應商 *</Label>
+                  <Label>{t('erpDocs.documents.form.supplierRequired')}</Label>
                   <Select
                     value={formData.partner_id}
                     onValueChange={(v) => {
@@ -362,17 +372,17 @@ export function DocumentEditPage() {
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="選擇供應商" />
+                      <SelectValue placeholder={t('erpDocs.documents.form.selectSupplier')} />
                     </SelectTrigger>
                     <SelectContent>
                       {!filteredPartners ? (
                         <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          載入中...
+                          {t('common.loading')}
                         </div>
                       ) : filteredPartners.length === 0 ? (
                         <div className="p-2 text-sm text-muted-foreground text-center">
-                          無可用供應商
+                          {t('erpDocs.documents.form.noSuppliers')}
                         </div>
                       ) : (
                         filteredPartners.map((partner) => (
@@ -387,19 +397,19 @@ export function DocumentEditPage() {
 
                 {formData.doc_type === 'GRN' && (
                   <div className="space-y-2">
-                    <Label>來源採購單 *</Label>
+                    <Label>{t('erpDocs.documents.form.sourcePoRequired')}</Label>
                     <Select
                       value={formData.source_doc_id || ''}
                       onValueChange={(v) => updateField('source_doc_id', v)}
                       disabled={!formData.partner_id}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={formData.partner_id ? "選擇採購單" : "請先選擇供應商"} />
+                        <SelectValue placeholder={formData.partner_id ? t('erpDocs.documents.form.selectPo') : t('erpDocs.documents.form.selectSupplierFirst')} />
                       </SelectTrigger>
                       <SelectContent>
                         {availableSourcePos.length === 0 ? (
                           <div className="p-2 text-sm text-muted-foreground text-center">
-                            無可用採購單
+                            {t('erpDocs.documents.form.noPos')}
                           </div>
                         ) : (
                           availableSourcePos.map((doc) => (
@@ -418,19 +428,19 @@ export function DocumentEditPage() {
             {/* 銷貨類：直接選已核准計畫（計畫即客戶） */}
             {needsProtocol && (
               <div className="space-y-2">
-                <Label>銷貨計畫 *</Label>
+                <Label>{t('erpDocs.documents.form.salesProtocolRequired')}</Label>
                 <Select
                   value={formData.protocol_id || ''}
                   onValueChange={handleProtocolSelect}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="選擇計畫（已核准、未結案）" />
+                    <SelectValue placeholder={t('erpDocs.documents.form.selectSalesProtocol')} />
                   </SelectTrigger>
                   <SelectContent>
                     {loadingProtocols ? (
                       <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        載入中...
+                        {t('common.loading')}
                       </div>
                     ) : activeProtocols && activeProtocols.length > 0 ? (
                       activeProtocols.map((protocol) => (
@@ -440,7 +450,7 @@ export function DocumentEditPage() {
                       ))
                     ) : (
                       <div className="p-2 text-sm text-muted-foreground text-center">
-                        無已核准之進行中計畫
+                        {t('erpDocs.documents.form.noActiveProtocols')}
                       </div>
                     )}
                   </SelectContent>
@@ -451,24 +461,24 @@ export function DocumentEditPage() {
             {/* 採購類：選填 IACUC 費用歸屬計畫 */}
             {needsPartner && !iacucDisabled && (
               <div className="space-y-2">
-                <Label>費用歸屬計畫 (選填)</Label>
+                <Label>{t('erpDocs.documents.form.costProtocol')}</Label>
                 <Select
                   value={formData.protocol_no || ''}
                   onValueChange={handleIacucNoSelect}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="選擇IACUC No." />
+                    <SelectValue placeholder={t('erpDocs.documents.form.selectIacucNo')} />
                   </SelectTrigger>
                   <SelectContent>
                     {loadingProtocols ? (
                       <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        載入中...
+                        {t('common.loading')}
                       </div>
                     ) : activeProtocols && activeProtocols.length > 0 ? (
                       <>
                         <SelectItem value="PUBLIC">
-                          --- 公用 (無特定計畫) ---
+                          {t('erpDocs.documents.form.publicOption')}
                         </SelectItem>
                         {activeProtocols.map((protocol) => (
                           <SelectItem
@@ -481,7 +491,7 @@ export function DocumentEditPage() {
                       </>
                     ) : (
                       <div className="p-2 text-sm text-muted-foreground text-center">
-                        無可用計畫
+                        {t('erpDocs.documents.form.noProtocols')}
                       </div>
                     )}
                   </SelectContent>
@@ -491,25 +501,25 @@ export function DocumentEditPage() {
 
             {formData.doc_type === 'ADJ' && (
               <div className="space-y-2">
-                <Label>調整模式</Label>
+                <Label>{t('erpDocs.documents.form.adjMode')}</Label>
                 <Select value={adjMode} onValueChange={(v) => setAdjMode(v as AdjMode)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="modify">修改現有庫存</SelectItem>
-                    <SelectItem value="add">新增庫存品項</SelectItem>
+                    <SelectItem value="modify">{t('erpDocs.documents.form.adjModify')}</SelectItem>
+                    <SelectItem value="add">{t('erpDocs.documents.form.adjAdd')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label>備註</Label>
+              <Label>{t('erpDocs.shared.remark')}</Label>
               <Input
                 value={formData.remark}
                 onChange={(e) => updateField('remark', e.target.value)}
-                placeholder="輸入備註..."
+                placeholder={t('erpDocs.documents.form.remarkPlaceholder')}
               />
             </div>
             </>
@@ -560,18 +570,18 @@ export function DocumentEditPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-status-warning-solid" />
-              尚有未儲存的變更
+              {t('erpDocs.documents.form.unsaved.title')}
             </DialogTitle>
             <DialogDescription>
-              您有尚未儲存的變更，確定要離開嗎？離開後變更將會遺失。
+              {t('erpDocs.documents.form.unsaved.description')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowUnsavedDialog(false)}>
-              繼續編輯
+              {t('erpDocs.documents.form.unsaved.keepEditing')}
             </Button>
             <Button variant="destructive" onClick={confirmNavigation}>
-              放棄變更
+              {t('erpDocs.documents.form.unsaved.discard')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -582,33 +592,33 @@ export function DocumentEditPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-status-warning-solid" />
-              專屬採購計畫不符警告
+              {t('erpDocs.documents.form.iacucWarning.title')}
             </DialogTitle>
             <DialogDescription>
-              此批次產品（批號：{iacucWarningData?.batch_no}）是專門為計畫{' '}
-              <span className="font-bold text-primary">
-                {iacucWarningData?.source_iacuc}
-              </span>{' '}
-              採購的。
-              <br />
-              <br />
-              您目前選擇的銷貨計畫為{' '}
-              <span className="font-bold text-destructive">
-                {formData.protocol_id
-                  ? activeProtocols?.find((p) => p.id === formData.protocol_id)?.iacuc_no
-                    || activeProtocols?.find((p) => p.id === formData.protocol_id)?.protocol_no
-                    || formData.protocol_id
-                  : '未指定'}
-              </span>
-              。確定要繼續使用此批次嗎？
+              <Trans
+                i18nKey="erpDocs.documents.form.iacucWarning.description"
+                values={{
+                  batchNo: iacucWarningData?.batch_no ?? '',
+                  sourceIacuc: iacucWarningData?.source_iacuc ?? '',
+                  currentProtocol: formData.protocol_id
+                    ? activeProtocols?.find((p) => p.id === formData.protocol_id)?.iacuc_no
+                      || activeProtocols?.find((p) => p.id === formData.protocol_id)?.protocol_no
+                      || formData.protocol_id
+                    : t('erpDocs.shared.unspecified'),
+                }}
+                components={{
+                  hl: <span className="font-bold text-primary" />,
+                  cur: <span className="font-bold text-destructive" />,
+                }}
+              />
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowIacucWarning(false)}>
-              返回修改
+              {t('erpDocs.documents.form.iacucWarning.goBack')}
             </Button>
             <Button onClick={() => setShowIacucWarning(false)}>
-              我了解，繼續使用
+              {t('erpDocs.documents.form.iacucWarning.continue')}
             </Button>
           </DialogFooter>
         </DialogContent>

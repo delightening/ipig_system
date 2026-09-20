@@ -1,32 +1,38 @@
-/** Partner type / category display name maps */
+import i18n from '@/lib/i18n'
 
-export const partnerTypeNames: Record<string, string> = {
-  supplier: '供應商',
-  customer: '客戶',
+/**
+ * Partner type / category 代碼 → i18n 鍵。
+ * 值是翻譯鍵而非顯示文字（模組頂層不可存翻譯後字串）；顯示請走下方 format* 函式或 `t(key)`。
+ */
+export const partnerTypeKeys: Record<string, string> = {
+  supplier: 'erpMaster.partners.type.supplier',
+  customer: 'erpMaster.partners.type.customer',
 }
 
-export const supplierCategoryNames: Record<string, string> = {
-  drug: '藥物',
-  consumable: '耗材',
-  feed: '飼料',
-  equipment: '儀器',
+export const supplierCategoryKeys: Record<string, string> = {
+  drug: 'erpMaster.partners.supplierCategory.drug',
+  consumable: 'erpMaster.partners.supplierCategory.consumable',
+  feed: 'erpMaster.partners.supplierCategory.feed',
+  equipment: 'erpMaster.partners.supplierCategory.equipment',
 }
 
-export const customerCategoryNames: Record<string, string> = {
-  internal: '內部單位',
-  external: '外部客戶',
-  research: '研究計畫',
-  other: '其他',
+export const customerCategoryKeys: Record<string, string> = {
+  internal: 'erpMaster.partners.customerCategory.internal',
+  external: 'erpMaster.partners.customerCategory.external',
+  research: 'erpMaster.partners.customerCategory.research',
+  other: 'erpMaster.partners.customerCategory.other',
 }
 
-export const formatPartnerType = (t: string) =>
-  partnerTypeNames[t] ?? t
+// 以下 format* 在呼叫當下才求值（非 React 情境，例如 CSV 匯出）
+// `lng` 可選：內部匯出檔傳 'zh-TW' 固定中文（使用者裁定 2026-09-19）；不傳則隨 UI 語系
+export const formatPartnerType = (type: string, lng?: string) =>
+  partnerTypeKeys[type] ? i18n.t(partnerTypeKeys[type], { lng }) : type
 
-export const formatSupplierCategory = (c?: string) =>
-  c ? (supplierCategoryNames[c] ?? c) : ''
+export const formatSupplierCategory = (c?: string, lng?: string) =>
+  c ? (supplierCategoryKeys[c] ? i18n.t(supplierCategoryKeys[c], { lng }) : c) : ''
 
-export const formatCustomerCategory = (c?: string) =>
-  c ? (customerCategoryNames[c] ?? c) : ''
+export const formatCustomerCategory = (c?: string, lng?: string) =>
+  c ? (customerCategoryKeys[c] ? i18n.t(customerCategoryKeys[c], { lng }) : c) : ''
 
 export type SupplierCategory = 'drug' | 'consumable' | 'feed' | 'equipment'
 export type CustomerCategory = 'internal' | 'external' | 'research' | 'other'

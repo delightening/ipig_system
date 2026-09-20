@@ -4,6 +4,8 @@
  * 注意：ProtocolWorkingContent 已定義在 ./protocol.ts
  */
 
+import { createLabelMap } from '@/lib/i18nLabels'
+
 import type { PendingOwner } from './pendingOwner'
 import { ProtocolWorkingContent } from './protocol'
 
@@ -26,24 +28,33 @@ export type ProtocolStatus =
     | 'CLOSED'
     | 'DELETED'
 
-export const protocolStatusNames: Record<ProtocolStatus, string> = {
-    DRAFT: '草稿',
-    SUBMITTED: '已提交',
-    PRE_REVIEW: '行政預審',
-    PRE_REVIEW_REVISION_REQUIRED: '行政預審補件',
-    VET_REVIEW: '獸醫審查',
-    VET_REVISION_REQUIRED: '獸醫要求修訂',
-    UNDER_REVIEW: '審查中',
-    REVISION_REQUIRED: '需修訂',
-    RESUBMITTED: '已重送',
-    APPROVED: '已核准',
-    APPROVED_WITH_CONDITIONS: '附條件核准',
-    DEFERRED: '延後審議',
-    REJECTED: '已否決',
-    SUSPENDED: '已暫停',
-    CLOSED: '已結案',
-    DELETED: '已刪除',
-}
+/**
+ * 計畫狀態名稱（getter 版：每次讀取才依當下語言翻譯，見 `@/lib/i18nLabels`）。
+ *
+ * 不沿用 `protocols.status.*`：該組的 zh-TW 措辭與本表不同（例：本表 PRE_REVIEW＝行政預審、
+ * 該組＝行政預審中），為保持既有顯示不變，另用 `typesLabels.protocolStatus.*`。
+ */
+export const protocolStatusNames: Record<ProtocolStatus, string> = createLabelMap(
+    'typesLabels.protocolStatus',
+    [
+        'DRAFT',
+        'SUBMITTED',
+        'PRE_REVIEW',
+        'PRE_REVIEW_REVISION_REQUIRED',
+        'VET_REVIEW',
+        'VET_REVISION_REQUIRED',
+        'UNDER_REVIEW',
+        'REVISION_REQUIRED',
+        'RESUBMITTED',
+        'APPROVED',
+        'APPROVED_WITH_CONDITIONS',
+        'DEFERRED',
+        'REJECTED',
+        'SUSPENDED',
+        'CLOSED',
+        'DELETED',
+    ],
+)
 
 // 計畫書
 export interface Protocol {

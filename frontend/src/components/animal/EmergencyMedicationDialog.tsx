@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag }: Props) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
 
     // Form state
@@ -87,15 +89,15 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['animal-observations', animalId] })
             toast({
-                title: '緊急處置已記錄',
-                description: '系統已通知獸醫師和計畫主持人，請等待追認。',
+                title: t('animalRecords.emergencyMedication.recordedTitle'),
+                description: t('animalRecords.emergencyMedication.recordedDescription'),
             })
             onOpenChange(false)
         },
         onError: (error: unknown) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '儲存失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('animalRecords.shared.saveFailed')),
                 variant: 'destructive',
             })
         },
@@ -109,12 +111,12 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
         } else if (countdown === 0) {
             // Submit
             if (!formData.emergency_reason.trim() || !formData.drug.trim() || !formData.content.trim()) {
-                toast({ title: '錯誤', description: '請填寫必要欄位', variant: 'destructive' })
+                toast({ title: t('common.error'), description: t('animalRecords.emergencyMedication.requiredFields'), variant: 'destructive' })
                 return
             }
             mutation.mutate()
         }
-    }, [isConfirming, countdown, formData, mutation])
+    }, [isConfirming, countdown, formData, mutation, t])
 
     const handleCancel = () => {
         if (isConfirming) {
@@ -131,13 +133,13 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-status-error-text">
                         <AlertTriangle className="h-5 w-5" />
-                        緊急處置
+                        {t('animalRecords.emergencyMedication.title')}
                     </DialogTitle>
                     <DialogDescription>
-                        耳號：{earTag}
+                        {t('animalRecords.shared.earTagLine', { earTag })}
                         <br />
                         <span className="text-status-error-solid">
-                            此功能用於獸醫不在場時的緊急處置，將通知獸醫師和 PI 進行追認。
+                            {t('animalRecords.emergencyMedication.description')}
                         </span>
                     </DialogDescription>
                 </DialogHeader>
@@ -145,7 +147,7 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
                 {!isConfirming ? (
                     <form className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="event_date">處置日期 *</Label>
+                            <Label htmlFor="event_date">{t('animalRecords.emergencyMedication.eventDateRequired')}</Label>
                             <Input
                                 id="event_date"
                                 type="date"
@@ -156,19 +158,19 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="emergency_reason">緊急處置原因 *</Label>
+                            <Label htmlFor="emergency_reason">{t('animalRecords.emergencyMedication.reasonRequired')}</Label>
                             <Textarea
                                 id="emergency_reason"
                                 value={formData.emergency_reason}
                                 onChange={(e) => setFormData({ ...formData, emergency_reason: e.target.value })}
-                                placeholder="說明為何需要緊急處置（例如：動物出現急性症狀、獸醫暫時離場...）"
+                                placeholder={t('animalRecords.emergencyMedication.reasonPlaceholder')}
                                 className="min-h-[80px]"
                                 required
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label>使用藥品 *</Label>
+                            <Label>{t('animalRecords.emergencyMedication.drugRequired')}</Label>
                             <DrugCombobox
                                 value={{
                                     drug_option_id: formData.drug_option_id,
@@ -187,12 +189,12 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="content">處置描述 *</Label>
+                            <Label htmlFor="content">{t('animalRecords.emergencyMedication.contentRequired')}</Label>
                             <Textarea
                                 id="content"
                                 value={formData.content}
                                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                                placeholder="詳細描述執行的緊急處置內容..."
+                                placeholder={t('animalRecords.emergencyMedication.contentPlaceholder')}
                                 className="min-h-[100px]"
                                 required
                             />
@@ -200,7 +202,7 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
 
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={handleCancel}>
-                                取消
+                                {t('common.cancel')}
                             </Button>
                             <Button
                                 type="button"
@@ -209,7 +211,7 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
                                 disabled={!formData.emergency_reason.trim() || !formData.drug.trim() || !formData.content.trim()}
                             >
                                 <AlertTriangle className="h-4 w-4 mr-2" />
-                                確認緊急處置
+                                {t('animalRecords.emergencyMedication.confirmButton')}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -218,10 +220,10 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
                         <div className="bg-status-error-bg border border-status-error-border rounded-lg p-4 text-center">
                             <AlertTriangle className="h-12 w-12 text-status-error-solid mx-auto mb-3" />
                             <h3 className="text-lg font-semibold text-status-error-text mb-2">
-                                確認執行緊急處置？
+                                {t('animalRecords.emergencyMedication.confirmTitle')}
                             </h3>
                             <p className="text-sm text-status-error-text mb-4">
-                                此操作將記錄緊急給藥並通知獸醫師追認
+                                {t('animalRecords.emergencyMedication.confirmDescription')}
                             </p>
 
                             <div className="bg-status-error-bg rounded-full w-20 h-20 mx-auto flex items-center justify-center mb-4">
@@ -231,13 +233,13 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
                             </div>
 
                             <p className="text-xs text-status-error-solid">
-                                {countdown > 0 ? `請等待 ${countdown} 秒後確認...` : '請點擊下方按鈕確認'}
+                                {countdown > 0 ? t('animalRecords.emergencyMedication.waitToConfirm', { seconds: countdown }) : t('animalRecords.emergencyMedication.clickToConfirm')}
                             </p>
                         </div>
 
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={handleCancel}>
-                                取消
+                                {t('common.cancel')}
                             </Button>
                             <Button
                                 type="button"
@@ -250,7 +252,7 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
                                 ) : (
                                     <AlertTriangle className="h-4 w-4 mr-2" />
                                 )}
-                                {countdown > 0 ? `等待 ${countdown} 秒` : '確認執行'}
+                                {countdown > 0 ? t('animalRecords.emergencyMedication.waitButton', { seconds: countdown }) : t('animalRecords.emergencyMedication.executeButton')}
                             </Button>
                         </DialogFooter>
                     </div>

@@ -3,6 +3,7 @@
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -20,6 +21,7 @@ const EQUIP_KEYS = {
 } as const
 
 export function useEquipmentIdle() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const [idlePage, setIdlePage] = useState(1)
@@ -39,10 +41,10 @@ export function useEquipmentIdle() {
       api.post('/equipment-idle-requests', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: IDLE_KEYS.list })
-      toast({ title: '成功', description: '已提交閒置申請' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.idleSubmitted') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '申請失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.requestFailed')), variant: 'destructive' })
     },
   })
 
@@ -58,10 +60,10 @@ export function useEquipmentIdle() {
       queryClient.invalidateQueries({ queryKey: IDLE_KEYS.list })
       queryClient.invalidateQueries({ queryKey: EQUIP_KEYS.list })
       queryClient.invalidateQueries({ queryKey: EQUIP_KEYS.all })
-      toast({ title: '成功', description: '已處理閒置申請' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.idleProcessed') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '操作失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.operationFailed')), variant: 'destructive' })
     },
   })
 

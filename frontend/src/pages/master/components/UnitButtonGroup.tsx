@@ -1,8 +1,9 @@
 import { Plus, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, formatUom } from '@/lib/utils'
 
 interface UnitOption {
   code: string
@@ -35,6 +36,8 @@ export function UnitButtonGroup({
   disabled = false,
   highlightedCodes = [],
 }: UnitButtonGroupProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex items-center gap-3">
       <div className="flex flex-wrap gap-2 flex-1">
@@ -53,7 +56,7 @@ export function UnitButtonGroup({
             )}
           >
             <span className="font-mono font-semibold text-sm">{unit.code}</span>
-            <span className="text-xs text-muted-foreground">{unit.name}</span>
+            <span className="text-xs text-muted-foreground">{formatUom(unit.code)}</span>
             {highlightedCodes.includes(unit.code) && (
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-background" />
             )}
@@ -71,13 +74,13 @@ export function UnitButtonGroup({
           )}
         >
           <Plus className="w-5 h-5 text-muted-foreground" />
-          <span className="text-[10px] text-muted-foreground mt-1">自填量詞</span>
+          <span className="text-[10px] text-muted-foreground mt-1">{t('erpMaster.packaging.customUnit')}</span>
         </button>
       </div>
       {isCustom && (
         <div className="flex items-center gap-2">
           <Input
-            placeholder="輸入量詞"
+            placeholder={t('erpMaster.packaging.customUnitPlaceholder')}
             value={customValue}
             onChange={(e) => onCustomChange(e.target.value)}
             className="w-24"
@@ -89,7 +92,7 @@ export function UnitButtonGroup({
               size="icon"
               className="h-8 w-8"
               onClick={onCustomClear}
-              aria-label="清除"
+              aria-label={t('erpMaster.common.clear')}
             >
               <X className="h-4 w-4" />
             </Button>

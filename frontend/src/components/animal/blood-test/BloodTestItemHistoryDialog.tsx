@@ -4,6 +4,7 @@
  * 顯示某筆血檢的所有 items（含 superseded rows），按項目分組 + 修正鏈時間序排列。
  */
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import {
   Dialog,
@@ -51,6 +52,7 @@ function buildChains(items: AnimalBloodTestItem[]): Chain[] {
 }
 
 export function BloodTestItemHistoryDialog({ open, testId, onOpenChange }: Props) {
+  const { t } = useTranslation()
   const { data, isLoading, isError } = useQuery({
     queryKey: ['blood-test-item-history', testId],
     queryFn: () => bloodTestApi.itemHistory(testId!).then((r) => r.data),
@@ -63,9 +65,9 @@ export function BloodTestItemHistoryDialog({ open, testId, onOpenChange }: Props
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="lg" className="max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>血檢項目修正歷史</DialogTitle>
+          <DialogTitle>{t('animalRecords.bloodTest.historyTitle')}</DialogTitle>
           <DialogDescription>
-            按項目分組，依時間序顯示完整修正鏈（GLP §11.10(c)(e) raw data integrity）。
+            {t('animalRecords.bloodTest.historyDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -75,10 +77,10 @@ export function BloodTestItemHistoryDialog({ open, testId, onOpenChange }: Props
           </div>
         ) : isError ? (
           <div className="py-8 text-center text-status-error-text">
-            載入修正歷史失敗，請稍後重試
+            {t('animalRecords.bloodTest.historyLoadFailed')}
           </div>
         ) : chains.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground">尚無紀錄</div>
+          <div className="py-8 text-center text-muted-foreground">{t('animalRecords.bloodTest.historyEmpty')}</div>
         ) : (
           <div className="space-y-4">
             {chains.map((chain) => (
@@ -86,7 +88,7 @@ export function BloodTestItemHistoryDialog({ open, testId, onOpenChange }: Props
                 <div className="font-medium">{chain.current.item_name}</div>
                 {chain.history.length === 1 ? (
                   <div className="text-xs text-muted-foreground">
-                    無修正紀錄（建立後未變動）
+                    {t('animalRecords.bloodTest.noCorrections')}
                   </div>
                 ) : (
                   <ol className="space-y-2 text-sm">
@@ -107,7 +109,7 @@ export function BloodTestItemHistoryDialog({ open, testId, onOpenChange }: Props
                                   : 'bg-muted text-muted-foreground'
                               }`}
                             >
-                              {isLast ? '當前' : `版本 ${idx + 1}`}
+                              {isLast ? t('animalRecords.bloodTest.versionCurrent') : t('animalRecords.bloodTest.versionN', { n: idx + 1 })}
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {new Date(h.created_at).toLocaleString(uiLocale(), {
@@ -117,30 +119,32 @@ export function BloodTestItemHistoryDialog({ open, testId, onOpenChange }: Props
                           </div>
                           <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
                             <div>
-                              <span className="text-muted-foreground">結果：</span>
+                              <span className="text-muted-foreground">{t('animalRecords.bloodTest.resultColon')}</span>
                               {h.result_value || '—'} {h.result_unit || ''}
                             </div>
                             <div>
-                              <span className="text-muted-foreground">參考：</span>
+                              <span className="text-muted-foreground">{t('animalRecords.bloodTest.referenceColon')}</span>
                               {h.reference_range || '—'}
                             </div>
                             <div>
-                              <span className="text-muted-foreground">異常：</span>
-                              {h.is_abnormal ? '是' : '否'}
+                              <span className="text-muted-foreground">{t('animalRecords.bloodTest.abnormalColon')}</span>
+                              {h.is_abnormal ? t('common.yes') : t('common.no')}
                             </div>
                             <div>
-                              <span className="text-muted-foreground">備註：</span>
+                              <span className="text-muted-foreground">{t('animalRecords.bloodTest.remarkColon')}</span>
                               {h.remark || '—'}
                             </div>
                           </div>
                           {h.superseded_at && h.correction_reason && (
                             <div className="mt-1 text-xs text-status-warning-text">
-                              <span className="font-medium">修正原因：</span>
+                              <span className="font-medium">{t('animalRecords.bloodTest.correctionReasonColon')}</span>
                               {h.correction_reason}
                               <span className="ml-2 text-muted-foreground">
-                                （於 {new Date(h.superseded_at).toLocaleString(uiLocale(), {
-                                  timeZone: 'Asia/Taipei',
-                                })} 被修正）
+                                {t('animalRecords.bloodTest.supersededAt', {
+                                  time: new Date(h.superseded_at).toLocaleString(uiLocale(), {
+                                    timeZone: 'Asia/Taipei',
+                                  }),
+                                })}
                               </span>
                             </div>
                           )}

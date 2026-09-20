@@ -9,6 +9,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, ClipboardCheck, XCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -34,13 +35,19 @@ import {
   type QaInspectionStatus,
 } from '@/lib/api/qaPlan'
 
-const INSPECTION_TYPE_LABELS: Record<string, string> = {
-  protocol: '計畫書', equipment: '設備', facility: '設施',
-  training: '訓練', general: '一般',
+// 值為 i18n 鍵（渲染時才 t()），避免 module 級常數凍結語言。
+const INSPECTION_TYPE_LABEL_KEYS: Record<string, string> = {
+  protocol: 'adminGlp.shared.inspectionType.protocol',
+  equipment: 'adminGlp.shared.equipment',
+  facility: 'adminGlp.shared.facility',
+  training: 'adminGlp.shared.inspectionType.training',
+  general: 'adminGlp.shared.inspectionType.general',
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: '草稿', submitted: '已提交', closed: '已關閉',
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  draft: 'adminGlp.shared.statusLabel.draft',
+  submitted: 'adminGlp.shared.statusLabel.submitted',
+  closed: 'adminGlp.qaInspection.status.closed',
 }
 
 const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -72,6 +79,7 @@ const defaultForm = (): InspectionForm => ({
 })
 
 export function QAInspectionPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const hasPermission = useAuthHasPermission()
   const canManage = hasPermission('qau.inspection.manage')
@@ -161,12 +169,12 @@ export function QAInspectionPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="稽查報告"
-        description="GLP 合規：建立與管理 QAU 稽查報告"
+        title={t('adminGlp.qaInspection.title')}
+        description={t('adminGlp.qaInspection.description')}
         actions={canManage ? (
           <Button size="sm" onClick={openCreate}>
             <Plus className="h-4 w-4 mr-2" />
-            新增稽查報告
+            {t('adminGlp.qaInspection.create')}
           </Button>
         ) : undefined}
       />
@@ -175,23 +183,23 @@ export function QAInspectionPage() {
       <div className="flex gap-3">
         <Select value={filterType} onValueChange={setFilterType}>
           <SelectTrigger className="w-36">
-            <SelectValue placeholder="稽查類型" />
+            <SelectValue placeholder={t('adminGlp.qaInspection.inspectionType')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部類型</SelectItem>
-            {Object.entries(INSPECTION_TYPE_LABELS).map(([v, l]) => (
-              <SelectItem key={v} value={v}>{l}</SelectItem>
+            <SelectItem value="all">{t('adminGlp.qaInspection.allTypes')}</SelectItem>
+            {Object.entries(INSPECTION_TYPE_LABEL_KEYS).map(([v, labelKey]) => (
+              <SelectItem key={v} value={v}>{t(labelKey)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-32">
-            <SelectValue placeholder="狀態" />
+            <SelectValue placeholder={t('adminGlp.shared.status')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部狀態</SelectItem>
-            {Object.entries(STATUS_LABELS).map(([v, l]) => (
-              <SelectItem key={v} value={v}>{l}</SelectItem>
+            <SelectItem value="all">{t('common.allStatus')}</SelectItem>
+            {Object.entries(STATUS_LABEL_KEYS).map(([v, labelKey]) => (
+              <SelectItem key={v} value={v}>{t(labelKey)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -202,7 +210,7 @@ export function QAInspectionPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ClipboardCheck className="h-5 w-5" />
-            稽查報告列表
+            {t('adminGlp.qaInspection.listTitle')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -212,32 +220,36 @@ export function QAInspectionPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>報告編號</TableHead>
-                  <TableHead>標題</TableHead>
-                  <TableHead>類型</TableHead>
-                  <TableHead>稽查日期</TableHead>
-                  <TableHead>稽查人員</TableHead>
-                  <TableHead>狀態</TableHead>
-                  {canManage && <TableHead className="w-32">操作</TableHead>}
+                  <TableHead>{t('adminGlp.shared.reportNumber')}</TableHead>
+                  <TableHead>{t('adminGlp.shared.title')}</TableHead>
+                  <TableHead>{t('adminGlp.shared.type')}</TableHead>
+                  <TableHead>{t('adminGlp.qaInspection.inspectionDate')}</TableHead>
+                  <TableHead>{t('adminGlp.qaInspection.inspector')}</TableHead>
+                  <TableHead>{t('adminGlp.shared.status')}</TableHead>
+                  {canManage && <TableHead className="w-32">{t('common.actions')}</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {inspections.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      尚無稽查報告
+                      {t('adminGlp.qaInspection.empty')}
                     </TableCell>
                   </TableRow>
                 ) : inspections.map(row => (
                   <TableRow key={row.id}>
                     <TableCell className="font-mono text-sm">{row.inspection_number}</TableCell>
                     <TableCell>{row.title}</TableCell>
-                    <TableCell>{INSPECTION_TYPE_LABELS[row.inspection_type] ?? row.inspection_type}</TableCell>
+                    <TableCell>
+                      {INSPECTION_TYPE_LABEL_KEYS[row.inspection_type]
+                        ? t(INSPECTION_TYPE_LABEL_KEYS[row.inspection_type])
+                        : row.inspection_type}
+                    </TableCell>
                     <TableCell>{row.inspection_date}</TableCell>
                     <TableCell>{row.inspector_name}</TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANTS[row.status] ?? 'secondary'}>
-                        {STATUS_LABELS[row.status] ?? row.status}
+                        {STATUS_LABEL_KEYS[row.status] ? t(STATUS_LABEL_KEYS[row.status]) : row.status}
                       </Badge>
                     </TableCell>
                     {canManage && (
@@ -245,12 +257,12 @@ export function QAInspectionPage() {
                         <div className="flex gap-1">
                           {row.status === 'draft' && (
                             <>
-                              <Button size="sm" variant="ghost" onClick={() => openEdit(row)}>編輯</Button>
-                              <Button size="sm" variant="ghost" onClick={() => changeStatusMutation.mutate({ id: row.id, status: 'submitted' })}>送出</Button>
+                              <Button size="sm" variant="ghost" onClick={() => openEdit(row)}>{t('common.edit')}</Button>
+                              <Button size="sm" variant="ghost" onClick={() => changeStatusMutation.mutate({ id: row.id, status: 'submitted' })}>{t('adminGlp.qaInspection.submit')}</Button>
                             </>
                           )}
                           {row.status === 'submitted' && (
-                            <Button size="sm" variant="ghost" onClick={() => changeStatusMutation.mutate({ id: row.id, status: 'closed' })}>關閉</Button>
+                            <Button size="sm" variant="ghost" onClick={() => changeStatusMutation.mutate({ id: row.id, status: 'closed' })}>{t('adminGlp.qaInspection.close')}</Button>
                           )}
                         </div>
                       </TableCell>
@@ -267,31 +279,31 @@ export function QAInspectionPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent size="lg" className="max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editId ? '編輯稽查報告' : '新增稽查報告'}</DialogTitle>
+            <DialogTitle>{editId ? t('adminGlp.qaInspection.edit') : t('adminGlp.qaInspection.create')}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 space-y-1">
-                <Label>標題</Label>
+                <Label>{t('adminGlp.shared.title')}</Label>
                 <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label>稽查類型</Label>
+                <Label>{t('adminGlp.qaInspection.inspectionType')}</Label>
                 <Select
                   value={form.inspection_type}
                   onValueChange={v => setForm(f => ({ ...f, inspection_type: v as QaInspectionType }))}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {Object.entries(INSPECTION_TYPE_LABELS).map(([v, l]) => (
-                      <SelectItem key={v} value={v}>{l}</SelectItem>
+                    {Object.entries(INSPECTION_TYPE_LABEL_KEYS).map(([v, labelKey]) => (
+                      <SelectItem key={v} value={v}>{t(labelKey)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>稽查日期</Label>
+                <Label>{t('adminGlp.qaInspection.inspectionDate')}</Label>
                 <Input
                   type="date"
                   value={form.inspection_date}
@@ -299,7 +311,7 @@ export function QAInspectionPage() {
                 />
               </div>
               <div className="col-span-2 space-y-1">
-                <Label>稽查發現</Label>
+                <Label>{t('adminGlp.qaInspection.findings')}</Label>
                 <Textarea
                   rows={3}
                   value={form.findings}
@@ -307,7 +319,7 @@ export function QAInspectionPage() {
                 />
               </div>
               <div className="col-span-2 space-y-1">
-                <Label>結論</Label>
+                <Label>{t('adminGlp.qaInspection.conclusion')}</Label>
                 <Textarea
                   rows={2}
                   value={form.conclusion}
@@ -319,35 +331,35 @@ export function QAInspectionPage() {
             {/* 稽查項目 */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>稽查項目</Label>
+                <Label>{t('adminGlp.qaInspection.items')}</Label>
                 <Button size="sm" variant="outline" onClick={addItem}>
                   <Plus className="h-3 w-3 mr-1" />
-                  新增項目
+                  {t('common.addItem')}
                 </Button>
               </div>
               {form.items.map((item, idx) => (
                 <div key={idx} className="grid grid-cols-12 gap-2 items-start p-2 border rounded-md">
                   <div className="col-span-5 space-y-1">
-                    <Label className="text-xs">稽查事項</Label>
+                    <Label className="text-xs">{t('adminGlp.qaInspection.itemDescription')}</Label>
                     <Input
-                      placeholder="稽查事項描述"
+                      placeholder={t('adminGlp.qaInspection.itemPlaceholder')}
                       value={item.description}
                       onChange={e => setItem(idx, 'description', e.target.value)}
                     />
                   </div>
                   <div className="col-span-3 space-y-1">
-                    <Label className="text-xs">結果</Label>
+                    <Label className="text-xs">{t('adminGlp.qaInspection.result')}</Label>
                     <Select value={item.result} onValueChange={v => setItem(idx, 'result', v)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pass">符合</SelectItem>
-                        <SelectItem value="fail">不符合</SelectItem>
-                        <SelectItem value="not_applicable">不適用</SelectItem>
+                        <SelectItem value="pass">{t('adminGlp.qaInspection.resultPass')}</SelectItem>
+                        <SelectItem value="fail">{t('adminGlp.qaInspection.resultFail')}</SelectItem>
+                        <SelectItem value="not_applicable">{t('adminGlp.qaInspection.resultNotApplicable')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="col-span-3 space-y-1">
-                    <Label className="text-xs">備註</Label>
+                    <Label className="text-xs">{t('adminGlp.shared.remarks')}</Label>
                     <Input value={item.remarks} onChange={e => setItem(idx, 'remarks', e.target.value)} />
                   </div>
                   <div className="col-span-1 pt-6">
@@ -366,12 +378,12 @@ export function QAInspectionPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
             <Button
               onClick={() => saveMutation.mutate()}
               disabled={!form.title || saveMutation.isPending}
             >
-              {saveMutation.isPending ? '儲存中…' : '儲存'}
+              {saveMutation.isPending ? t('adminGlp.shared.saving') : t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

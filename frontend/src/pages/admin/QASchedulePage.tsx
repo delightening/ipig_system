@@ -9,6 +9,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Calendar, ChevronDown, ChevronRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -34,13 +36,20 @@ import {
   type QaScheduleItemStatus,
 } from '@/lib/api/qaPlan'
 
-const SCHEDULE_STATUS_LABELS: Record<string, string> = {
-  planned: '計畫中', in_progress: '進行中', completed: '已完成', cancelled: '已取消',
+// 值為 i18n 鍵（渲染時才 t()），避免 module 級常數凍結語言。
+const SCHEDULE_STATUS_LABEL_KEYS: Record<string, string> = {
+  planned: 'adminGlp.qaSchedule.status.planned',
+  in_progress: 'adminGlp.shared.statusLabel.inProgress',
+  completed: 'adminGlp.shared.statusLabel.completed',
+  cancelled: 'adminGlp.shared.statusLabel.cancelled',
 }
 
-const ITEM_STATUS_LABELS: Record<QaScheduleItemStatus, string> = {
-  planned: '計畫中', in_progress: '進行中', completed: '已完成',
-  cancelled: '已取消', overdue: '逾期',
+const ITEM_STATUS_LABEL_KEYS: Record<QaScheduleItemStatus, string> = {
+  planned: 'adminGlp.qaSchedule.status.planned',
+  in_progress: 'adminGlp.shared.statusLabel.inProgress',
+  completed: 'adminGlp.shared.statusLabel.completed',
+  cancelled: 'adminGlp.shared.statusLabel.cancelled',
+  overdue: 'adminGlp.shared.statusLabel.overdue',
 }
 
 const ITEM_STATUS_VARIANTS: Record<QaScheduleItemStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -48,8 +57,12 @@ const ITEM_STATUS_VARIANTS: Record<QaScheduleItemStatus, 'default' | 'secondary'
   cancelled: 'outline', overdue: 'destructive',
 }
 
-const INSPECTION_TYPE_LABELS: Record<QaInspectionType, string> = {
-  protocol: '計畫書', equipment: '設備', facility: '設施', training: '訓練', general: '一般',
+const INSPECTION_TYPE_LABEL_KEYS: Record<QaInspectionType, string> = {
+  protocol: 'adminGlp.shared.inspectionType.protocol',
+  equipment: 'adminGlp.shared.equipment',
+  facility: 'adminGlp.shared.facility',
+  training: 'adminGlp.shared.inspectionType.training',
+  general: 'adminGlp.shared.inspectionType.general',
 }
 
 interface ScheduleItemDraft {
@@ -67,15 +80,17 @@ interface ScheduleForm {
   items: ScheduleItemDraft[]
 }
 
-const defaultForm = (): ScheduleForm => ({
+const defaultForm = (t: TFunction): ScheduleForm => ({
   year: new Date().getFullYear(),
-  title: `${new Date().getFullYear()} 年度稽查計畫`,
+  // 預設標題會寫進資料庫，固定中文（使用者裁定 2026-09-19）
+  title: t('adminGlp.qaSchedule.defaultTitle', { lng: 'zh-TW', year: new Date().getFullYear() }),
   schedule_type: 'annual',
   description: '',
   items: [{ inspection_type: 'general', title: '', planned_date: '', notes: '' }],
 })
 
 export function QASchedulePage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const hasPermission = useAuthHasPermission()
   const canManage = hasPermission('qau.schedule.manage')
@@ -83,7 +98,7 @@ export function QASchedulePage() {
   const [filterYear, setFilterYear] = useState<string>(String(new Date().getFullYear()))
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState<ScheduleForm>(defaultForm())
+  const [form, setForm] = useState<ScheduleForm>(() => defaultForm(t))
   const [updateItemId, setUpdateItemId] = useState<string | null>(null)
   const [itemStatusUpdate, setItemStatusUpdate] = useState<QaScheduleItemStatus>('in_progress')
   const [itemActualDate, setItemActualDate] = useState('')
@@ -156,12 +171,12 @@ export function QASchedulePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="稽查排程"
-        description="年度 QA 稽查計畫排程與執行追蹤"
+        title={t('adminGlp.qaSchedule.title')}
+        description={t('adminGlp.qaSchedule.description')}
         actions={canManage ? (
-          <Button size="sm" onClick={() => { setForm(defaultForm()); setOpen(true) }}>
+          <Button size="sm" onClick={() => { setForm(defaultForm(t)); setOpen(true) }}>
             <Plus className="h-4 w-4 mr-2" />
-            建立年度計畫
+            {t('adminGlp.qaSchedule.create')}
           </Button>
         ) : undefined}
       />
@@ -173,7 +188,7 @@ export function QASchedulePage() {
           type="number"
           value={filterYear}
           onChange={e => setFilterYear(e.target.value)}
-          placeholder="年份"
+          placeholder={t('adminGlp.qaSchedule.year')}
         />
       </div>
 
@@ -181,7 +196,7 @@ export function QASchedulePage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            稽查排程列表
+            {t('adminGlp.qaSchedule.listTitle')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -192,17 +207,17 @@ export function QASchedulePage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
-                  <TableHead>年度</TableHead>
-                  <TableHead>計畫名稱</TableHead>
-                  <TableHead>類型</TableHead>
-                  <TableHead>狀態</TableHead>
+                  <TableHead>{t('adminGlp.qaSchedule.col.year')}</TableHead>
+                  <TableHead>{t('adminGlp.qaSchedule.col.planName')}</TableHead>
+                  <TableHead>{t('adminGlp.shared.type')}</TableHead>
+                  <TableHead>{t('adminGlp.shared.status')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {scheduleList.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      尚無稽查排程
+                      {t('adminGlp.qaSchedule.empty')}
                     </TableCell>
                   </TableRow>
                 ) : scheduleList.map((row: QaAuditSchedule) => (
@@ -221,10 +236,16 @@ export function QASchedulePage() {
                       <TableCell>{row.year}</TableCell>
                       <TableCell>{row.title}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {row.schedule_type === 'annual' ? '年度' : row.schedule_type === 'periodic' ? '定期' : '不定期'}
+                        {row.schedule_type === 'annual'
+                          ? t('adminGlp.qaSchedule.scheduleType.annual')
+                          : row.schedule_type === 'periodic'
+                            ? t('adminGlp.qaSchedule.scheduleType.periodic')
+                            : t('adminGlp.qaSchedule.scheduleType.adhoc')}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{SCHEDULE_STATUS_LABELS[row.status] ?? row.status}</Badge>
+                        <Badge variant="outline">
+                          {SCHEDULE_STATUS_LABEL_KEYS[row.status] ? t(SCHEDULE_STATUS_LABEL_KEYS[row.status]) : row.status}
+                        </Badge>
                       </TableCell>
                     </TableRow>
 
@@ -233,19 +254,19 @@ export function QASchedulePage() {
                       <TableRow key={`${row.id}-detail`}>
                         <TableCell colSpan={5} className="bg-muted/30 p-4">
                           <div className="space-y-3">
-                            <span className="font-medium text-sm">排程項目</span>
+                            <span className="font-medium text-sm">{t('adminGlp.qaSchedule.items')}</span>
                             {!scheduleDetail?.items?.length ? (
-                              <p className="text-sm text-muted-foreground">尚無排程項目</p>
+                              <p className="text-sm text-muted-foreground">{t('adminGlp.qaSchedule.noItems')}</p>
                             ) : (
                               <Table className="w-full text-sm">
                                 <TableHeader>
                                   <TableRow className="text-muted-foreground">
-                                    <TableHead className="text-left font-normal pb-1">標題</TableHead>
-                                    <TableHead className="text-left font-normal pb-1">類型</TableHead>
-                                    <TableHead className="text-left font-normal pb-1">計畫日期</TableHead>
-                                    <TableHead className="text-left font-normal pb-1">實際日期</TableHead>
-                                    <TableHead className="text-left font-normal pb-1">負責人</TableHead>
-                                    <TableHead className="text-left font-normal pb-1">狀態</TableHead>
+                                    <TableHead className="text-left font-normal pb-1">{t('adminGlp.shared.title')}</TableHead>
+                                    <TableHead className="text-left font-normal pb-1">{t('adminGlp.shared.type')}</TableHead>
+                                    <TableHead className="text-left font-normal pb-1">{t('adminGlp.qaSchedule.col.plannedDate')}</TableHead>
+                                    <TableHead className="text-left font-normal pb-1">{t('adminGlp.qaSchedule.col.actualDate')}</TableHead>
+                                    <TableHead className="text-left font-normal pb-1">{t('adminGlp.shared.owner')}</TableHead>
+                                    <TableHead className="text-left font-normal pb-1">{t('adminGlp.shared.status')}</TableHead>
                                     {canManage && <TableHead />}
                                   </TableRow>
                                 </TableHeader>
@@ -254,14 +275,16 @@ export function QASchedulePage() {
                                     <TableRow key={item.id} className="border-t">
                                       <TableCell className="py-1 pr-4">{item.title}</TableCell>
                                       <TableCell className="py-1 pr-4">
-                                        {INSPECTION_TYPE_LABELS[item.inspection_type]}
+                                        {INSPECTION_TYPE_LABEL_KEYS[item.inspection_type]
+                                          ? t(INSPECTION_TYPE_LABEL_KEYS[item.inspection_type])
+                                          : undefined}
                                       </TableCell>
                                       <TableCell className="py-1 pr-4">{item.planned_date}</TableCell>
                                       <TableCell className="py-1 pr-4">{item.actual_date ?? '—'}</TableCell>
                                       <TableCell className="py-1 pr-4">{item.responsible_name ?? '—'}</TableCell>
                                       <TableCell className="py-1 pr-4">
                                         <Badge variant={ITEM_STATUS_VARIANTS[item.status]} className="text-xs">
-                                          {ITEM_STATUS_LABELS[item.status]}
+                                          {t(ITEM_STATUS_LABEL_KEYS[item.status])}
                                         </Badge>
                                       </TableCell>
                                       {canManage && (
@@ -276,8 +299,8 @@ export function QASchedulePage() {
                                                   <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                  {Object.entries(ITEM_STATUS_LABELS).map(([v, l]) => (
-                                                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                                                  {Object.entries(ITEM_STATUS_LABEL_KEYS).map(([v, labelKey]) => (
+                                                    <SelectItem key={v} value={v}>{t(labelKey)}</SelectItem>
                                                   ))}
                                                 </SelectContent>
                                               </Select>
@@ -288,15 +311,15 @@ export function QASchedulePage() {
                                                 onChange={e => setItemActualDate(e.target.value)}
                                               />
                                               <Button size="sm" className="h-7 text-xs" onClick={() => updateItemMutation.mutate()}>
-                                                確認
+                                                {t('common.confirm')}
                                               </Button>
                                               <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setUpdateItemId(null)}>
-                                                取消
+                                                {t('common.cancel')}
                                               </Button>
                                             </div>
                                           ) : (
                                             <Button size="sm" variant="ghost" onClick={() => openUpdateItem(item.id, item.status)}>
-                                              更新
+                                              {t('common.update')}
                                             </Button>
                                           )}
                                         </TableCell>
@@ -322,12 +345,12 @@ export function QASchedulePage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent size="lg" className="max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>建立年度稽查計畫</DialogTitle>
+            <DialogTitle>{t('adminGlp.qaSchedule.dialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
-                <Label>年份</Label>
+                <Label>{t('adminGlp.qaSchedule.year')}</Label>
                 <Input
                   type="number"
                   value={form.year}
@@ -335,47 +358,47 @@ export function QASchedulePage() {
                 />
               </div>
               <div className="col-span-2 space-y-1">
-                <Label>計畫名稱</Label>
+                <Label>{t('adminGlp.qaSchedule.col.planName')}</Label>
                 <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
               </div>
             </div>
             <div className="space-y-1">
-              <Label>說明</Label>
+              <Label>{t('adminGlp.qaSchedule.dialog.explanation')}</Label>
               <Textarea rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
 
             {/* 排程項目 */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>排程項目</Label>
+                <Label>{t('adminGlp.qaSchedule.items')}</Label>
                 <Button size="sm" variant="outline" onClick={addItem}>
                   <Plus className="h-3 w-3 mr-1" />
-                  新增項目
+                  {t('common.addItem')}
                 </Button>
               </div>
               {form.items.map((item, idx) => (
                 <div key={idx} className="grid grid-cols-12 gap-2 items-end p-2 border rounded-md">
                   <div className="col-span-4 space-y-1">
-                    <Label className="text-xs">稽查標題</Label>
+                    <Label className="text-xs">{t('adminGlp.qaSchedule.dialog.inspectionTitle')}</Label>
                     <Input value={item.title} onChange={e => setItem(idx, 'title', e.target.value)} />
                   </div>
                   <div className="col-span-2 space-y-1">
-                    <Label className="text-xs">類型</Label>
+                    <Label className="text-xs">{t('adminGlp.shared.type')}</Label>
                     <Select value={item.inspection_type} onValueChange={v => setItem(idx, 'inspection_type', v)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Object.entries(INSPECTION_TYPE_LABELS).map(([v, l]) => (
-                          <SelectItem key={v} value={v}>{l}</SelectItem>
+                        {Object.entries(INSPECTION_TYPE_LABEL_KEYS).map(([v, labelKey]) => (
+                          <SelectItem key={v} value={v}>{t(labelKey)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="col-span-3 space-y-1">
-                    <Label className="text-xs">計畫日期</Label>
+                    <Label className="text-xs">{t('adminGlp.qaSchedule.col.plannedDate')}</Label>
                     <Input type="date" value={item.planned_date} onChange={e => setItem(idx, 'planned_date', e.target.value)} />
                   </div>
                   <div className="col-span-2 space-y-1">
-                    <Label className="text-xs">備註</Label>
+                    <Label className="text-xs">{t('adminGlp.shared.remarks')}</Label>
                     <Input value={item.notes} onChange={e => setItem(idx, 'notes', e.target.value)} />
                   </div>
                   <div className="col-span-1">
@@ -388,9 +411,9 @@ export function QASchedulePage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={() => createMutation.mutate()} disabled={!form.title || createMutation.isPending}>
-              {createMutation.isPending ? '建立中…' : '建立計畫'}
+              {createMutation.isPending ? t('adminGlp.qaSchedule.dialog.creating') : t('adminGlp.qaSchedule.dialog.createPlan')}
             </Button>
           </DialogFooter>
         </DialogContent>

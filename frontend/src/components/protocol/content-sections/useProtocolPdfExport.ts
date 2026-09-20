@@ -35,8 +35,8 @@ export function useProtocolPdfExport({ protocolId, protocolTitle, onExportPDF }:
       if (fresh.data?.glp_ready !== true) {
         toast({
           variant: 'destructive',
-          title: 'PDF 服務未上線',
-          description: '已自動通知管理員。請稍後再試（管理員處理通常 < 5 分鐘）。',
+          title: t('protocolComponents.shared.pdfServiceOffline'),
+          description: t('protocolComponents.shared.pdfServiceOfflineDescription'),
         })
         return
       }

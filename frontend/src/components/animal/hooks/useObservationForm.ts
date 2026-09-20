@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api, { AnimalObservation, RecordType } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
@@ -84,6 +85,7 @@ interface UseObservationFormOptions {
 }
 
 export function useObservationForm({ open, animalId, observation, onOpenChange }: UseObservationFormOptions) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const isEdit = !!observation
     const [formData, setFormData] = useState<ObservationFormData>(defaultFormData)
@@ -176,7 +178,7 @@ export function useObservationForm({ open, animalId, observation, onOpenChange }
                     await uploadFilesToObservation(observationId)
                 }
             } catch {
-                toast({ title: '警告', description: '紀錄已儲存，但部分檔案上傳失敗', variant: 'destructive' })
+                toast({ title: t('animalRecords.observations.warning'), description: t('animalRecords.observations.filesUploadPartialFailed'), variant: 'destructive' })
             }
             pendingFilesRef.current.clear()
 
@@ -203,24 +205,24 @@ export function useObservationForm({ open, animalId, observation, onOpenChange }
                         )
                     )
                 } catch {
-                    toast({ title: '警告', description: '紀錄已儲存，但部分疼痛評估新增失敗', variant: 'destructive' })
+                    toast({ title: t('animalRecords.observations.warning'), description: t('animalRecords.observations.painAssessmentPartialFailed'), variant: 'destructive' })
                 }
             }
 
             queryClient.invalidateQueries({ queryKey: ['animal-observations', animalId] })
             queryClient.invalidateQueries({ queryKey: ['animal-care-records', animalId] })
-            toast({ title: '成功', description: isEdit ? '觀察紀錄已更新' : '觀察紀錄已新增' })
+            toast({ title: t('common.success'), description: isEdit ? t('animalRecords.observations.updated') : t('animalRecords.observations.created') })
             onOpenChange(false)
         },
         onError: (error: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '儲存失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('animalRecords.shared.saveFailed')), variant: 'destructive' })
         },
     })
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (!formData.content.trim()) {
-            toast({ title: '錯誤', description: '請填寫內容', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('animalRecords.observations.contentRequiredError'), variant: 'destructive' })
             return
         }
         mutation.mutate(formData)
@@ -239,12 +241,12 @@ export function useObservationForm({ open, animalId, observation, onOpenChange }
             const element = document.getElementById(nextEmpty.id)
             if (element) {
                 element.focus()
-                toast({ title: '已跳轉', description: '跳轉至下一個空白欄位', duration: 2000 })
+                toast({ title: t('animalRecords.shared.jumped'), description: t('animalRecords.shared.jumpedToNextEmpty'), duration: 2000 })
                 return
             }
         }
-        toast({ title: '完成', description: '所有主要欄位皆已填寫', duration: 2000 })
-    }, [formData])
+        toast({ title: t('animalRecords.shared.done'), description: t('animalRecords.observations.allKeyFieldsFilled'), duration: 2000 })
+    }, [formData, t])
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {

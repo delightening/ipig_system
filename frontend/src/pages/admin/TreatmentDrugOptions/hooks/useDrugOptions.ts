@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { treatmentDrugApi } from '@/lib/api'
 import type {
     TreatmentDrugOption,
@@ -20,6 +21,7 @@ const INITIAL_FORM: CreateTreatmentDrugRequest = {
 }
 
 export function useDrugOptions() {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
 
     // 篩選狀態
@@ -59,10 +61,10 @@ export function useDrugOptions() {
             invalidateDrugQueries()
             dialogs.close('create')
             resetForm()
-            toast({ title: '成功', description: '已新增藥物選項' })
+            toast({ title: t('common.success'), description: t('adminOps.treatmentDrugs.toast.created') })
         },
         onError: (err: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(err, '新增失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.createFailed')), variant: 'destructive' })
         },
     })
 
@@ -74,10 +76,10 @@ export function useDrugOptions() {
             invalidateDrugQueries()
             dialogs.close('edit')
             setEditingDrug(null)
-            toast({ title: '成功', description: '已更新藥物選項' })
+            toast({ title: t('common.success'), description: t('adminOps.treatmentDrugs.toast.updated') })
         },
         onError: (err: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(err, '更新失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.updateFailed')), variant: 'destructive' })
         },
     })
 
@@ -86,7 +88,7 @@ export function useDrugOptions() {
         mutationFn: (id: string) => treatmentDrugApi.delete(id),
         onSuccess: () => {
             invalidateDrugQueries()
-            toast({ title: '成功', description: '已停用藥物選項' })
+            toast({ title: t('common.success'), description: t('adminOps.treatmentDrugs.toast.deactivated') })
         },
     })
 
@@ -109,7 +111,7 @@ export function useDrugOptions() {
 
     const handleCreate = () => {
         if (!form.name.trim()) {
-            toast({ title: '錯誤', description: '藥品名稱為必填', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('adminOps.treatmentDrugs.toast.nameRequired'), variant: 'destructive' })
             return
         }
         createMutation.mutate({
@@ -151,7 +153,10 @@ export function useDrugOptions() {
     }
 
     const handleDelete = (drug: TreatmentDrugOption) => {
-        if (!confirm(`確定要${drug.is_active ? '停用' : '啟用'}「${drug.name}」嗎？`)) return
+        const confirmMessage = drug.is_active
+            ? t('adminOps.treatmentDrugs.confirm.deactivate', { name: drug.name })
+            : t('adminOps.treatmentDrugs.confirm.activate', { name: drug.name })
+        if (!confirm(confirmMessage)) return
         if (drug.is_active) {
             deleteMutation.mutate(drug.id)
         } else {

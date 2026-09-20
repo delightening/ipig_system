@@ -1,5 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+
 import api from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -76,20 +78,21 @@ interface Props {
   type: ImportType
 }
 
-const importTypeConfig: Record<ImportType, { title: string; description: string; templateEndpoint: string }> = {
+const importTypeConfig: Record<ImportType, { titleKey: string; descriptionKey: string; templateEndpoint: string }> = {
   basic: {
-    title: '匯入動物基本資料',
-    description: '支援 Excel (.xlsx, .xls) 或 CSV 格式',
+    titleKey: 'animalActions.importExport.import.basicTitle',
+    descriptionKey: 'animalActions.importExport.import.basicDescription',
     templateEndpoint: '/animals/import/template/basic',
   },
   weight: {
-    title: '匯入動物體重資料',
-    description: '批次匯入多隻動物的體重紀錄',
+    titleKey: 'animalActions.importExport.import.weightTitle',
+    descriptionKey: 'animalActions.importExport.import.weightDescription',
     templateEndpoint: '/animals/import/template/weight',
   },
 }
 
 export function ImportDialog({ open, onOpenChange, type }: Props) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [files, setFiles] = useState<FileInfo[]>([])
   const [fileObjects, setFileObjects] = useState<File[]>([])
@@ -132,21 +135,21 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
         queryClient.invalidateQueries({ queryKey: ['animals-by-pen'] })
         queryClient.invalidateQueries({ queryKey: ['animals-stats'] })
         toast({
-          title: '匯入成功',
-          description: `成功匯入 ${data.success_count} 筆資料`
+          title: t('animalActions.importExport.import.successTitle'),
+          description: t('animalActions.importExport.import.successDescription', { count: data.success_count })
         })
       } else {
         toast({
-          title: '匯入完成（部分失敗）',
-          description: `成功: ${data.success_count} 筆，失敗: ${data.error_count} 筆`,
+          title: t('animalActions.importExport.import.partialTitle'),
+          description: t('animalActions.importExport.import.partialDescription', { success: data.success_count, failed: data.error_count }),
           variant: 'destructive',
         })
       }
     },
     onError: (error: unknown) => {
       toast({
-        title: '匯入失敗',
-        description: getApiErrorMessage(error, '發生未知錯誤'),
+        title: t('animalActions.importExport.import.failedTitle'),
+        description: getApiErrorMessage(error, t('animalActions.importExport.unknownError')),
         variant: 'destructive',
       })
     },
@@ -171,7 +174,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
 
   const handleImport = () => {
     if (fileObjects.length === 0) {
-      toast({ title: '錯誤', description: '請先選擇檔案', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('animalActions.importExport.import.selectFileFirst'), variant: 'destructive' })
       return
     }
 
@@ -184,9 +187,9 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
   const handleSubmit = async () => {
     if (hasFile && manualStatus.hasInput) {
       const ok = await confirm({
-        title: '同時偵測到檔案與手動填寫',
-        description: '將以「檔案匯入」為準執行，手動填寫的列不會送出。是否繼續？',
-        confirmLabel: '開始匯入',
+        title: t('animalActions.importExport.import.conflictTitle'),
+        description: t('animalActions.importExport.import.conflictDescription'),
+        confirmLabel: t('animalActions.importExport.import.start'),
       })
       if (ok) handleImport()
       return
@@ -240,14 +243,14 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
     },
     onSuccess: () => {
       toast({
-        title: '下載成功',
-        description: '範本檔案已開始下載',
+        title: t('animalActions.importExport.import.downloadSuccessTitle'),
+        description: t('animalActions.importExport.import.downloadSuccessDescription'),
       })
     },
     onError: (error: unknown) => {
       toast({
-        title: '下載失敗',
-        description: getApiErrorMessage(error, '無法下載範本檔案'),
+        title: t('animalActions.importExport.import.downloadFailedTitle'),
+        description: getApiErrorMessage(error, t('animalActions.importExport.import.downloadFailedDescription')),
         variant: 'destructive',
       })
     },
@@ -259,9 +262,9 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            {config.title}
+            {t(config.titleKey)}
           </DialogTitle>
-          <DialogDescription>{config.description}</DialogDescription>
+          <DialogDescription>{t(config.descriptionKey)}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -272,20 +275,20 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 text-status-success-text">
                     <CheckCircle2 className="h-5 w-5" />
-                    <span className="font-medium">成功匯入</span>
+                    <span className="font-medium">{t('animalActions.importExport.import.imported')}</span>
                   </div>
                   <p className="text-2xl font-bold text-status-success-text mt-1">
-                    {result.success_count} 筆
+                    {t('animalActions.common.recordsCount', { count: result.success_count })}
                   </p>
                 </div>
                 {result.error_count > 0 && (
                   <div className="flex-1 border-l pl-4">
                     <div className="flex items-center gap-2 text-status-error-text">
                       <AlertCircle className="h-5 w-5" />
-                      <span className="font-medium">匯入失敗</span>
+                      <span className="font-medium">{t('animalActions.importExport.import.failedTitle')}</span>
                     </div>
                     <p className="text-2xl font-bold text-status-error-text mt-1">
-                      {result.error_count} 筆
+                      {t('animalActions.common.recordsCount', { count: result.error_count })}
                     </p>
                   </div>
                 )}
@@ -294,14 +297,14 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
               {/* Error Details */}
               {result.errors && result.errors.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-status-error-text">錯誤明細</Label>
+                  <Label className="text-status-error-text">{t('animalActions.importExport.import.errorDetails')}</Label>
                   <div className="max-h-40 overflow-y-auto border rounded-lg">
                     <table className="w-full text-sm">
                       <thead className="bg-muted sticky top-0">
                         <tr>
-                          <th className="px-3 py-2 text-left font-medium">列</th>
-                          <th className="px-3 py-2 text-left font-medium">耳號</th>
-                          <th className="px-3 py-2 text-left font-medium">錯誤訊息</th>
+                          <th className="px-3 py-2 text-left font-medium">{t('animalActions.importExport.import.colRow')}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t('animals.earTag')}</th>
+                          <th className="px-3 py-2 text-left font-medium">{t('animalActions.importExport.import.colErrorMessage')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -326,7 +329,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
               <div className="flex items-center justify-between p-3 bg-status-info-bg rounded-lg">
                 <div className="flex items-center gap-2">
                   <FileSpreadsheet className="h-5 w-5 text-status-info-text" />
-                  <span className="text-sm text-status-info-text">下載範本檔案</span>
+                  <span className="text-sm text-status-info-text">{t('animalActions.importExport.import.downloadTemplateFile')}</span>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -337,7 +340,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                     disabled={downloadTemplateMutation.isPending}
                   >
                     <Download className="h-4 w-4 mr-1" />
-                    下載範本 (CSV)
+                    {t('animalActions.importExport.import.downloadTemplateCsv')}
                   </Button>
                   <Button
                     variant="outline"
@@ -347,14 +350,14 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                     disabled={downloadTemplateMutation.isPending}
                   >
                     <Download className="h-4 w-4 mr-1" />
-                    下載範本 (XLSX)
+                    {t('animalActions.importExport.import.downloadTemplateXlsx')}
                   </Button>
                 </div>
               </div>
 
               {/* File Upload */}
               <label className="block space-y-2">
-                <span className="block text-sm font-medium leading-none">選擇檔案</span>
+                <span className="block text-sm font-medium leading-none">{t('animalActions.importExport.import.selectFile')}</span>
                 <input
                   type="file"
                   accept=".xlsx,.xls,.csv"
@@ -379,14 +382,14 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
 
               {/* Instructions */}
               <div className="text-sm text-muted-foreground space-y-1">
-                <p className="font-medium">注意事項：</p>
+                <p className="font-medium">{t('animalActions.importExport.import.notes')}</p>
                 <ul className="list-disc list-inside space-y-0.5">
-                  <li>耳號為必填欄位，不可重複</li>
-                  <li>耳號規則：若為數字，系統會自動轉換為三位數（例如 1 轉為 001）</li>
-                  <li>進場體重為必填欄位，必須是大於 0 的數字</li>
-                  <li>品種：miniature/minipig/mini/M (迷你豬)、white/W (白豬)、other (其他)，或「設施管理→物種」中已啟用且無子物種（葉節點）的物種名稱/代碼；填無法辨識的品種會擋下該列並報錯</li>
-                  <li>性別：male/M (公)、female/F (母)</li>
-                  <li>日期格式：YYYY-MM-DD</li>
+                  <li>{t('animalActions.importExport.import.basicNotes.earTagRequired')}</li>
+                  <li>{t('animalActions.importExport.import.basicNotes.earTagRule')}</li>
+                  <li>{t('animalActions.importExport.import.basicNotes.entryWeightRequired')}</li>
+                  <li>{t('animalActions.importExport.import.basicNotes.breed')}</li>
+                  <li>{t('animalActions.importExport.import.basicNotes.gender')}</li>
+                  <li>{t('animalActions.importExport.import.dateFormat')}</li>
                 </ul>
               </div>
             </>
@@ -398,7 +401,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
           {!result && type === 'weight' && (
             <div className="flex h-[28rem] flex-col gap-3">
               <AccordionSection
-                title="手動逐筆登錄"
+                title={t('animalActions.importExport.import.manualEntry')}
                 open={manualOpen}
                 onToggle={() => setManualOpen((v) => !v)}
                 bodyClassName="overflow-hidden"
@@ -407,7 +410,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
               </AccordionSection>
 
               <AccordionSection
-                title="批量匯入"
+                title={t('animalActions.importExport.import.batchImport')}
                 open={batchOpen}
                 onToggle={() => setBatchOpen((v) => !v)}
               >
@@ -415,7 +418,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                   <div className="flex items-center justify-between p-3 bg-status-info-bg rounded-lg">
                     <div className="flex items-center gap-2">
                       <FileSpreadsheet className="h-5 w-5 text-status-info-text" />
-                      <span className="text-sm text-status-info-text">下載範本檔案</span>
+                      <span className="text-sm text-status-info-text">{t('animalActions.importExport.import.downloadTemplateFile')}</span>
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -426,7 +429,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                         disabled={downloadTemplateMutation.isPending}
                       >
                         <Download className="h-4 w-4 mr-1" />
-                        下載範本 (CSV)
+                        {t('animalActions.importExport.import.downloadTemplateCsv')}
                       </Button>
                       <Button
                         variant="outline"
@@ -436,13 +439,13 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                         disabled={downloadTemplateMutation.isPending}
                       >
                         <Download className="h-4 w-4 mr-1" />
-                        下載範本 (XLSX)
+                        {t('animalActions.importExport.import.downloadTemplateXlsx')}
                       </Button>
                     </div>
                   </div>
 
                   <label className="block space-y-2">
-                    <span className="block text-sm font-medium leading-none">選擇檔案</span>
+                    <span className="block text-sm font-medium leading-none">{t('animalActions.importExport.import.selectFile')}</span>
                     <input
                       type="file"
                       accept=".xlsx,.xls,.csv"
@@ -466,11 +469,11 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                   </label>
 
                   <div className="text-sm text-muted-foreground space-y-1">
-                    <p className="font-medium">注意事項：</p>
+                    <p className="font-medium">{t('animalActions.importExport.import.notes')}</p>
                     <ul className="list-disc list-inside space-y-0.5">
-                      <li>耳號必須已存在於系統中</li>
-                      <li>測量日期格式：YYYY-MM-DD</li>
-                      <li>體重單位：公斤 (kg)</li>
+                      <li>{t('animalActions.importExport.import.weightNotes.earTagMustExist')}</li>
+                      <li>{t('animalActions.importExport.import.weightNotes.measureDateFormat')}</li>
+                      <li>{t('animalActions.importExport.import.weightNotes.weightUnit')}</li>
                     </ul>
                   </div>
                 </div>
@@ -483,7 +486,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>
-            {result ? '關閉' : '取消'}
+            {result ? t('common.closeDialog') : t('common.cancel')}
           </Button>
           {!result && (
             <Button
@@ -498,7 +501,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
               {(importMutation.isPending || manualStatus.pending) && (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
-              開始匯入
+              {t('animalActions.importExport.import.start')}
             </Button>
           )}
           {result && result.error_count === 0 && (
@@ -506,7 +509,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
               onClick={handleClose}
               className="bg-status-success-solid hover:bg-status-success-solid/90"
             >
-              完成
+              {t('animalActions.common.done')}
             </Button>
           )}
         </DialogFooter>

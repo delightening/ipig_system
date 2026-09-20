@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { animalFieldCorrectionApi } from '@/lib/api'
 import { useAuthHasPermission } from '@/stores/auth'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
@@ -35,14 +37,22 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import { uiLocale } from '@/lib/utils'
 import { useTableSort } from '@/hooks/useTableSort'
 
-const FIELD_LABELS: Record<string, string> = {
-  ear_tag: '耳號',
-  birth_date: '出生日期',
-  gender: '性別',
-  breed: '品種',
+// 值為 i18n 鍵（渲染時才 t()），避免 module 級常數凍結語言。
+const FIELD_LABEL_KEYS: Record<string, string> = {
+  ear_tag: 'adminGlp.fieldCorrections.field.earTag',
+  birth_date: 'adminGlp.fieldCorrections.field.birthDate',
+  gender: 'adminGlp.fieldCorrections.field.gender',
+  breed: 'adminGlp.fieldCorrections.field.breed',
 }
 
-const formatValue = (field: string, value: string | null): string => {
+const BREED_LABEL_KEYS: Record<string, string> = {
+  miniature: 'adminGlp.fieldCorrections.value.miniPig',
+  minipig: 'adminGlp.fieldCorrections.value.miniPig',
+  white: 'adminGlp.fieldCorrections.value.whitePig',
+  other: 'adminGlp.fieldCorrections.value.other',
+}
+
+const formatValue = (field: string, value: string | null, t: TFunction): string => {
   if (!value) return '-'
   if (field === 'birth_date') {
     try {
@@ -53,24 +63,19 @@ const formatValue = (field: string, value: string | null): string => {
     }
   }
   if (field === 'gender') {
-    if (value === 'male') return '公'
-    if (value === 'female') return '母'
+    if (value === 'male') return t('adminGlp.fieldCorrections.value.male')
+    if (value === 'female') return t('adminGlp.fieldCorrections.value.female')
   }
   if (field === 'breed') {
-    const m: Record<string, string> = {
-      miniature: '迷你豬',
-      minipig: '迷你豬',
-      white: '白豬',
-      LYD: 'LYD',
-      lyd: 'LYD',
-      other: '其他',
-    }
-    return m[value] || value
+    if (value === 'LYD' || value === 'lyd') return 'LYD'
+    const labelKey = BREED_LABEL_KEYS[value]
+    return labelKey ? t(labelKey) : value
   }
   return value
 }
 
 export function AnimalFieldCorrectionsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   // R71-8：補前端權限 gate（與後端 require_permission!("animal.field_correction.review") 對齊）
   const hasPermission = useAuthHasPermission()
@@ -96,12 +101,12 @@ export function AnimalFieldCorrectionsPage() {
       // 否則畫面仍顯示舊耳號/品種等，與資料庫不一致。
       queryClient.invalidateQueries({ queryKey: ['animals'] })
       queryClient.invalidateQueries({ queryKey: ['animal'] })
-      toast({ title: '成功', description: '已批准修正申請' })
+      toast({ title: t('common.success'), description: t('adminGlp.fieldCorrections.toast.approved') })
     },
     onError: (err) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(err, '批准失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(err, t('adminGlp.fieldCorrections.toast.approveFailed')),
         variant: 'destructive',
       })
     },
@@ -114,12 +119,12 @@ export function AnimalFieldCorrectionsPage() {
       queryClient.invalidateQueries({ queryKey: ['animals-animal-field-corrections-pending'] })
       setRejectDialog(null)
       setRejectReason('')
-      toast({ title: '成功', description: '已拒絕修正申請' })
+      toast({ title: t('common.success'), description: t('adminGlp.fieldCorrections.toast.rejected') })
     },
     onError: (err) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(err, '拒絕失敗'),
+        title: t('common.error'),
+        description: getApiErrorMessage(err, t('adminGlp.fieldCorrections.toast.rejectFailed')),
         variant: 'destructive',
       })
     },
@@ -130,9 +135,9 @@ export function AnimalFieldCorrectionsPage() {
   // R71-10：批准會直接套用至動物識別欄位（不可逆），加二次確認。
   const handleApprove = async (id: string, earTag: string) => {
     const ok = await confirm({
-      title: '確認批准修正',
-      description: `批准後將直接套用此修正至動物 ${earTag || ''} 的識別欄位（耳號／出生日期／性別／品種），此動作不可逆。確認批准？`,
-      confirmLabel: '確認批准',
+      title: t('adminGlp.fieldCorrections.confirm.title'),
+      description: t('adminGlp.fieldCorrections.confirm.description', { earTag: earTag || '' }),
+      confirmLabel: t('adminGlp.fieldCorrections.confirm.label'),
     })
     if (ok) approveMutation.mutate(id)
   }
@@ -148,39 +153,39 @@ export function AnimalFieldCorrectionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="修正審核"
-        description="耳號、出生日期、性別、品種等欄位建立後不可直接修改，需經管理員批准後才能套用修正。"
+        title={t('adminGlp.fieldCorrections.title')}
+        description={t('adminGlp.fieldCorrections.description')}
       />
 
       <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileEdit className="h-5 w-5" />
-            待審核申請
+            {t('adminGlp.fieldCorrections.pendingTitle')}
           </CardTitle>
           <CardDescription>
-            共 {pending?.length ?? 0} 筆待審核
+            {t('adminGlp.fieldCorrections.pendingCount', { count: pending?.length ?? 0 })}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <SortableTableHead sortKey="animal_ear_tag" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>耳號</SortableTableHead>
-                <SortableTableHead sortKey="field_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>欄位</SortableTableHead>
-                <TableHead>原值</TableHead>
-                <TableHead>新值</TableHead>
-                <TableHead>原因</TableHead>
-                <SortableTableHead sortKey="requested_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>申請人</SortableTableHead>
-                <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>申請時間</SortableTableHead>
-                <TableHead className="text-right">操作</TableHead>
+                <SortableTableHead sortKey="animal_ear_tag" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('adminGlp.fieldCorrections.field.earTag')}</SortableTableHead>
+                <SortableTableHead sortKey="field_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('adminGlp.fieldCorrections.col.field')}</SortableTableHead>
+                <TableHead>{t('adminGlp.fieldCorrections.col.originalValue')}</TableHead>
+                <TableHead>{t('adminGlp.fieldCorrections.col.newValue')}</TableHead>
+                <TableHead>{t('adminGlp.fieldCorrections.col.reason')}</TableHead>
+                <SortableTableHead sortKey="requested_by_name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('adminGlp.fieldCorrections.col.requester')}</SortableTableHead>
+                <SortableTableHead sortKey="created_at" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('adminGlp.fieldCorrections.col.requestedAt')}</SortableTableHead>
+                <TableHead className="text-right">{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={8} className="p-0"><TableSkeleton rows={5} cols={8} /></TableCell></TableRow>
               ) : !pending?.length ? (
-                <TableEmptyRow colSpan={8} icon={CheckCircle2} title="目前沒有待審核的修正申請" description="所有修正申請皆已處理完畢" />
+                <TableEmptyRow colSpan={8} icon={CheckCircle2} title={t('adminGlp.fieldCorrections.empty.title')} description={t('adminGlp.fieldCorrections.empty.description')} />
               ) : (
                 (sortedPending ?? pending)?.map((r) => (
                   <TableRow key={r.id}>
@@ -192,9 +197,9 @@ export function AnimalFieldCorrectionsPage() {
                         {r.animal_ear_tag || '-'}
                       </Link>
                     </TableCell>
-                    <TableCell>{FIELD_LABELS[r.field_name] || r.field_name}</TableCell>
-                    <TableCell>{formatValue(r.field_name, r.old_value)}</TableCell>
-                    <TableCell className="font-medium">{formatValue(r.field_name, r.new_value)}</TableCell>
+                    <TableCell>{FIELD_LABEL_KEYS[r.field_name] ? t(FIELD_LABEL_KEYS[r.field_name]) : r.field_name}</TableCell>
+                    <TableCell>{formatValue(r.field_name, r.old_value, t)}</TableCell>
+                    <TableCell className="font-medium">{formatValue(r.field_name, r.new_value, t)}</TableCell>
                     <TableCell className="max-w-[200px] whitespace-normal break-words" title={r.reason}>
                       {r.reason}
                     </TableCell>
@@ -214,7 +219,7 @@ export function AnimalFieldCorrectionsPage() {
                             ) : (
                               <>
                                 <Check className="h-4 w-4 mr-1" />
-                                批准
+                                {t('adminGlp.fieldCorrections.approve')}
                               </>
                             )}
                           </Button>
@@ -225,7 +230,7 @@ export function AnimalFieldCorrectionsPage() {
                             disabled={rejectMutation.isPending}
                           >
                             <X className="h-4 w-4 mr-1" />
-                            拒絕
+                            {t('adminGlp.fieldCorrections.reject')}
                           </Button>
                         </div>
                       ) : (
@@ -251,22 +256,22 @@ export function AnimalFieldCorrectionsPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>拒絕修正申請</DialogTitle>
+            <DialogTitle>{t('adminGlp.fieldCorrections.rejectDialog.title')}</DialogTitle>
             <DialogDescription>
-              請填寫拒絕原因（必填）。耳號：{rejectDialog?.earTag}
+              {t('adminGlp.fieldCorrections.rejectDialog.description', { earTag: rejectDialog?.earTag ?? '' })}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label>拒絕原因 *</Label>
+            <Label>{t('adminGlp.fieldCorrections.rejectDialog.reasonLabel')}</Label>
             <Input
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="如：經查證原資料正確，無需修正"
+              placeholder={t('adminGlp.fieldCorrections.rejectDialog.reasonPlaceholder')}
             />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectDialog(null)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -274,7 +279,7 @@ export function AnimalFieldCorrectionsPage() {
               disabled={rejectMutation.isPending || !rejectReason.trim()}
             >
               {rejectMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              確認拒絕
+              {t('adminGlp.fieldCorrections.rejectDialog.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

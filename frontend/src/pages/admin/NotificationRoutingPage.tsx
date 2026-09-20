@@ -1,4 +1,5 @@
 import { Loader2, Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -10,6 +11,7 @@ import { CreateRoutingDialog } from './NotificationRouting/components/CreateRout
 import { EditRoutingDialog } from './NotificationRouting/components/EditRoutingDialog'
 
 export function NotificationRoutingPage() {
+    const { t } = useTranslation()
     const {
         isLoading,
         rulesByGroup,
@@ -52,12 +54,12 @@ export function NotificationRoutingPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="通知路由設定"
-                description="管理事件觸發時的通知對象與通知方式"
+                title={t('adminOps.notificationRouting.page.title')}
+                description={t('adminOps.notificationRouting.page.description')}
                 actions={
                     <Button size="sm" onClick={() => setShowCreateDialog(true)}>
                         <Plus className="h-4 w-4 mr-2" />
-                        新增規則
+                        {t('adminOps.notificationRouting.page.addRule')}
                     </Button>
                 }
             />

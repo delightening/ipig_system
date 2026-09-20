@@ -32,7 +32,7 @@ export interface SortableNavItemProps {
   expandedItems: string[]
   toggleExpand: (id: string) => void
   navigate: (path: string) => void
-  translateTitle: (item: { title: string; translate?: boolean }) => string
+  translateTitle: (item: { title: string }) => string
 }
 
 function DragHandle(props: Record<string, unknown>) {
@@ -53,7 +53,7 @@ const ChildrenList = memo(function ChildrenList({
 }: {
   item: NavItem
   isActive: (href: string) => boolean
-  translateTitle: (item: { title: string; translate?: boolean }) => string
+  translateTitle: (item: { title: string }) => string
 }) {
   if (!item.children) return null
   const activeClass = getActiveClass(item.subsystem)
@@ -95,9 +95,9 @@ function NestedGroup({
   translateTitle,
   activeClass,
 }: {
-  child: { title: string; translate?: boolean; children?: { title: string; href?: string; translate?: boolean }[] }
+  child: { title: string; children?: { title: string; href?: string }[] }
   isActive: (href: string) => boolean
-  translateTitle: (item: { title: string; translate?: boolean }) => string
+  translateTitle: (item: { title: string }) => string
   activeClass: string
 }) {
   const hasActiveChild = child.children?.some(c => c.href && isActive(c.href)) ?? false

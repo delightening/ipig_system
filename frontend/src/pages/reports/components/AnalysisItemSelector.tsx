@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -21,18 +22,19 @@ export function AnalysisItemSelector({
   applyPreset,
   toggleItem,
 }: AnalysisItemSelectorProps) {
+  const { t } = useTranslation()
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">選擇分析項目</CardTitle>
+        <CardTitle className="text-base">{t('reportsPages.bloodTestAnalysis.selector.title')}</CardTitle>
         <p className="text-sm text-muted-foreground font-normal mt-1">
-          常用組合一鍵選取，或展開分類勾選；未選擇時顯示全部
+          {t('reportsPages.bloodTestAnalysis.selector.hint')}
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
         {groupedOptions.length === 0 ? (
           <p className="text-sm text-muted-foreground py-2">
-            尚無分類資料，請先設定血液檢查組合或執行篩選以產生項目
+            {t('reportsPages.bloodTestAnalysis.selector.noCategories')}
           </p>
         ) : (
           <>
@@ -56,7 +58,7 @@ export function AnalysisItemSelector({
                 onClick={() => setSelectedItems([])}
                 className="text-xs text-muted-foreground"
               >
-                全部清除
+                {t('reportsPages.bloodTestAnalysis.selector.clearAll')}
               </Button>
             </div>
 
@@ -64,7 +66,7 @@ export function AnalysisItemSelector({
             {selectedItems.length > 0 && (
               <div className="rounded-lg border bg-muted/50 p-3">
                 <div className="text-xs font-medium text-muted-foreground mb-2">
-                  已選 {selectedItems.length} 項
+                  {t('reportsPages.bloodTestAnalysis.selector.selectedCount', { count: selectedItems.length })}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {selectedItems.map(item => (
@@ -77,7 +79,7 @@ export function AnalysisItemSelector({
                         type="button"
                         className="ml-0.5 rounded hover:bg-primary/30 hover:text-destructive"
                         onClick={() => toggleItem(item)}
-                        aria-label={`移除 ${item}`}
+                        aria-label={t('common.removeItem', { name: item })}
                       >
                         ×
                       </button>
@@ -89,7 +91,7 @@ export function AnalysisItemSelector({
                     onClick={() => setSelectedItems([])}
                     className="text-xs h-7"
                   >
-                    清除選擇
+                    {t('reportsPages.bloodTestAnalysis.selector.clearSelection')}
                   </Button>
                 </div>
               </div>

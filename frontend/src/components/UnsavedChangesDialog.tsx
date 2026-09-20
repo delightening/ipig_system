@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,26 +18,27 @@ interface UnsavedChangesDialogProps {
 }
 
 export function UnsavedChangesDialog({ isBlocked, onProceed, onReset }: UnsavedChangesDialogProps) {
+  const { t } = useTranslation()
   if (!isBlocked) return null
 
   return (
     <AlertDialog open>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>離開此頁面？</AlertDialogTitle>
+          <AlertDialogTitle>{t('unsavedChanges.title')}</AlertDialogTitle>
           <AlertDialogDescription>
-            您有未儲存的變更。離開後將遺失這些修改。
+            {t('unsavedChanges.description')}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onReset}>
-            繼續編輯
+            {t('unsavedChanges.continueEditing')}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={onProceed}
             className="bg-destructive hover:bg-destructive/90"
           >
-            離開
+            {t('unsavedChanges.leave')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

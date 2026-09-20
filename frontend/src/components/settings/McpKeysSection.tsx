@@ -7,6 +7,8 @@ import { useState } from 'react'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { useTranslation } from 'react-i18next'
+
 import { Check, Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
@@ -30,6 +32,7 @@ import { formatDate } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/apiError'
 
 export function McpKeysSection() {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const [showCreate, setShowCreate] = useState(false)
     const [newKeyName, setNewKeyName] = useState('')
@@ -55,8 +58,8 @@ export function McpKeysSection() {
         },
         onError: (error: unknown) => {
             toast({
-                title: '建立失敗',
-                description: getApiErrorMessage(error, '請稍後再試'),
+                title: t('mcpKeys.createFailed'),
+                description: getApiErrorMessage(error, t('errors.tryAgainLater')),
                 variant: 'destructive',
             })
         },
@@ -65,14 +68,14 @@ export function McpKeysSection() {
     const revokeMutation = useMutation({
         mutationFn: (id: string) => mcpKeysApi.revoke(id),
         onSuccess: () => {
-            toast({ title: '金鑰已撤銷' })
+            toast({ title: t('mcpKeys.revoked') })
             setRevokingId(null)
             queryClient.invalidateQueries({ queryKey: ['mcp-keys'] })
         },
         onError: (error: unknown) => {
             toast({
-                title: '撤銷失敗',
-                description: getApiErrorMessage(error, '請稍後再試'),
+                title: t('mcpKeys.revokeFailed'),
+                description: getApiErrorMessage(error, t('errors.tryAgainLater')),
                 variant: 'destructive',
             })
             setRevokingId(null)
@@ -93,7 +96,7 @@ export function McpKeysSection() {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <KeyRound className="h-5 w-5 text-primary" />
-                            <CardTitle className="text-base">MCP 連線金鑰</CardTitle>
+                            <CardTitle className="text-base">{t('mcpKeys.title')}</CardTitle>
                         </div>
                         <Button
                             size="sm"
@@ -102,25 +105,24 @@ export function McpKeysSection() {
                             disabled={keys.length >= 5}
                         >
                             <Plus className="mr-1.5 h-3.5 w-3.5" />
-                            產生新金鑰
+                            {t('mcpKeys.generateButton')}
                         </Button>
                     </div>
                     <CardDescription>
-                        用於 claude.ai Remote MCP 連線，讓 Claude 直接讀取計畫書並協助審查。
-                        每人最多 5 個有效金鑰。
+                        {t('mcpKeys.description')}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isLoading && (
                         <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            載入中...
+                            {t('common.loading')}
                         </div>
                     )}
 
                     {!isLoading && keys.length === 0 && (
                         <p className="py-4 text-sm text-muted-foreground text-center">
-                            尚無金鑰。點擊「產生新金鑰」開始使用。
+                            {t('mcpKeys.empty')}
                         </p>
                     )}
 
@@ -143,19 +145,19 @@ export function McpKeysSection() {
                                                         : 'secondary'
                                                 }
                                             >
-                                                {key.scopes?.includes('write') ? '可寫入' : '唯讀'}
+                                                {key.scopes?.includes('write') ? t('mcpKeys.scopeWrite') : t('mcpKeys.scopeReadOnly')}
                                             </Badge>
                                         </div>
                                         <p className="text-xs text-muted-foreground mt-0.5 font-mono">
                                             {key.key_prefix}...
                                         </p>
                                         <p className="text-xs text-muted-foreground mt-0.5">
-                                            建立：{formatDate(key.created_at)}
+                                            {t('mcpKeys.createdAt', { date: formatDate(key.created_at) })}
                                             {key.last_used_at && (
-                                                <> · 最後使用：{formatDate(key.last_used_at)}</>
+                                                <> · {t('mcpKeys.lastUsedAt', { date: formatDate(key.last_used_at) })}</>
                                             )}
                                             {key.expires_at && (
-                                                <> · 到期：{formatDate(key.expires_at)}</>
+                                                <> · {t('mcpKeys.expiresAt', { date: formatDate(key.expires_at) })}</>
                                             )}
                                         </p>
                                     </div>
@@ -174,11 +176,11 @@ export function McpKeysSection() {
                     )}
 
                     <div className="mt-4 rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
-                        <p className="font-medium text-foreground">連接 claude.ai 設定方式：</p>
-                        <p>1. 產生金鑰後複製完整 key（僅顯示一次）</p>
+                        <p className="font-medium text-foreground">{t('mcpKeys.setup.heading')}</p>
+                        <p>{t('mcpKeys.setup.step1')}</p>
                         <p>2. claude.ai → Settings → Integrations → Add MCP Server</p>
-                        <p className="font-mono">URL：https://ipigsystem.asia/api/v1/mcp</p>
-                        <p className="font-mono">Authorization：Bearer &lt;你的金鑰&gt;</p>
+                        <p className="font-mono">{t('mcpKeys.setup.urlLine', { url: 'https://ipigsystem.asia/api/v1/mcp' })}</p>
+                        <p className="font-mono">{t('mcpKeys.setup.authLine')}</p>
                     </div>
                 </CardContent>
             </Card>
@@ -193,17 +195,17 @@ export function McpKeysSection() {
             >
                 <DialogContent size="sm">
                     <DialogHeader>
-                        <DialogTitle>產生新 MCP 金鑰</DialogTitle>
+                        <DialogTitle>{t('mcpKeys.createDialog.title')}</DialogTitle>
                         <DialogDescription>
-                            為此金鑰取一個名稱，例如「我的 claude.ai」。金鑰只顯示一次，請立即複製。
+                            {t('mcpKeys.createDialog.description')}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="key-name">金鑰名稱</Label>
+                            <Label htmlFor="key-name">{t('mcpKeys.createDialog.nameLabel')}</Label>
                             <Input
                                 id="key-name"
-                                placeholder="我的 claude.ai"
+                                placeholder={t('mcpKeys.createDialog.namePlaceholder')}
                                 value={newKeyName}
                                 onChange={(e) => setNewKeyName(e.target.value)}
                                 onKeyDown={(e) => {
@@ -219,12 +221,12 @@ export function McpKeysSection() {
                         <div className="space-y-1.5">
                             <Checkbox
                                 id="key-write"
-                                label="授予寫入權限（可呼叫修改類工具）"
+                                label={t('mcpKeys.createDialog.writeLabel')}
                                 checked={newKeyWrite}
                                 onCheckedChange={setNewKeyWrite}
                             />
                             <p className="text-xs text-muted-foreground pl-6">
-                                預設為唯讀（僅查詢 / 讀取）。除非確定需要讓 Claude 透過此金鑰修改資料，否則請保持唯讀。金鑰有效期一年。
+                                {t('mcpKeys.createDialog.writeHint')}
                             </p>
                         </div>
                     </div>
@@ -234,7 +236,7 @@ export function McpKeysSection() {
                             onClick={() => setShowCreate(false)}
                             disabled={createMutation.isPending}
                         >
-                            取消
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             onClick={() =>
@@ -248,7 +250,7 @@ export function McpKeysSection() {
                             {createMutation.isPending && (
                                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                             )}
-                            產生
+                            {t('mcpKeys.createDialog.submit')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -263,9 +265,9 @@ export function McpKeysSection() {
             >
                 <DialogContent size="sm">
                     <DialogHeader>
-                        <DialogTitle>金鑰已產生</DialogTitle>
+                        <DialogTitle>{t('mcpKeys.createdDialog.title')}</DialogTitle>
                         <DialogDescription>
-                            請立即複製此金鑰，關閉後將無法再次查看完整內容。
+                            {t('mcpKeys.createdDialog.description')}
                         </DialogDescription>
                     </DialogHeader>
                     {createdKey && (
@@ -281,19 +283,19 @@ export function McpKeysSection() {
                                 {copied ? (
                                     <>
                                         <Check className="mr-1.5 h-4 w-4 text-green-600" />
-                                        已複製
+                                        {t('mcpKeys.createdDialog.copied')}
                                     </>
                                 ) : (
                                     <>
                                         <Copy className="mr-1.5 h-4 w-4" />
-                                        複製金鑰
+                                        {t('mcpKeys.createdDialog.copyKey')}
                                     </>
                                 )}
                             </Button>
                         </div>
                     )}
                     <DialogFooter>
-                        <Button onClick={() => setCreatedKey(null)}>我已複製，關閉</Button>
+                        <Button onClick={() => setCreatedKey(null)}>{t('mcpKeys.createdDialog.copiedAndClose')}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -307,9 +309,9 @@ export function McpKeysSection() {
             >
                 <DialogContent size="sm">
                     <DialogHeader>
-                        <DialogTitle>確認撤銷金鑰</DialogTitle>
+                        <DialogTitle>{t('mcpKeys.revokeDialog.title')}</DialogTitle>
                         <DialogDescription>
-                            撤銷後此金鑰將立即失效，所有使用此金鑰的 MCP 連線將無法繼續存取。
+                            {t('mcpKeys.revokeDialog.description')}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -318,7 +320,7 @@ export function McpKeysSection() {
                             onClick={() => setRevokingId(null)}
                             disabled={revokeMutation.isPending}
                         >
-                            取消
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             variant="destructive"
@@ -328,7 +330,7 @@ export function McpKeysSection() {
                             {revokeMutation.isPending && (
                                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                             )}
-                            確認撤銷
+                            {t('mcpKeys.revokeDialog.confirm')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

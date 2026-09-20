@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import type { ImportCommitteeReviewer } from '@/lib/api/protocol'
 import { Repeater } from '@/components/ui/repeater'
 import { Label } from '@/components/ui/label'
@@ -18,17 +20,18 @@ export function CommitteeReviewers({
   users: UserOption[]
   usersLoading: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <Repeater<ImportCommitteeReviewer>
       value={value}
       onChange={onChange}
       defaultItem={() => ({ reviewer_id: null, reviewer_name: '', first_round: [], second_round: [] })}
-      addLabel="新增委員"
+      addLabel={t('protocolPages.importReview.committee.addReviewer')}
       maxItems={10}
       renderItem={(item, idx, onItemChange) => (
         <div className="grid gap-3 rounded-md border p-4">
           <ReviewerSelect
-            label={`委員 ${idx + 1}`}
+            label={t('protocolPages.importReview.committee.reviewerLabel', { index: idx + 1 })}
             role={REVIEWER}
             users={users}
             value={{ reviewer_id: item.reviewer_id ?? null, reviewer_name: item.reviewer_name ?? '' }}
@@ -36,19 +39,19 @@ export function CommitteeReviewers({
             disabled={usersLoading}
           />
           <div className="grid gap-1">
-            <Label className="text-sm text-muted-foreground">第一次審查意見</Label>
+            <Label className="text-sm text-muted-foreground">{t('protocolPages.importReview.committee.firstRound')}</Label>
             <CommentRows
               value={item.first_round}
               onChange={(v) => onItemChange({ ...item, first_round: v })}
-              addLabel="新增一審意見"
+              addLabel={t('protocolPages.importReview.committee.addFirstRound')}
             />
           </div>
           <div className="grid gap-1">
-            <Label className="text-sm text-muted-foreground">第二次審查意見（選填）</Label>
+            <Label className="text-sm text-muted-foreground">{t('protocolPages.importReview.committee.secondRound')}</Label>
             <CommentRows
               value={item.second_round}
               onChange={(v) => onItemChange({ ...item, second_round: v })}
-              addLabel="新增二審意見"
+              addLabel={t('protocolPages.importReview.committee.addSecondRound')}
             />
           </div>
         </div>

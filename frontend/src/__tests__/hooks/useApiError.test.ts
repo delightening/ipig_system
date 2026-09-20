@@ -12,6 +12,11 @@ vi.mock('@/lib/logger', () => ({
 vi.mock('@/lib/apiError', () => ({
   getApiErrorMessage: vi.fn((_err: unknown) => 'API error message'),
 }))
+// t() 回傳 key 本身；t 為同一個參照，避免 useCallback 依賴每次 render 都變
+vi.mock('react-i18next', () => {
+  const t = (key: string) => key
+  return { useTranslation: () => ({ t }) }
+})
 
 describe('useApiError', () => {
   beforeEach(() => {
@@ -34,7 +39,7 @@ describe('useApiError', () => {
     result.current.handleError(err)
 
     expect(toastMock).toHaveBeenCalledWith({
-      title: '操作失敗',
+      title: 'errors.api.operationFailedTitle',
       description: 'API error message',
       variant: 'destructive',
     })
@@ -62,7 +67,7 @@ describe('useApiError', () => {
     )
 
     expect(res).toEqual({ id: 1 })
-    expect(toastMock).toHaveBeenCalledWith({ title: '成功', description: '成功' })
+    expect(toastMock).toHaveBeenCalledWith({ title: 'common.success', description: '成功' })
   })
 
   it('withErrorHandling returns null and shows toast on error', async () => {
@@ -74,7 +79,7 @@ describe('useApiError', () => {
 
     expect(res).toBeNull()
     expect(toastMock).toHaveBeenCalledWith({
-      title: '操作失敗',
+      title: 'errors.api.operationFailedTitle',
       description: 'API error message',
       variant: 'destructive',
     })

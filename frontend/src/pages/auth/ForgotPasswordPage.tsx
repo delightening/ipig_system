@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useMutation } from '@tanstack/react-query'
+import { Trans, useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +14,7 @@ type ForgotPasswordFormData = { email: string }
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function ForgotPasswordPage() {
+  const { t } = useTranslation()
   const [submitted, setSubmitted] = useState(false)
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<ForgotPasswordFormData>({
     defaultValues: { email: '' },
@@ -45,15 +47,18 @@ export function ForgotPasswordPage() {
           <CardContent className="pt-8 pb-8 text-center space-y-6">
             <CheckCircle className="h-12 w-12 text-status-success-text mx-auto" strokeWidth={1.5} />
             <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-foreground">請檢查您的信箱</h2>
+              <h2 className="text-xl font-semibold text-foreground">{t('auth.forgotPassword.checkInboxTitle')}</h2>
               <p className="text-muted-foreground">
-                如果 <span className="text-foreground font-medium">{email}</span> 是已註冊的帳號，
-                您將收到密碼重設連結。
+                <Trans
+                  i18nKey="auth.forgotPassword.sentNotice"
+                  values={{ email }}
+                  components={{ emphasis: <span className="text-foreground font-medium" /> }}
+                />
               </p>
             </div>
             <div className="space-y-3 pt-4">
               <p className="text-sm text-muted-foreground">
-                沒有收到郵件？請檢查垃圾郵件資料夾，或確認您輸入的地址正確。
+                {t('auth.forgotPassword.noEmailHint')}
               </p>
               <Button
                 variant="ghost"
@@ -63,13 +68,13 @@ export function ForgotPasswordPage() {
                   reset()
                 }}
               >
-                重新輸入
+                {t('auth.forgotPassword.retry')}
               </Button>
             </div>
             <div className="pt-4">
               <Link to="/login" className="text-primary hover:text-primary/80 text-sm">
                 <ArrowLeft className="h-4 w-4 inline mr-1" />
-                返回登入頁面
+                {t('auth.backToLoginPage')}
               </Link>
             </div>
           </CardContent>
@@ -89,17 +94,17 @@ export function ForgotPasswordPage() {
             <Mail className="h-10 w-10 text-primary" strokeWidth={1.5} />
           </div>
           <CardTitle className="text-2xl font-bold text-center text-foreground">
-            忘記密碼
+            {t('auth.forgotPassword.title')}
           </CardTitle>
           <CardDescription className="text-center text-muted-foreground">
-            請輸入您的電子郵件地址，我們將發送密碼重設連結給您
+            {t('auth.forgotPassword.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onValid)} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-muted-foreground">
-                電子郵件
+                {t('auth.fields.email')}
               </Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -108,8 +113,8 @@ export function ForgotPasswordPage() {
                   type="email"
                   placeholder="you@example.com"
                   {...register('email', {
-                    required: '請輸入電子郵件',
-                    pattern: { value: EMAIL_PATTERN, message: '請輸入有效的電子郵件' },
+                    required: t('auth.validation.emailRequired'),
+                    pattern: { value: EMAIL_PATTERN, message: t('auth.validation.emailInvalid') },
                   })}
                   className="pl-9 bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring"
                   autoComplete="email"
@@ -127,17 +132,17 @@ export function ForgotPasswordPage() {
               {forgotPasswordMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  發送中...
+                  {t('auth.forgotPassword.sending')}
                 </>
               ) : (
-                '發送重設連結'
+                t('auth.forgotPassword.submit')
               )}
             </Button>
 
             <div className="text-center pt-2">
               <Link to="/login" className="text-primary hover:text-primary/80 text-sm">
                 <ArrowLeft className="h-4 w-4 inline mr-1" />
-                返回登入頁面
+                {t('auth.backToLoginPage')}
               </Link>
             </div>
           </form>

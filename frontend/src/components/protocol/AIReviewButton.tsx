@@ -4,6 +4,7 @@
  * 顯示剩餘次數，觸發 AI 預審。
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Bot, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ interface AIReviewButtonProps {
 }
 
 export function AIReviewButton({ protocolId, onResult }: AIReviewButtonProps) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
 
     const { data: remainingData } = useQuery({
@@ -28,8 +30,8 @@ export function AIReviewButton({ protocolId, onResult }: AIReviewButtonProps) {
         mutationFn: () => aiReviewApi.requestAiReview(protocolId),
         onSuccess: () => {
             toast({
-                title: 'AI 預審完成',
-                description: '請查看預審報告。',
+                title: t('protocolComponents.aiReview.button.successTitle'),
+                description: t('protocolComponents.aiReview.button.successDescription'),
             })
             queryClient.invalidateQueries({
                 queryKey: ['ai-review', protocolId],
@@ -41,8 +43,8 @@ export function AIReviewButton({ protocolId, onResult }: AIReviewButtonProps) {
         },
         onError: (error: unknown) => {
             toast({
-                title: 'AI 預審失敗',
-                description: getApiErrorMessage(error, 'AI 預審請求失敗'),
+                title: t('protocolComponents.aiReview.button.failedTitle'),
+                description: getApiErrorMessage(error, t('protocolComponents.aiReview.button.requestFailed')),
                 variant: 'destructive',
             })
         },
@@ -62,7 +64,7 @@ export function AIReviewButton({ protocolId, onResult }: AIReviewButtonProps) {
             ) : (
                 <Bot className="mr-2 h-4 w-4" />
             )}
-            AI 預審
+            {t('protocolComponents.aiReview.button.label')}
             {remaining < 10 && (
                 <span className="ml-1 text-xs text-muted-foreground">
                     ({remaining})

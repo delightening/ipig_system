@@ -9,6 +9,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import * as PopoverPrimitive from '@radix-ui/react-popover'
 import { Search, ChevronDown, X, Check } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 export interface SearchableMultiSelectOption {
@@ -34,13 +35,17 @@ export function SearchableMultiSelect({
   options,
   value,
   onValueChange,
-  placeholder = '請選擇',
-  searchPlaceholder = '搜尋...',
-  emptyMessage = '無符合結果',
+  placeholder: placeholderProp,
+  searchPlaceholder: searchPlaceholderProp,
+  emptyMessage: emptyMessageProp,
   className,
   triggerClassName,
   disabled = false,
 }: SearchableMultiSelectProps) {
+  const { t } = useTranslation()
+  const placeholder = placeholderProp ?? t('common.pleaseSelect')
+  const searchPlaceholder = searchPlaceholderProp ?? t('common.searchEllipsis')
+  const emptyMessage = emptyMessageProp ?? t('common.noResults')
   const [isOpen, setIsOpen] = useState(false)
   const [searchText, setSearchText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -129,7 +134,7 @@ export function SearchableMultiSelect({
                         tabIndex={-1}
                         onClick={(e) => removeOne(e, opt.value)}
                         className="hover:text-destructive transition-colors"
-                        aria-label={`移除 ${opt.label}`}
+                        aria-label={t('common.removeItem', { name: opt.label })}
                       >
                         <X className="h-3 w-3" />
                       </span>

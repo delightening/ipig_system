@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { GuestHide } from '@/components/ui/guest-hide'
 import { Can } from '@/components/auth'
 import { PERMISSIONS } from '@/lib/permissions.generated'
@@ -6,7 +7,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
   AnimalObservation,
   deleteResource,
-  recordTypeNames,
   RecordType,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -41,7 +41,7 @@ import { cn } from '@/lib/utils'
 import { ObservationFormDialog } from './ObservationFormDialog'
 import { VersionHistoryDialog } from './VersionHistoryDialog'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
-import { treatmentCategoryLabel, treatmentRouteLabel } from './treatmentConstants'
+import { treatmentCategoryDisplayLabel, treatmentRouteDisplayLabel } from './treatmentConstants'
 
 function getRecordTypeBadgeClass(type: RecordType): string {
   if (type === 'observation') return 'bg-status-info-bg text-status-info-text'
@@ -57,6 +57,7 @@ interface ObservationsTabProps {
 }
 
 export const ObservationsTab = React.memo(function ObservationsTab({ animalId, earTag, afterParam: _afterParam, observations }: ObservationsTabProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { sortedData, sort, toggleSort } = useTableSort(observations)
 
@@ -73,11 +74,11 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-observations', animalId] })
-      toast({ title: '成功', description: '觀察紀錄已刪除' })
+      toast({ title: t('common.success'), description: t('animalRecords.observations.deleted') })
       setDeleteTarget(null)
     },
     onError: (error: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(error, '刪除失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(error, t('animalRecords.shared.deleteFailed')), variant: 'destructive' })
     },
   })
 
@@ -87,41 +88,41 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-observations', animalId] })
-      toast({ title: '成功', description: '觀察紀錄已複製，請編輯新紀錄' })
+      toast({ title: t('common.success'), description: t('animalRecords.observations.copied') })
     },
     onError: (error: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(error, '複製失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(error, t('animalRecords.shared.copyFailed')), variant: 'destructive' })
     },
   })
 
   const ActionButtons = ({ obs }: { obs: AnimalObservation }) => (
     <div className="grid grid-cols-3 gap-0.5 justify-items-center">
-      <Button variant="ghost" size="icon" onClick={() => setExpandedId(obs.id)} title="檢視詳情">
+      <Button variant="ghost" size="icon" onClick={() => setExpandedId(obs.id)} title={t('animalRecords.shared.viewDetails')}>
         <Eye className="h-4 w-4" />
       </Button>
       <GuestHide>
         <Can permission={PERMISSIONS.ANIMAL_RECORD_EDIT}>
-          <Button variant="ghost" size="icon" onClick={() => { setEditingObservation(obs); setShowAddDialog(true) }} title="編輯">
+          <Button variant="ghost" size="icon" onClick={() => { setEditingObservation(obs); setShowAddDialog(true) }} title={t('common.edit')}>
             <Edit2 className="h-4 w-4" />
           </Button>
         </Can>
       </GuestHide>
       <GuestHide>
         <Can permission={PERMISSIONS.ANIMAL_RECORD_COPY}>
-          <Button variant="ghost" size="icon" onClick={() => { if (confirm('確定要複製此紀錄？將建立一份新紀錄供編輯。')) copyMutation.mutate(obs.id) }} disabled={copyMutation.isPending} title="複製">
+          <Button variant="ghost" size="icon" onClick={() => { if (confirm(t('animalRecords.shared.copyConfirm'))) copyMutation.mutate(obs.id) }} disabled={copyMutation.isPending} title={t('animalRecords.shared.copy')}>
             <Copy className="h-4 w-4" />
           </Button>
         </Can>
       </GuestHide>
       {/* 版本歷史是唯讀，後端 get_observation_versions 也沒有 require_permission!，故不加閘 */}
       <GuestHide>
-        <Button variant="ghost" size="icon" onClick={() => { setVersionHistoryRecordId(obs.id); setShowVersionHistory(true) }} title="版本歷史">
+        <Button variant="ghost" size="icon" onClick={() => { setVersionHistoryRecordId(obs.id); setShowVersionHistory(true) }} title={t('animalRecords.shared.versionHistory')}>
           <History className="h-4 w-4" />
         </Button>
       </GuestHide>
       <GuestHide>
         <Can permission={PERMISSIONS.ANIMAL_RECORD_DELETE}>
-          <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(obs.id)} title="刪除">
+          <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(obs.id)} title={t('common.delete')}>
             <Trash2 className="h-4 w-4 text-status-error-solid" />
           </Button>
         </Can>
@@ -139,14 +140,14 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
       <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>觀察試驗紀錄</CardTitle>
-            <CardDescription>記錄日常觀察、異常狀況與試驗操作</CardDescription>
+            <CardTitle>{t('animalDetail.tabs.observations')}</CardTitle>
+            <CardDescription>{t('animalRecords.observations.description')}</CardDescription>
           </div>
           <GuestHide>
             <Can permission={PERMISSIONS.ANIMAL_RECORD_CREATE}>
               <Button className="bg-status-purple-solid hover:bg-status-purple-solid/90" onClick={() => setShowAddDialog(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                新增紀錄
+                {t('animalRecords.shared.addRecord')}
               </Button>
             </Can>
           </GuestHide>
@@ -169,7 +170,7 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                       style={{ width: 100 }}
                       className="text-center"
                     >
-                      事件日期
+                      {t('animalRecords.observations.eventDate')}
                     </SortableTableHead>
                     <SortableTableHead
                       sortKey="record_type"
@@ -178,20 +179,20 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                       onSort={toggleSort}
                       style={{ width: 100 }}
                     >
-                      紀錄性質
+                      {t('animalRecords.observations.recordNature')}
                     </SortableTableHead>
-                    <TableHead style={{ minWidth: 150 }}>內容</TableHead>
+                    <TableHead style={{ minWidth: 150 }}>{t('animalRecords.observations.content')}</TableHead>
                     {/* Tertiary: hidden below 720px */}
-                    <TableHead style={{ width: 60 }} className="text-center hidden @[720px]:table-cell">停止用藥</TableHead>
-                    <TableHead style={{ width: 100 }} className="text-center">獸醫師讀取</TableHead>
+                    <TableHead style={{ width: 60 }} className="text-center hidden @[720px]:table-cell">{t('animalRecords.shared.stopMedication')}</TableHead>
+                    <TableHead style={{ width: 100 }} className="text-center">{t('animalRecords.shared.vetReadHeader')}</TableHead>
                     {/* Tertiary: hidden below 720px */}
-                    <TableHead style={{ width: 90 }} className="hidden @[720px]:table-cell">記錄者</TableHead>
-                    <TableHead style={{ width: 80, minWidth: 80 }} className="sticky right-0 bg-card border-l text-center px-1 py-2">操作</TableHead>
+                    <TableHead style={{ width: 90 }} className="hidden @[720px]:table-cell">{t('animalRecords.shared.recorder')}</TableHead>
+                    <TableHead style={{ width: 80, minWidth: 80 }} className="sticky right-0 bg-card border-l text-center px-1 py-2">{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {!observations || observations.length === 0 ? (
-                    <TableEmptyRow colSpan={8} icon={ClipboardList} title="尚無觀察試驗紀錄" />
+                    <TableEmptyRow colSpan={8} icon={ClipboardList} title={t('animalRecords.observations.emptyTitle')} />
                   ) : (
                     sortedData?.map((obs: AnimalObservation) => (
                       <React.Fragment key={obs.id}>
@@ -200,7 +201,7 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                             <button
                               onClick={() => setExpandedId(expandedId === obs.id ? null : obs.id)}
                               className="p-1 hover:bg-muted rounded"
-                              title="展開詳細資料"
+                              title={t('animalRecords.shared.expandDetails')}
                             >
                               <ChevronDown className={cn('h-4 w-4 transition-transform', expandedId === obs.id && 'rotate-180')} />
                             </button>
@@ -210,7 +211,7 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                           </TableCell>
                           <TableCell style={{ width: 100 }} className="px-3 py-3">
                             <Badge className={getRecordTypeBadgeClass(obs.record_type as RecordType)}>
-                              {recordTypeNames[obs.record_type as RecordType]}
+                              {t(`animalRecords.observations.recordType.${obs.record_type as RecordType}`)}
                             </Badge>
                           </TableCell>
                           <TableCell style={{ minWidth: 150 }} className="px-3 py-3 whitespace-normal break-words leading-snug">
@@ -224,8 +225,8 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                           </TableCell>
                           <TableCell style={{ width: 100 }} className="px-3 py-3 text-center">
                             {obs.vet_read
-                              ? <Badge className="bg-status-success-bg text-status-success-text">已讀</Badge>
-                              : <Badge variant="outline" className="text-muted-foreground">未讀</Badge>}
+                              ? <Badge className="bg-status-success-bg text-status-success-text">{t('animalRecords.shared.read')}</Badge>
+                              : <Badge variant="outline" className="text-muted-foreground">{t('animalRecords.shared.unread')}</Badge>}
                           </TableCell>
                           {/* Tertiary */}
                           <TableCell style={{ width: 90 }} className="px-3 py-3 whitespace-normal break-words hidden @[720px]:table-cell">
@@ -240,11 +241,11 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                             <TableCell colSpan={8} className="bg-muted p-4">
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                  <Label className="text-muted-foreground">使用儀器</Label>
+                                  <Label className="text-muted-foreground">{t('animalRecords.observations.equipmentUsed')}</Label>
                                   <p>{obs.equipment_used?.join(', ') || '-'}</p>
                                 </div>
                                 <div>
-                                  <Label className="text-muted-foreground">麻醉時間</Label>
+                                  <Label className="text-muted-foreground">{t('animalRecords.observations.anesthesiaTime')}</Label>
                                   <p>
                                     {obs.anesthesia_start && obs.anesthesia_end
                                       ? `${obs.anesthesia_start} - ${obs.anesthesia_end}`
@@ -252,19 +253,19 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                                   </p>
                                 </div>
                                 <div className="col-span-2">
-                                  <Label className="text-muted-foreground">詳細內容</Label>
+                                  <Label className="text-muted-foreground">{t('animalRecords.observations.detailedContent')}</Label>
                                   <p className="whitespace-pre-wrap">{obs.content}</p>
                                 </div>
                                 {obs.treatments && obs.treatments.length > 0 && (
                                   <div className="col-span-2">
-                                    <Label className="text-muted-foreground">治療方式</Label>
+                                    <Label className="text-muted-foreground">{t('animalRecords.observations.treatments')}</Label>
                                     <div className="space-y-1 mt-1">
-                                      {obs.treatments.map((t: { drug: string; dosage: string; dosage_unit?: string; end_date?: string; category?: string; route?: string }, i: number) => (
+                                      {obs.treatments.map((item: { drug: string; dosage: string; dosage_unit?: string; end_date?: string; category?: string; route?: string }, i: number) => (
                                         <p key={i}>
-                                          {t.category && `[${treatmentCategoryLabel(t.category)}] `}
-                                          {t.drug} - {t.dosage}{t.dosage_unit ? ` ${t.dosage_unit}` : ''}
-                                          {t.route && ` · ${treatmentRouteLabel(t.route)}`}
-                                          {t.end_date && ` (至 ${t.end_date})`}
+                                          {item.category && `[${treatmentCategoryDisplayLabel(item.category, t)}] `}
+                                          {item.drug} - {item.dosage}{item.dosage_unit ? ` ${item.dosage_unit}` : ''}
+                                          {item.route && ` · ${treatmentRouteDisplayLabel(item.route, t)}`}
+                                          {item.end_date && ` ${t('animalRecords.observations.treatmentUntil', { date: item.end_date })}`}
                                         </p>
                                       ))}
                                     </div>
@@ -272,7 +273,7 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                                 )}
                                 {obs.remark && (
                                   <div className="col-span-2">
-                                    <Label className="text-muted-foreground">備註</Label>
+                                    <Label className="text-muted-foreground">{t('animalRecords.shared.remark')}</Label>
                                     <p>{obs.remark}</p>
                                   </div>
                                 )}
@@ -292,7 +293,7 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
               {!observations || observations.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                   <ClipboardList className="h-8 w-8" />
-                  <p className="text-sm">尚無觀察試驗紀錄</p>
+                  <p className="text-sm">{t('animalRecords.observations.emptyTitle')}</p>
                 </div>
               ) : (
                 sortedData?.map((obs: AnimalObservation) => (
@@ -301,7 +302,7 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-medium text-foreground">{formatDate(obs.event_date)}</span>
                       <Badge className={getRecordTypeBadgeClass(obs.record_type as RecordType)}>
-                        {recordTypeNames[obs.record_type as RecordType]}
+                        {t(`animalRecords.observations.recordType.${obs.record_type as RecordType}`)}
                       </Badge>
                     </div>
                     {/* Card body */}
@@ -310,10 +311,10 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                     <div className="flex items-center justify-between gap-2 pt-1 border-t">
                       <div className="flex items-center gap-2">
                         {obs.vet_read
-                          ? <Badge className="bg-status-success-bg text-status-success-text text-xs">獸醫已讀</Badge>
-                          : <Badge variant="outline" className="text-muted-foreground text-xs">獸醫未讀</Badge>}
+                          ? <Badge className="bg-status-success-bg text-status-success-text text-xs">{t('animalRecords.shared.vetRead')}</Badge>
+                          : <Badge variant="outline" className="text-muted-foreground text-xs">{t('animalRecords.shared.vetUnread')}</Badge>}
                         {obs.no_medication_needed && (
-                          <span title="停止用藥">
+                          <span title={t('animalRecords.shared.stopMedication')}>
                             <CheckCircle2 className="h-3.5 w-3.5 text-status-success-solid" />
                           </span>
                         )}
@@ -352,7 +353,7 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
       <DeleteReasonDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        copy={{ title: '刪除觀察紀錄', description: '此操作將標記紀錄為已刪除，資料將保留於系統中以符合 GLP 規範。' }}
+        copy={{ title: t('animalRecords.observations.deleteTitle'), description: t('animalRecords.shared.deleteRecordDescription') }}
         onConfirm={(reason) => deleteMutation.mutate({ id: deleteTarget!, reason })}
         isPending={deleteMutation.isPending}
       />

@@ -21,6 +21,16 @@ vi.mock('@/lib/api', () => ({
 
 vi.mock('@/components/ui/use-toast', () => ({ toast: vi.fn() }))
 
+// 元件文字全走 i18n：t(key) 回 key（有插值參數時把參數附在後面，讓「作廢原因」等內插值仍可斷言）。
+// lib/utils 會拉進 lib/i18n（.use(initReactI18next)），mock 整個模組就得補上這個 plugin 形狀。
+vi.mock('react-i18next', () => ({
+    useTranslation: () => ({
+        t: (key: string, opts?: Record<string, unknown>) =>
+            opts ? `${key} ${JSON.stringify(opts)}` : key,
+    }),
+    initReactI18next: { type: '3rdParty', init: () => {} },
+}))
+
 let isAdmin = true
 let currentUserId = 'admin-1'
 vi.mock('@/stores/auth', () => ({
@@ -61,7 +71,8 @@ function renderTable(rows: OvertimeWithUser[]) {
 }
 
 /** 桌機表格與窄版卡片在 jsdom 會同時渲染（Tailwind 斷點不生效），故一律取第一顆 */
-const voidButtons = () => screen.queryAllByRole('button', { name: /作廢/ })
+const voidButtons = () =>
+    screen.queryAllByRole('button', { name: /hrPages\.overtime\.void\.button/ })
 
 describe('加班單作廢（R86-2）', () => {
     beforeEach(() => {
@@ -94,7 +105,7 @@ describe('加班單作廢（R86-2）', () => {
 
     it('已作廢的列顯示狀態與作廢原因', () => {
         renderTable([mkRow({ status: 'voided', void_reason: '補登重跑造成的重複單' })])
-        expect(screen.getAllByText('已作廢').length).toBeGreaterThan(0)
+        expect(screen.getAllByText('hrPages.shared.overtimeStatus.voided').length).toBeGreaterThan(0)
         expect(screen.getAllByText(/補登重跑造成的重複單/).length).toBeGreaterThan(0)
         expect(voidButtons()).toHaveLength(0)
     })
@@ -103,12 +114,13 @@ describe('加班單作廢（R86-2）', () => {
         renderTable([mkRow()])
         fireEvent.click(voidButtons()[0])
 
-        const textarea = screen.getByPlaceholderText(/請說明作廢此紀錄的原因/)
-        const confirm = screen.getByRole('button', { name: '確認作廢' })
+        // DeleteReasonDialog 的文案（noun 內插由 hrPages.overtime.void.actionNoun 帶入）
+        const textarea = screen.getByPlaceholderText(/ui\.deleteReasonDialog\.reasonPlaceholder/)
+        const confirm = screen.getByRole('button', { name: /^ui\.deleteReasonDialog\.confirm / })
 
         fireEvent.change(textarea, { target: { value: '重複' } })
         fireEvent.click(confirm)
-        expect(await screen.findByText('作廢原因至少需要 5 個字元')).toBeInTheDocument()
+        expect(await screen.findByText(/ui\.deleteReasonDialog\.reasonTooShort/)).toBeInTheDocument()
         expect(apiPost).not.toHaveBeenCalled()
 
         fireEvent.change(textarea, { target: { value: '  補登重跑造成的重複單  ' } })

@@ -2,6 +2,8 @@
 
 import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+
 import api from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -17,6 +19,7 @@ export function usePatrolEntryPhotos({
     open: boolean
     onCommitted: () => void
 }) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     // ── Entry-level 照片：以 Map<entry_id, EntryPhoto[]> 維護快取 ──
     const entryPhotosQueryKey = ['vet-patrol-entry-photos', savedReportId]
@@ -57,7 +60,7 @@ export function usePatrolEntryPhotos({
             queryClient.invalidateQueries({ queryKey: entryPhotosQueryKey })
         },
         onError: (error: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '照片上傳失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('animalActions.vetPatrol.photoUploadFailed')), variant: 'destructive' })
         },
     })
 

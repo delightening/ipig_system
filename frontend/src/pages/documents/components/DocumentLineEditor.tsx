@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { Product, DocType, PoReceiptStatus, WarehouseTreeNode } from '@/lib/api'
 import { WarehouseShelfTreeSelect, type WarehouseShelfValue } from '@/components/inventory/WarehouseShelfTreeSelect'
 import { Button } from '@/components/ui/button'
@@ -55,6 +56,7 @@ function UomSelect({
   onChange: (lineId: string, uom: string) => void
   className?: string
 }) {
+  const { t } = useTranslation()
   const options = buildUomOptions(line)
 
   if (isUomReadOnly(line)) {
@@ -63,11 +65,11 @@ function UomSelect({
 
   return (
     <Select value={selectedUomValue(line)} onValueChange={(v) => onChange(lineId, v)}>
-      <SelectTrigger className="h-9" aria-label="單位">
+      <SelectTrigger className="h-9" aria-label={t('erpDocs.shared.unit')}>
         {/* value 經 selectedUomValue 正規化：現值不在選項內（舊資料的無效單位）時
             傳空字串，Radix 才會顯示 placeholder。直接傳那個無效值的話 trigger
             會是一片空白——理由見 selectedUomValue 的註解。 */}
-        <SelectValue placeholder={formatUom(line.uom) || '請選擇單位'} />
+        <SelectValue placeholder={formatUom(line.uom) || t('erpDocs.documents.lines.selectUnit')} />
       </SelectTrigger>
       <SelectContent>
         {options.map((uom) => (
@@ -142,6 +144,7 @@ export function DocumentLineEditor({
   batchStorageLocationFromId,
   batchStorageLocationId,
 }: DocumentLineEditorProps) {
+  const { t } = useTranslation()
   // SO 為內部耗材領用不記金額（2026-07-21 裁定；byproduct 另有模組），不顯示單價欄；
   // DO 已棄用僅舊單顯示相容。
   const showPriceColumns = ['PO', 'GRN'].includes(formData.doc_type)
@@ -256,16 +259,16 @@ export function DocumentLineEditor({
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>單據明細</CardTitle>
+          <CardTitle>{t('erpDocs.shared.docLines')}</CardTitle>
           <Button onClick={addLine} size="sm">
             <Plus className="mr-2 h-4 w-4" />
-            新增明細
+            {t('erpDocs.documents.lines.add')}
           </Button>
         </CardHeader>
         <CardContent className="@container">
           {formData.lines.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">尚無明細，請點擊「新增明細」</p>
+              <p className="text-muted-foreground">{t('erpDocs.documents.lines.empty')}</p>
             </div>
           ) : (
             <>
@@ -273,26 +276,26 @@ export function DocumentLineEditor({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[60px]">項次</TableHead>
-                      <TableHead className="w-[300px]">品項</TableHead>
-                      <TableHead className="w-[100px] text-right">數量</TableHead>
-                      <TableHead className="w-[80px]">單位</TableHead>
+                      <TableHead className="w-[60px]">{t('erpDocs.shared.lineNo')}</TableHead>
+                      <TableHead className="w-[300px]">{t('erpDocs.shared.item')}</TableHead>
+                      <TableHead className="w-[100px] text-right">{t('erpDocs.shared.quantity')}</TableHead>
+                      <TableHead className="w-[80px]">{t('erpDocs.shared.unit')}</TableHead>
                       {showPriceColumns && (
                         <>
-                          <TableHead className="w-[100px] text-right">單價</TableHead>
-                          <TableHead className="w-[100px] text-right">金額</TableHead>
+                          <TableHead className="w-[100px] text-right">{t('erpDocs.shared.unitPrice')}</TableHead>
+                          <TableHead className="w-[100px] text-right">{t('erpDocs.shared.amount')}</TableHead>
                         </>
                       )}
                       {formData.doc_type === 'TR' ? (
                         <>
-                          <TableHead className="w-[180px]">來源儲位</TableHead>
-                          <TableHead className="w-[180px]">目標儲位</TableHead>
+                          <TableHead className="w-[180px]">{t('erpDocs.shared.sourceLocation')}</TableHead>
+                          <TableHead className="w-[180px]">{t('erpDocs.shared.targetLocation')}</TableHead>
                         </>
                       ) : needsShelf ? (
-                        <TableHead className="w-[180px]">儲位</TableHead>
+                        <TableHead className="w-[180px]">{t('erpDocs.shared.storageLocation')}</TableHead>
                       ) : null}
-                      <TableHead className="w-[120px]">效期</TableHead>
-                      <TableHead className="w-[120px]">批號</TableHead>
+                      <TableHead className="w-[120px]">{t('erpDocs.shared.expiryDate')}</TableHead>
+                      <TableHead className="w-[120px]">{t('erpDocs.shared.batchNo')}</TableHead>
                       <TableHead className="w-[50px]" />
                     </TableRow>
                   </TableHeader>
@@ -419,6 +422,7 @@ function SoShelfCell({
   line: DocumentLine
   soShelf: SoShelfContext
 }) {
+  const { t } = useTranslation()
   const info = line.storage_location_id ? soShelf.shelfInfo.get(line.storage_location_id) : undefined
   return (
     <div className="space-y-1">
@@ -434,7 +438,7 @@ function SoShelfCell({
           />
         )}
         <span className="truncate">
-          {info?.label || (line.storage_location_id ? '已選儲位' : '選擇儲位')}
+          {info?.label || (line.storage_location_id ? t('erpDocs.documents.lines.locationSelected') : t('erpDocs.shared.selectStorageLocation'))}
         </span>
       </button>
       {soShelf.showChips && info && (
@@ -476,6 +480,7 @@ function LineRow({
   products,
   soShelf,
 }: LineRowProps) {
+  const { t } = useTranslation()
   const lineId = line.id
   if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}
 
@@ -502,7 +507,7 @@ function LineRow({
         ) : (
           <Button variant="outline" size="sm" onClick={() => onOpenSearch(lineId)} className="w-full justify-start">
             <Search className="mr-2 h-4 w-4" />
-            選擇品項
+            {t('erpDocs.shared.selectItem')}
           </Button>
         )}
       </TableCell>
@@ -560,7 +565,7 @@ function LineRow({
               selectLevel="shelf"
               allowAll={false}
               className="w-full text-xs"
-              placeholder="選擇來源儲位"
+              placeholder={t('erpDocs.shared.selectSourceLocation')}
             />
           </TableCell>
           <TableCell>
@@ -573,7 +578,7 @@ function LineRow({
               selectLevel="shelf"
               allowAll={false}
               className="w-full text-xs"
-              placeholder="選擇目標儲位"
+              placeholder={t('erpDocs.shared.selectTargetLocation')}
             />
           </TableCell>
         </>
@@ -592,7 +597,7 @@ function LineRow({
             selectLevel="shelf"
             allowAll={false}
             className="w-full text-xs"
-            placeholder="選擇儲位"
+            placeholder={t('erpDocs.shared.selectStorageLocation')}
           />
         </TableCell>
       ) : null}
@@ -634,7 +639,7 @@ function LineRow({
         )}
       </TableCell>
       <TableCell>
-        <Button variant="ghost" size="icon" onClick={() => onRemoveLine(lineId)} className="text-destructive hover:text-destructive/80" aria-label="刪除">
+        <Button variant="ghost" size="icon" onClick={() => onRemoveLine(lineId)} className="text-destructive hover:text-destructive/80" aria-label={t('common.delete')}>
           <Trash2 className="h-4 w-4" />
         </Button>
       </TableCell>
@@ -662,6 +667,7 @@ function LineCard({
   products,
   soShelf,
 }: LineRowProps) {
+  const { t } = useTranslation()
   const lineId = line.id
   if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}
 
@@ -680,7 +686,7 @@ function LineCard({
     <div className="rounded-lg border bg-card p-3 space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <div className="text-xs text-muted-foreground">項次 #{index + 1}</div>
+          <div className="text-xs text-muted-foreground">{t('erpDocs.documents.lines.lineNumber', { no: index + 1 })}</div>
           {line.product_id ? (
             <div className="mt-1">
               <div className="font-medium break-words">{line.product_name}</div>
@@ -689,18 +695,18 @@ function LineCard({
           ) : (
             <Button variant="outline" size="sm" onClick={() => onOpenSearch(lineId)} className="w-full justify-start mt-1">
               <Search className="mr-2 h-4 w-4" />
-              選擇品項
+              {t('erpDocs.shared.selectItem')}
             </Button>
           )}
         </div>
-        <Button variant="ghost" size="icon" onClick={() => onRemoveLine(lineId)} className="shrink-0 text-destructive hover:text-destructive/80" aria-label="刪除">
+        <Button variant="ghost" size="icon" onClick={() => onRemoveLine(lineId)} className="shrink-0 text-destructive hover:text-destructive/80" aria-label={t('common.delete')}>
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <Label className="text-xs text-muted-foreground">數量</Label>
+          <Label className="text-xs text-muted-foreground">{t('erpDocs.shared.quantity')}</Label>
           <Input
             type="number"
             value={line.qty ?? ''}
@@ -715,7 +721,7 @@ function LineCard({
           />
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground">單位</Label>
+          <Label className="text-xs text-muted-foreground">{t('erpDocs.shared.unit')}</Label>
           <UomSelect
             line={line}
             lineId={lineId}
@@ -728,7 +734,7 @@ function LineCard({
       {showPriceColumns && (
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <Label className="text-xs text-muted-foreground">單價</Label>
+            <Label className="text-xs text-muted-foreground">{t('erpDocs.shared.unitPrice')}</Label>
             <Input
               type="number"
               value={line.unit_price ?? ''}
@@ -743,7 +749,7 @@ function LineCard({
             />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">金額</Label>
+            <Label className="text-xs text-muted-foreground">{t('erpDocs.shared.amount')}</Label>
             <div className="h-9 flex items-center text-sm font-medium">${formatNumber(lineAmounts[lineId] || 0, 2)}</div>
           </div>
         </div>
@@ -752,7 +758,7 @@ function LineCard({
       {docType === 'TR' ? (
         <div className="space-y-2">
           <div>
-            <Label className="text-xs text-muted-foreground">來源儲位</Label>
+            <Label className="text-xs text-muted-foreground">{t('erpDocs.shared.sourceLocation')}</Label>
             <WarehouseShelfTreeSelect
               value={line.storage_location_from_id ? `loc:${line.storage_location_from_id}` : ''}
               onValueChange={(v: WarehouseShelfValue) => {
@@ -762,11 +768,11 @@ function LineCard({
               selectLevel="shelf"
               allowAll={false}
               className="w-full text-xs"
-              placeholder="選擇來源儲位"
+              placeholder={t('erpDocs.shared.selectSourceLocation')}
             />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">目標儲位</Label>
+            <Label className="text-xs text-muted-foreground">{t('erpDocs.shared.targetLocation')}</Label>
             <WarehouseShelfTreeSelect
               value={line.storage_location_to_id ? `loc:${line.storage_location_to_id}` : ''}
               onValueChange={(v: WarehouseShelfValue) => {
@@ -776,18 +782,18 @@ function LineCard({
               selectLevel="shelf"
               allowAll={false}
               className="w-full text-xs"
-              placeholder="選擇目標儲位"
+              placeholder={t('erpDocs.shared.selectTargetLocation')}
             />
           </div>
         </div>
       ) : needsShelf && soShelf ? (
         <div>
-          <Label className="text-xs text-muted-foreground">儲位</Label>
+          <Label className="text-xs text-muted-foreground">{t('erpDocs.shared.storageLocation')}</Label>
           <SoShelfCell line={line} soShelf={soShelf} />
         </div>
       ) : needsShelf ? (
         <div>
-          <Label className="text-xs text-muted-foreground">儲位</Label>
+          <Label className="text-xs text-muted-foreground">{t('erpDocs.shared.storageLocation')}</Label>
           <WarehouseShelfTreeSelect
             value={line.storage_location_id ? `loc:${line.storage_location_id}` : ''}
             onValueChange={(v: WarehouseShelfValue) => {
@@ -797,14 +803,14 @@ function LineCard({
             selectLevel="shelf"
             allowAll={false}
             className="w-full text-xs"
-            placeholder="選擇儲位"
+            placeholder={t('erpDocs.shared.selectStorageLocation')}
           />
         </div>
       ) : null}
 
       {showExpiry && (
         <div>
-          <Label className="text-xs text-muted-foreground">效期</Label>
+          <Label className="text-xs text-muted-foreground">{t('erpDocs.shared.expiryDate')}</Label>
           {['SO', 'DO'].includes(docType) ? (
             <DateTextInput
               defaultValue={expiryDateDefault}
@@ -826,7 +832,7 @@ function LineCard({
 
       {showBatch && (
         <div>
-          <Label className="text-xs text-muted-foreground">批號</Label>
+          <Label className="text-xs text-muted-foreground">{t('erpDocs.shared.batchNo')}</Label>
           <BatchNumberSelect
             productId={line.product_id}
             warehouseId={batchWarehouseId}

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -29,18 +31,19 @@ export function PiSelector({
   externalPi: ExternalPiData
   onExternalPiChange: (v: ExternalPiData) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="grid gap-2">
-      <Label>計畫主持人（PI）*</Label>
+      <Label>{t('protocolPages.importReview.piSelector.label')}</Label>
       <Select value={piUserId} onValueChange={onPiChange} disabled={usersLoading}>
         <SelectTrigger>
-          <SelectValue placeholder={usersLoading ? '載入中…' : '選擇 PI'} />
+          <SelectValue placeholder={usersLoading ? t('protocolPages.shared.loadingEllipsis') : t('protocolPages.importReview.piSelector.placeholder')} />
         </SelectTrigger>
         <SelectContent>
           {piOptions.map((u) => (
             <SelectItem key={u.id} value={u.id}>{userLabel(u)}</SelectItem>
           ))}
-          <SelectItem value={PI_OTHER}>其他（外部 PI，非系統使用者）</SelectItem>
+          <SelectItem value={PI_OTHER}>{t('protocolPages.importReview.piSelector.other')}</SelectItem>
         </SelectContent>
       </Select>
       {isExternalPi && <ExternalPiFields value={externalPi} onChange={onExternalPiChange} />}

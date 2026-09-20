@@ -6,6 +6,8 @@
  */
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,16 +28,16 @@ import type { AnimalBloodTestItem, CorrectBloodTestItemRequest } from '@/types'
 // R57-2: 改 React Hook Form 原生 validation rules（避開 Zod 4 CSP eval probe）
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-function validateCorrection(draft: CorrectBloodTestItemRequest): string | null {
+function validateCorrection(draft: CorrectBloodTestItemRequest, t: TFunction): string | null {
   const name = draft.item_name.trim()
-  if (name.length === 0) return 'validation.required'
-  if (name.length > 200) return 'validation.too_long'
+  if (name.length === 0) return t('validation.required')
+  if (name.length > 200) return t('animalRecords.bloodTest.validation.nameTooLong')
   if (draft.template_id !== undefined && !UUID_PATTERN.test(draft.template_id)) {
-    return 'template_id 格式錯誤'
+    return t('animalRecords.bloodTest.validation.templateIdInvalid')
   }
   const reason = draft.correction_reason.trim()
-  if (reason.length < 10) return '修正原因至少 10 字（GLP §11.10(e)）'
-  if (reason.length > 500) return '修正原因最多 500 字'
+  if (reason.length < 10) return t('animalRecords.bloodTest.validation.reasonTooShort')
+  if (reason.length > 500) return t('animalRecords.bloodTest.validation.reasonTooLong')
   return null
 }
 
@@ -55,6 +57,7 @@ export function CorrectBloodTestItemDialog({
   onOpenChange,
   onCorrected,
 }: Props) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState<CorrectBloodTestItemRequest | null>(null)
 
@@ -87,20 +90,20 @@ export function CorrectBloodTestItemDialog({
       // 列表頁的 abnormal_count / item_count 受 is_abnormal 變動影響
       queryClient.invalidateQueries({ queryKey: ['animal-blood-tests'] })
       onCorrected?.()
-      toast({ title: '已修正', description: '血檢項目修正紀錄已留存（GLP §11.10(e)）' })
+      toast({ title: t('animalRecords.bloodTest.correctedTitle'), description: t('animalRecords.bloodTest.correctedDescription') })
       onOpenChange(false)
       setDraft(null)
     },
     onError: () => {
-      toast({ title: '錯誤', description: '修正失敗', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('animalRecords.bloodTest.correctFailed'), variant: 'destructive' })
     },
   })
 
   const handleSubmit = () => {
     if (!draft) return
-    const error = validateCorrection(draft)
+    const error = validateCorrection(draft, t)
     if (error) {
-      toast({ title: '錯誤', description: error, variant: 'destructive' })
+      toast({ title: t('common.error'), description: error, variant: 'destructive' })
       return
     }
     // trim string fields 對齊原 schema .trim() 行為
@@ -117,29 +120,28 @@ export function CorrectBloodTestItemDialog({
     <Dialog open={open} onOpenChange={(o) => { if (!o) { onOpenChange(false); setDraft(null) } }}>
       <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle>修正血檢項目「{item.item_name}」</DialogTitle>
+          <DialogTitle>{t('animalRecords.bloodTest.correctTitle', { name: item.item_name })}</DialogTitle>
           <DialogDescription>
-            原始紀錄不會被刪除，新值將以新紀錄方式留存；原紀錄會標記為「已修正」。
-            修正歷史永久保留以符合 21 CFR §11.10(c)(e) raw data integrity。
+            {t('animalRecords.bloodTest.correctDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* 原值對照 */}
           <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-sm">
-            <div className="font-medium text-muted-foreground">原值</div>
+            <div className="font-medium text-muted-foreground">{t('animalRecords.bloodTest.originalValue')}</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-              <div><span className="text-muted-foreground">結果：</span>{item.result_value || '—'} {item.result_unit || ''}</div>
-              <div><span className="text-muted-foreground">參考：</span>{item.reference_range || '—'}</div>
-              <div><span className="text-muted-foreground">異常：</span>{item.is_abnormal ? '是' : '否'}</div>
-              <div><span className="text-muted-foreground">備註：</span>{item.remark || '—'}</div>
+              <div><span className="text-muted-foreground">{t('animalRecords.bloodTest.resultColon')}</span>{item.result_value || '—'} {item.result_unit || ''}</div>
+              <div><span className="text-muted-foreground">{t('animalRecords.bloodTest.referenceColon')}</span>{item.reference_range || '—'}</div>
+              <div><span className="text-muted-foreground">{t('animalRecords.bloodTest.abnormalColon')}</span>{item.is_abnormal ? t('common.yes') : t('common.no')}</div>
+              <div><span className="text-muted-foreground">{t('animalRecords.bloodTest.remarkColon')}</span>{item.remark || '—'}</div>
             </div>
           </div>
 
           {/* 修正後新值 */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>項目名稱 *</Label>
+              <Label>{t('animalRecords.bloodTest.itemNameRequired')}</Label>
               <Input
                 value={draft.item_name}
                 onChange={(e) => setDraft({ ...draft, item_name: e.target.value })}
@@ -147,28 +149,28 @@ export function CorrectBloodTestItemDialog({
               />
             </div>
             <div className="space-y-1">
-              <Label>結果值</Label>
+              <Label>{t('animalRecords.bloodTest.resultValue')}</Label>
               <Input
                 value={draft.result_value || ''}
                 onChange={(e) => setDraft({ ...draft, result_value: e.target.value })}
               />
             </div>
             <div className="space-y-1">
-              <Label>單位</Label>
+              <Label>{t('animalRecords.shared.unit')}</Label>
               <Input
                 value={draft.result_unit || ''}
                 onChange={(e) => setDraft({ ...draft, result_unit: e.target.value })}
               />
             </div>
             <div className="space-y-1">
-              <Label>參考範圍</Label>
+              <Label>{t('animalRecords.bloodTest.referenceRange')}</Label>
               <Input
                 value={draft.reference_range || ''}
                 onChange={(e) => setDraft({ ...draft, reference_range: e.target.value })}
               />
             </div>
             <div className="space-y-1">
-              <Label>備註</Label>
+              <Label>{t('animalRecords.shared.remark')}</Label>
               <Input
                 value={draft.remark || ''}
                 onChange={(e) => setDraft({ ...draft, remark: e.target.value })}
@@ -182,19 +184,19 @@ export function CorrectBloodTestItemDialog({
                 onChange={(e) => setDraft({ ...draft, is_abnormal: e.target.checked })}
                 className="h-4 w-4 rounded border-border text-status-error-text focus:ring-destructive"
               />
-              <Label htmlFor="correct-is-abnormal">標記為異常</Label>
+              <Label htmlFor="correct-is-abnormal">{t('animalRecords.bloodTest.markAbnormal')}</Label>
             </div>
           </div>
 
           {/* 修正原因（必填 ≥10 字） */}
           <div className="space-y-1">
             <Label>
-              修正原因 * <span className="text-xs text-muted-foreground">（至少 10 字，GLP §11.10(e)）</span>
+              {t('animalRecords.bloodTest.correctionReasonRequired')} <span className="text-xs text-muted-foreground">{t('animalRecords.bloodTest.correctionReasonHint')}</span>
             </Label>
             <Textarea
               value={draft.correction_reason}
               onChange={(e) => setDraft({ ...draft, correction_reason: e.target.value })}
-              placeholder="例：輸入錯誤，原值 WBC=125 應為 12.5"
+              placeholder={t('animalRecords.bloodTest.correctionReasonPlaceholder')}
               rows={3}
             />
             <div className="text-xs text-muted-foreground text-right">
@@ -205,11 +207,11 @@ export function CorrectBloodTestItemDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => { onOpenChange(false); setDraft(null) }}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={correctMutation.isPending}>
             {correctMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            送出修正
+            {t('animalRecords.bloodTest.submitCorrection')}
           </Button>
         </DialogFooter>
       </DialogContent>

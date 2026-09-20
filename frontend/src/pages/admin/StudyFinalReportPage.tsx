@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
 import { useAuthHasPermission } from '@/stores/auth'
 import {
@@ -31,12 +33,18 @@ import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { uiLocale } from '@/lib/utils'
 
+// labelKey 是 i18n 鍵（渲染時才 t()），避免 module 級常數凍結語言。
 const STATUS_OPTIONS = [
-  { value: 'draft', label: '草稿' },
-  { value: 'under_review', label: '審查中' },
-  { value: 'approved', label: '已核准' },
-  { value: 'signed', label: '已簽署' },
+  { value: 'draft', labelKey: 'adminGlp.shared.statusLabel.draft' },
+  { value: 'under_review', labelKey: 'adminGlp.shared.statusLabel.underReview' },
+  { value: 'approved', labelKey: 'adminGlp.shared.statusLabel.approved' },
+  { value: 'signed', labelKey: 'adminGlp.studyFinalReport.status.signed' },
 ]
+
+function getStatusLabel(status: string, t: TFunction): string {
+  const option = STATUS_OPTIONS.find((s) => s.value === status)
+  return option ? t(option.labelKey) : status
+}
 
 const STATUS_VARIANTS: Record<
   string,
@@ -54,6 +62,7 @@ const textareaClass =
   'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring'
 
 export function StudyFinalReportPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const hasPermission = useAuthHasPermission()
   // 2026-09-05：study.report.manage 已改走身分即授權（P0-1）——按鈕永遠顯示，
@@ -82,21 +91,21 @@ export function StudyFinalReportPage() {
       queryClient.invalidateQueries({ queryKey: ['study-reports'] })
       setShowCreate(false)
       setForm(INITIAL_FORM)
-      toast({ title: '最終報告已建立' })
+      toast({ title: t('adminGlp.studyFinalReport.toast.created') })
     },
-    onError: (err: unknown) => toast({ title: '建立失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
+    onError: (err: unknown) => toast({ title: t('adminGlp.shared.createFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
   })
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">研究最終報告</h1>
-          <p className="text-muted-foreground">GLP 最終報告管理</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t('adminGlp.studyFinalReport.title')}</h1>
+          <p className="text-muted-foreground">{t('adminGlp.studyFinalReport.subtitle')}</p>
         </div>
         <Button onClick={() => setShowCreate(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          新增報告
+          {t('adminGlp.studyFinalReport.create')}
         </Button>
       </div>
 
@@ -105,12 +114,12 @@ export function StudyFinalReportPage() {
           <div className="flex gap-4">
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="所有狀態" />
+                <SelectValue placeholder={t('adminGlp.shared.allStatuses')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">所有狀態</SelectItem>
+                <SelectItem value="">{t('adminGlp.shared.allStatuses')}</SelectItem>
                 {STATUS_OPTIONS.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  <SelectItem key={s.value} value={s.value}>{t(s.labelKey)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -120,19 +129,19 @@ export function StudyFinalReportPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>報告編號</TableHead>
-                <TableHead>標題</TableHead>
-                <TableHead>狀態</TableHead>
-                <TableHead>主持人簽署</TableHead>
-                <TableHead>QAU 簽署</TableHead>
-                <TableHead>建立時間</TableHead>
+                <TableHead>{t('adminGlp.shared.reportNumber')}</TableHead>
+                <TableHead>{t('adminGlp.shared.title')}</TableHead>
+                <TableHead>{t('adminGlp.shared.status')}</TableHead>
+                <TableHead>{t('adminGlp.studyFinalReport.col.directorSignature')}</TableHead>
+                <TableHead>{t('adminGlp.studyFinalReport.col.qauSignature')}</TableHead>
+                <TableHead>{t('adminGlp.shared.createdAt')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={6} className="p-0"><TableSkeleton rows={8} cols={6} /></TableCell></TableRow>
               ) : reports.length === 0 ? (
-                <TableEmptyRow colSpan={6} icon={FileText} title="尚無報告" />
+                <TableEmptyRow colSpan={6} icon={FileText} title={t('adminGlp.studyFinalReport.empty')} />
               ) : (
                 reports.map((r) => (
                   <TableRow
@@ -155,7 +164,7 @@ export function StudyFinalReportPage() {
                     <TableCell className="font-medium">{r.title}</TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANTS[r.status] ?? 'secondary'}>
-                        {STATUS_OPTIONS.find((s) => s.value === r.status)?.label ?? r.status}
+                        {getStatusLabel(r.status, t)}
                       </Badge>
                     </TableCell>
                     <TableCell>{r.signed_by ?? '-'}</TableCell>
@@ -171,19 +180,19 @@ export function StudyFinalReportPage() {
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent>
-          <DialogHeader><DialogTitle>新增最終報告</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('adminGlp.studyFinalReport.dialog.create')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">實驗計畫 ID *</label>
+              <label className="text-sm font-medium">{t('adminGlp.studyFinalReport.dialog.protocolId')}</label>
               <Input value={form.protocol_id} onChange={(e) => setForm((f) => ({ ...f, protocol_id: e.target.value }))} placeholder="Protocol UUID" />
-              <p className="text-xs text-muted-foreground">只有該計畫的計劃負責人（Study Director）本人可以建立報告。</p>
+              <p className="text-xs text-muted-foreground">{t('adminGlp.studyFinalReport.dialog.protocolIdHint')}</p>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">標題 *</label>
+              <label className="text-sm font-medium">{t('adminGlp.shared.titleRequired')}</label>
               <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">摘要</label>
+              <label className="text-sm font-medium">{t('adminGlp.studyFinalReport.summary')}</label>
               <textarea
                 className={textareaClass}
                 value={form.summary}
@@ -191,7 +200,7 @@ export function StudyFinalReportPage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">方法</label>
+              <label className="text-sm font-medium">{t('adminGlp.studyFinalReport.methods')}</label>
               <textarea
                 className={textareaClass}
                 value={form.methods}
@@ -200,9 +209,9 @@ export function StudyFinalReportPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>取消</Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>{t('common.cancel')}</Button>
             <Button onClick={() => createMutation.mutate()} disabled={!form.protocol_id || !form.title || createMutation.isPending}>
-              建立
+              {t('adminGlp.shared.create')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -237,6 +246,7 @@ function StudyReportDetailDialog({
   canWriteQauStatement: boolean
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [edit, setEdit] = useState<{
     title: string
@@ -290,9 +300,9 @@ function StudyReportDetailDialog({
     onSuccess: () => {
       invalidate()
       setEdit(null)
-      toast({ title: '報告已更新' })
+      toast({ title: t('adminGlp.studyFinalReport.toast.updated') })
     },
-    onError: (err: unknown) => toast({ title: '更新失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
+    onError: (err: unknown) => toast({ title: t('adminGlp.studyFinalReport.toast.updateFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
   })
 
   const signMutation = useMutation({
@@ -300,9 +310,9 @@ function StudyReportDetailDialog({
     onSuccess: () => {
       invalidate()
       setSignPassword('')
-      toast({ title: '已簽署最終報告' })
+      toast({ title: t('adminGlp.studyFinalReport.toast.signed') })
     },
-    onError: (err: unknown) => toast({ title: '簽署失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
+    onError: (err: unknown) => toast({ title: t('adminGlp.studyFinalReport.toast.signFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
   })
 
   const qauMutation = useMutation({
@@ -311,9 +321,9 @@ function StudyReportDetailDialog({
     mutationFn: () => updateQauStatement(id, qauStatement ?? report?.qau_statement ?? ''),
     onSuccess: () => {
       invalidate()
-      toast({ title: 'QAU 品保聲明已儲存' })
+      toast({ title: t('adminGlp.studyFinalReport.toast.qauSaved') })
     },
-    onError: (err: unknown) => toast({ title: '儲存失敗', description: getApiErrorMessage(err), variant: 'destructive' }),
+    onError: (err: unknown) => toast({ title: t('adminGlp.studyFinalReport.toast.saveFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
   })
 
   return (
@@ -322,7 +332,7 @@ function StudyReportDetailDialog({
           ⚠️ 不是 size="2xl"——那是 max-w-6xl。寬度一律走 size prop，禁止硬編 max-w-*（DESIGN.md）。 */}
       <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle>{report ? `${report.report_number}｜${report.title}` : '最終報告'}</DialogTitle>
+          <DialogTitle>{report ? `${report.report_number}｜${report.title}` : t('adminGlp.studyFinalReport.detail.fallbackTitle')}</DialogTitle>
         </DialogHeader>
 
         {/* ⚠️ 失敗必須有自己的分支。原本只有 `isLoading || !report`：查詢 reject 時
@@ -330,19 +340,19 @@ function StudyReportDetailDialog({
             對話框**永遠停在「載入中…」**——使用者看到的是無限載入而不是錯誤。 */}
         {isError ? (
           <div className="py-8 text-center text-destructive">
-            {getApiErrorMessage(error, '載入報告失敗')}
+            {getApiErrorMessage(error, t('adminGlp.studyFinalReport.detail.loadFailed'))}
           </div>
         ) : isLoading || !report ? (
-          <div className="py-8 text-center text-muted-foreground">載入中…</div>
+          <div className="py-8 text-center text-muted-foreground">{t('adminGlp.shared.loading')}</div>
         ) : (
           <div className="space-y-6">
             <div className="flex items-center gap-2">
               <Badge variant={STATUS_VARIANTS[report.status] ?? 'secondary'}>
-                {STATUS_OPTIONS.find((s) => s.value === report.status)?.label ?? report.status}
+                {getStatusLabel(report.status, t)}
               </Badge>
               {report.signed_at && (
                 <span className="text-xs text-muted-foreground">
-                  主持人已於 {new Date(report.signed_at).toLocaleString(uiLocale())} 簽署
+                  {t('adminGlp.studyFinalReport.detail.signedAt', { time: new Date(report.signed_at).toLocaleString(uiLocale()) })}
                 </span>
               )}
             </div>
@@ -351,45 +361,45 @@ function StudyReportDetailDialog({
             {edit ? (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">標題</label>
+                  <label className="text-sm font-medium">{t('adminGlp.shared.title')}</label>
                   <Input value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">摘要</label>
+                  <label className="text-sm font-medium">{t('adminGlp.studyFinalReport.summary')}</label>
                   <textarea className={textareaClass} value={edit.summary} onChange={(e) => setEdit({ ...edit, summary: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">方法</label>
+                  <label className="text-sm font-medium">{t('adminGlp.studyFinalReport.methods')}</label>
                   <textarea className={textareaClass} value={edit.methods} onChange={(e) => setEdit({ ...edit, methods: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">結果</label>
+                  <label className="text-sm font-medium">{t('adminGlp.studyFinalReport.results')}</label>
                   <textarea className={textareaClass} value={edit.results} onChange={(e) => setEdit({ ...edit, results: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">結論</label>
+                  <label className="text-sm font-medium">{t('adminGlp.studyFinalReport.conclusions')}</label>
                   <textarea className={textareaClass} value={edit.conclusions} onChange={(e) => setEdit({ ...edit, conclusions: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">偏離事項</label>
+                  <label className="text-sm font-medium">{t('adminGlp.studyFinalReport.deviations')}</label>
                   <textarea className={textareaClass} value={edit.deviations} onChange={(e) => setEdit({ ...edit, deviations: e.target.value })} />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setEdit(null)}>取消</Button>
-                  <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>儲存</Button>
+                  <Button variant="outline" onClick={() => setEdit(null)}>{t('common.cancel')}</Button>
+                  <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>{t('common.save')}</Button>
                 </div>
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-1 gap-2 text-sm">
-                  <div><span className="font-medium">摘要：</span>{report.summary || '—'}</div>
-                  <div><span className="font-medium">方法：</span>{report.methods || '—'}</div>
-                  <div><span className="font-medium">結果：</span>{report.results || '—'}</div>
-                  <div><span className="font-medium">結論：</span>{report.conclusions || '—'}</div>
-                  <div><span className="font-medium">偏離事項：</span>{report.deviations || '—'}</div>
+                  <div><span className="font-medium">{t('adminGlp.studyFinalReport.view.summary')}</span>{report.summary || '—'}</div>
+                  <div><span className="font-medium">{t('adminGlp.studyFinalReport.view.methods')}</span>{report.methods || '—'}</div>
+                  <div><span className="font-medium">{t('adminGlp.studyFinalReport.view.results')}</span>{report.results || '—'}</div>
+                  <div><span className="font-medium">{t('adminGlp.studyFinalReport.view.conclusions')}</span>{report.conclusions || '—'}</div>
+                  <div><span className="font-medium">{t('adminGlp.studyFinalReport.view.deviations')}</span>{report.deviations || '—'}</div>
                 </div>
                 {report.status !== 'signed' && (
-                  <Button variant="outline" size="sm" onClick={() => startEdit(report)}>編輯報告本文</Button>
+                  <Button variant="outline" size="sm" onClick={() => startEdit(report)}>{t('adminGlp.studyFinalReport.detail.editBody')}</Button>
                 )}
               </div>
             )}
@@ -397,11 +407,11 @@ function StudyReportDetailDialog({
             {/* SD 簽署：無 admin 例外，僅本計畫 SD 本人可簽 */}
             {report.status !== 'signed' && (
               <div className="space-y-2 border-t pt-4">
-                <label className="text-sm font-medium">簽署最終報告（僅本計畫計劃負責人 Study Director 可簽）</label>
+                <label className="text-sm font-medium">{t('adminGlp.studyFinalReport.detail.signSection')}</label>
                 <div className="flex gap-2">
                   <Input
                     type="password"
-                    placeholder="密碼確認身分"
+                    placeholder={t('adminGlp.studyFinalReport.detail.passwordPlaceholder')}
                     value={signPassword}
                     onChange={(e) => setSignPassword(e.target.value)}
                   />
@@ -409,7 +419,7 @@ function StudyReportDetailDialog({
                     onClick={() => signMutation.mutate()}
                     disabled={!signPassword || signMutation.isPending}
                   >
-                    簽署
+                    {t('adminGlp.studyFinalReport.detail.sign')}
                   </Button>
                 </div>
               </div>
@@ -417,10 +427,10 @@ function StudyReportDetailDialog({
 
             {/* QAU 品保聲明：與報告本文分開授權，且不得為本計畫 SD 本人（服務層強制） */}
             <div className="space-y-2 border-t pt-4">
-              <label className="text-sm font-medium">QAU 品保聲明</label>
+              <label className="text-sm font-medium">{t('adminGlp.studyFinalReport.detail.qauStatement')}</label>
               {report.qau_signed_at && (
                 <p className="text-xs text-muted-foreground">
-                  已於 {new Date(report.qau_signed_at).toLocaleString(uiLocale())} 出具
+                  {t('adminGlp.studyFinalReport.detail.qauIssuedAt', { time: new Date(report.qau_signed_at).toLocaleString(uiLocale()) })}
                 </p>
               )}
               {canWriteQauStatement ? (
@@ -435,7 +445,7 @@ function StudyReportDetailDialog({
                     className={textareaClass}
                     value={qauStatement ?? report.qau_statement ?? ''}
                     onChange={(e) => setQauStatement(e.target.value)}
-                    placeholder="品保稽核結論…"
+                    placeholder={t('adminGlp.studyFinalReport.detail.qauPlaceholder')}
                   />
                   <div className="flex justify-end">
                     <Button
@@ -443,19 +453,19 @@ function StudyReportDetailDialog({
                       onClick={() => qauMutation.mutate()}
                       disabled={!(qauStatement ?? report.qau_statement) || qauMutation.isPending}
                     >
-                      儲存品保聲明
+                      {t('adminGlp.studyFinalReport.detail.saveQauStatement')}
                     </Button>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">{report.qau_statement || '尚無品保聲明'}</p>
+                <p className="text-sm text-muted-foreground">{report.qau_statement || t('adminGlp.studyFinalReport.detail.noQauStatement')}</p>
               )}
             </div>
           </div>
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>關閉</Button>
+          <Button variant="outline" onClick={onClose}>{t('common.closeDialog')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

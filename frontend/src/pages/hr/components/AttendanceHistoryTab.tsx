@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Clock, Download, Pencil, Plus, RefreshCw, Users } from 'lucide-react'
 
@@ -31,24 +33,25 @@ import type { PaginatedResponse } from '@/types/common'
 import { useAttendanceMutations } from '../hooks/useAttendanceMutations'
 import { AttendanceCorrectionDialog } from './AttendanceCorrectionDialog'
 
-function formatHours(hours: number | string | null) {
+function formatHours(t: TFunction, hours: number | string | null) {
     if (hours === null || hours === undefined) return '-'
     const numHours = typeof hours === 'string' ? parseFloat(hours) : hours
     if (isNaN(numHours)) return '-'
-    return `${numHours.toFixed(1)} 小時`
+    return t('hrPages.shared.hoursValue', { hours: numHours.toFixed(1) })
 }
 
-function getStatusBadge(status: string) {
+function getStatusBadge(t: TFunction, status: string) {
     switch (status) {
-        case 'normal': return <StatusBadge variant="success">正常</StatusBadge>
-        case 'late': return <StatusBadge variant="error">遲到</StatusBadge>
-        case 'early_leave': return <StatusBadge variant="warning">早退</StatusBadge>
-        case 'absent': return <StatusBadge variant="error">缺勤</StatusBadge>
+        case 'normal': return <StatusBadge variant="success">{t('hrPages.shared.attendanceStatus.normal')}</StatusBadge>
+        case 'late': return <StatusBadge variant="error">{t('hrPages.shared.attendanceStatus.late')}</StatusBadge>
+        case 'early_leave': return <StatusBadge variant="warning">{t('hrPages.shared.attendanceStatus.early_leave')}</StatusBadge>
+        case 'absent': return <StatusBadge variant="error">{t('hrPages.shared.attendanceStatus.absent')}</StatusBadge>
         default: return <StatusBadge variant="neutral">{status}</StatusBadge>
     }
 }
 
 export function AttendanceHistoryTab() {
+    const { t } = useTranslation()
     const [dateFrom, setDateFrom] = useState('')
     const [dateTo, setDateTo] = useState('')
     const [viewAll, setViewAll] = useState(false)
@@ -113,12 +116,12 @@ export function AttendanceHistoryTab() {
         <div className="space-y-4">
             <div className="flex flex-wrap items-end gap-4">
                 <div className="flex flex-col gap-2">
-                    <Label>開始日期</Label>
-                    <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="開始日期" />
+                    <Label>{t('hrPages.shared.filter.startDate')}</Label>
+                    <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder={t('hrPages.shared.filter.startDate')} />
                 </div>
                 <div className="flex flex-col gap-2">
-                    <Label>結束日期</Label>
-                    <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="結束日期" />
+                    <Label>{t('hrPages.shared.filter.endDate')}</Label>
+                    <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder={t('hrPages.shared.filter.endDate')} />
                 </div>
                 {canViewAll && (
                     <>
@@ -126,16 +129,16 @@ export function AttendanceHistoryTab() {
                             <Switch id="view-all" checked={viewAll} onCheckedChange={(checked) => { setViewAll(checked); if (!checked) setFilterUserId('') }} />
                             <Label htmlFor="view-all" className="cursor-pointer flex items-center gap-2">
                                 <Users className="h-4 w-4" />
-                                查看所有人
+                                {t('hrPages.attendance.history.viewAll')}
                             </Label>
                         </div>
                         {viewAll && staffList && (
                             <div className="flex flex-col gap-2">
-                                <Label>篩選人員</Label>
+                                <Label>{t('hrPages.shared.filter.filterStaff')}</Label>
                                 <Select value={filterUserId || 'all'} onValueChange={(v) => setFilterUserId(v === 'all' ? '' : v)}>
-                                    <SelectTrigger className="w-[200px]"><SelectValue placeholder="全部人員" /></SelectTrigger>
+                                    <SelectTrigger className="w-[200px]"><SelectValue placeholder={t('hrPages.shared.filter.allStaff')} /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="all">全部人員</SelectItem>
+                                        <SelectItem value="all">{t('hrPages.shared.filter.allStaff')}</SelectItem>
                                         {staffList.map((s) => (
                                             <SelectItem key={s.id} value={s.id}>{s.display_name}</SelectItem>
                                         ))}
@@ -147,19 +150,19 @@ export function AttendanceHistoryTab() {
                 )}
                 <Button variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.hr.allAttendanceHistory })}>
                     <RefreshCw className="h-4 w-4 mr-2" />
-                    重新整理
+                    {t('hrPages.shared.action.refresh')}
                 </Button>
                 <GuestHide>
                     <Button variant="outline" onClick={() => exportExcelMutation.mutate()} disabled={exportExcelMutation.isPending}>
                         <Download className="h-4 w-4 mr-2" />
-                        {exportExcelMutation.isPending ? '匯出中...' : '匯出 Excel'}
+                        {exportExcelMutation.isPending ? t('hrPages.attendance.history.exporting') : t('hrPages.attendance.history.exportExcel')}
                     </Button>
                 </GuestHide>
                 {canCorrect && (
                     <GuestHide>
                         <Button onClick={openBackfill}>
                             <Plus className="h-4 w-4 mr-2" />
-                            補卡
+                            {t('hrPages.attendance.history.backfill')}
                         </Button>
                     </GuestHide>
                 )}
@@ -170,15 +173,15 @@ export function AttendanceHistoryTab() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <SortableTableHead sortKey="work_date" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>日期</SortableTableHead>
-                                <SortableTableHead sortKey="user_name" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>人員名稱</SortableTableHead>
-                                <SortableTableHead className="hidden @[750px]:table-cell" sortKey="clock_in_time" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>上班</SortableTableHead>
-                                <SortableTableHead className="hidden @[750px]:table-cell" sortKey="clock_out_time" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>下班</SortableTableHead>
-                                <SortableTableHead className="hidden @[900px]:table-cell" sortKey="regular_hours" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>工作時數</SortableTableHead>
-                                <SortableTableHead className="hidden @[900px]:table-cell" sortKey="overtime_hours" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>加班時數</SortableTableHead>
-                                <SortableTableHead sortKey="status" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>狀態</SortableTableHead>
-                                <TableHead className="hidden @[1050px]:table-cell">備註</TableHead>
-                                {canCorrect && <TableHead className="w-20">操作</TableHead>}
+                                <SortableTableHead sortKey="work_date" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>{t('hrPages.shared.col.date')}</SortableTableHead>
+                                <SortableTableHead sortKey="user_name" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>{t('hrPages.shared.col.staffName')}</SortableTableHead>
+                                <SortableTableHead className="hidden @[750px]:table-cell" sortKey="clock_in_time" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>{t('hrPages.attendance.history.clockIn')}</SortableTableHead>
+                                <SortableTableHead className="hidden @[750px]:table-cell" sortKey="clock_out_time" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>{t('hrPages.attendance.history.clockOut')}</SortableTableHead>
+                                <SortableTableHead className="hidden @[900px]:table-cell" sortKey="regular_hours" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>{t('hrPages.attendance.today.regularHours')}</SortableTableHead>
+                                <SortableTableHead className="hidden @[900px]:table-cell" sortKey="overtime_hours" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>{t('hrPages.attendance.today.overtimeHours')}</SortableTableHead>
+                                <SortableTableHead sortKey="status" currentSort={historySort.column} currentDirection={historySort.direction} onSort={toggleHistorySort}>{t('hrPages.shared.col.status')}</SortableTableHead>
+                                <TableHead className="hidden @[1050px]:table-cell">{t('hrPages.attendance.history.remark')}</TableHead>
+                                {canCorrect && <TableHead className="w-20">{t('common.actions')}</TableHead>}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -187,7 +190,7 @@ export function AttendanceHistoryTab() {
                                     <TableCell colSpan={columnCount} className="p-0"><TableSkeleton rows={5} cols={columnCount} /></TableCell>
                                 </TableRow>
                             ) : sortedHistory?.length === 0 ? (
-                                <TableEmptyRow colSpan={columnCount} icon={Clock} title="沒有出勤記錄" />
+                                <TableEmptyRow colSpan={columnCount} icon={Clock} title={t('hrPages.attendance.history.empty')} />
                             ) : (
                                 sortedHistory?.map((record) => (
                                     <TableRow key={record.id}>
@@ -195,11 +198,11 @@ export function AttendanceHistoryTab() {
                                         <TableCell className="font-medium">{record.user_name}</TableCell>
                                         <TableCell className="hidden @[750px]:table-cell">{formatTime(record.clock_in_time)}</TableCell>
                                         <TableCell className="hidden @[750px]:table-cell">{formatTime(record.clock_out_time)}</TableCell>
-                                        <TableCell className="hidden @[900px]:table-cell">{formatHours(record.regular_hours)}</TableCell>
-                                        <TableCell className="hidden @[900px]:table-cell">{formatHours(record.overtime_hours)}</TableCell>
-                                        <TableCell>{getStatusBadge(record.status)}</TableCell>
+                                        <TableCell className="hidden @[900px]:table-cell">{formatHours(t, record.regular_hours)}</TableCell>
+                                        <TableCell className="hidden @[900px]:table-cell">{formatHours(t, record.overtime_hours)}</TableCell>
+                                        <TableCell>{getStatusBadge(t, record.status)}</TableCell>
                                         <TableCell className="hidden @[1050px]:table-cell">
-                                            {record.is_corrected && <Badge variant="outline">已更正</Badge>}
+                                            {record.is_corrected && <Badge variant="outline">{t('hrPages.attendance.history.corrected')}</Badge>}
                                             {record.remark && <span className="text-muted-foreground text-sm">{record.remark}</span>}
                                         </TableCell>
                                         {canCorrect && (
@@ -208,7 +211,7 @@ export function AttendanceHistoryTab() {
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
-                                                        aria-label={`更正 ${record.user_name} ${record.work_date} 的出勤記錄`}
+                                                        aria-label={t('hrPages.attendance.history.correctAria', { name: record.user_name, date: record.work_date })}
                                                         onClick={() => openCorrection(record)}
                                                     >
                                                         <Pencil className="h-4 w-4" />
@@ -229,7 +232,7 @@ export function AttendanceHistoryTab() {
                     ) : sortedHistory?.length === 0 ? (
                         <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                             <Clock className="h-8 w-8" />
-                            <p className="text-sm">沒有出勤記錄</p>
+                            <p className="text-sm">{t('hrPages.attendance.history.empty')}</p>
                         </div>
                     ) : (
                         sortedHistory?.map((record) => (
@@ -239,19 +242,19 @@ export function AttendanceHistoryTab() {
                                         <div className="font-medium break-words">{record.user_name}</div>
                                         <div className="text-xs text-muted-foreground">{formatDate(record.work_date, { weekday: true })}</div>
                                     </div>
-                                    {getStatusBadge(record.status)}
+                                    {getStatusBadge(t, record.status)}
                                 </div>
                                 <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3">
-                                    <span>上 {formatTime(record.clock_in_time)}</span>
-                                    <span>下 {formatTime(record.clock_out_time)}</span>
-                                    <span>工時 {formatHours(record.regular_hours)}</span>
+                                    <span>{t('hrPages.attendance.history.clockInShort', { time: formatTime(record.clock_in_time) })}</span>
+                                    <span>{t('hrPages.attendance.history.clockOutShort', { time: formatTime(record.clock_out_time) })}</span>
+                                    <span>{t('hrPages.attendance.history.workHoursShort', { hours: formatHours(t, record.regular_hours) })}</span>
                                     {record.overtime_hours && Number(record.overtime_hours) > 0 && (
-                                        <span>加班 {formatHours(record.overtime_hours)}</span>
+                                        <span>{t('hrPages.attendance.history.overtimeShort', { hours: formatHours(t, record.overtime_hours) })}</span>
                                     )}
                                 </div>
                                 {(record.is_corrected || record.remark) && (
                                     <div className="flex items-center gap-2 text-xs">
-                                        {record.is_corrected && <Badge variant="outline">已更正</Badge>}
+                                        {record.is_corrected && <Badge variant="outline">{t('hrPages.attendance.history.corrected')}</Badge>}
                                         {record.remark && <span className="text-muted-foreground break-words">{record.remark}</span>}
                                     </div>
                                 )}
@@ -260,7 +263,7 @@ export function AttendanceHistoryTab() {
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            aria-label={`更正 ${record.user_name} ${record.work_date} 的出勤記錄`}
+                                            aria-label={t('hrPages.attendance.history.correctAria', { name: record.user_name, date: record.work_date })}
                                             onClick={() => openCorrection(record)}
                                         >
                                             <Pencil className="h-4 w-4" />

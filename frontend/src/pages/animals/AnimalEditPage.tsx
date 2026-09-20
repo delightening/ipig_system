@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { AnimalStatus, animalStatusNames, animalFieldCorrectionApi } from '@/lib/api'
 import type { AnimalEditFormData } from './hooks/useAnimalEdit'
 import { Button } from '@/components/ui/button'
@@ -18,6 +19,7 @@ import { AnimalEditReadOnlyFields } from './components/AnimalEditReadOnlyFields'
 import { useAnimalEdit } from './hooks/useAnimalEdit'
 
 export function AnimalEditPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const animalId = id!
   const [correctionDialogOpen, setCorrectionDialogOpen] = useState(false)
@@ -37,7 +39,7 @@ export function AnimalEditPage() {
 
   const onValid = (data: AnimalEditFormData) => {
     if (data.pen_location && pens && !pens.some((p) => p.code === data.pen_location)) {
-      form.setError('pen_location', { message: '此欄號不存在，請重新選擇' })
+      form.setError('pen_location', { message: t('animalPages.editPage.penNotExist') })
       return
     }
     updateMutation.mutate(data)
@@ -55,8 +57,8 @@ export function AnimalEditPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-        <p className="text-muted-foreground">找不到此動物</p>
-        <Button variant="outline" className="mt-4" onClick={() => navigate('/animals')}>返回列表</Button>
+        <p className="text-muted-foreground">{t('animalDetail.notFound')}</p>
+        <Button variant="outline" className="mt-4" onClick={() => navigate('/animals')}>{t('animalDetail.backToList')}</Button>
       </div>
     )
   }
@@ -66,18 +68,18 @@ export function AnimalEditPage() {
       <div className="flex items-center justify-between">
         <Link to={`/animals/${animalId}`} className="inline-flex items-center text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          回到動物詳情
+          {t('animalPages.editPage.backToDetail')}
         </Link>
       </div>
 
       <PageHeader
-        title="編輯動物資料"
-        description={`耳號：${animal.ear_tag}`}
+        title={t('animalPages.editPage.title')}
+        description={t('animalPages.editPage.description', { earTag: animal.ear_tag })}
         actions={
           <Button size="sm" type="button" variant="outline" onClick={() => setCorrectionDialogOpen(true)}
             className="text-status-warning-text border-status-warning-border hover:bg-status-warning-bg">
             <FileEdit className="h-4 w-4 mr-2" />
-            申請修正（耳號/出生日期/性別/品種）
+            {t('animalPages.editPage.requestCorrection')}
           </Button>
         }
       />
@@ -89,15 +91,15 @@ export function AnimalEditPage() {
         onSubmit={async (data) => {
           await animalFieldCorrectionApi.create(animalId, data)
           queryClient.invalidateQueries({ queryKey: ['animal', animalId] })
-          toast({ title: '成功', description: '修正申請已提交，待管理員審核' })
+          toast({ title: t('common.success'), description: t('animalPages.editPage.correctionSubmitted') })
         }}
       />
 
       <form onSubmit={handleSubmit(onValid)}>
         <Card>
           <CardHeader>
-            <CardTitle>基本資料</CardTitle>
-            <CardDescription>編輯動物的基本資訊</CardDescription>
+            <CardTitle>{t('animalPages.editPage.basicInfo')}</CardTitle>
+            <CardDescription>{t('animalPages.editPage.basicInfoDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-6">
@@ -105,14 +107,14 @@ export function AnimalEditPage() {
 
               {/* 狀態 */}
               <div className="space-y-2">
-                <Label>狀態 *</Label>
-                <input type="hidden" {...register('status', { required: '請選擇狀態' })} />
+                <Label>{t('animals.status')} *</Label>
+                <input type="hidden" {...register('status', { required: t('animalPages.editPage.statusRequired') })} />
                 <Select value={watchedStatus ?? ''} onValueChange={(v) => setValue('status', v as AnimalStatus, { shouldValidate: true, shouldDirty: true })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(animalStatusNames)
                       .filter(([value]) => value !== 'transferred' && value !== 'sudden_death')
-                      .map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                      .map(([value]) => <SelectItem key={value} value={value}>{t(`animals.statusLabels.${value}`)}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
@@ -120,14 +122,14 @@ export function AnimalEditPage() {
 
               {/* 欄位 */}
               <div className="space-y-2">
-                <Label>欄位</Label>
+                <Label>{t('animals.pen')}</Label>
                 <SearchableSelect
                   options={penOptions}
                   value={watchedPenLocation ?? ''}
                   onValueChange={(v) => setValue('pen_location', v, { shouldValidate: true, shouldDirty: true })}
-                  placeholder="選擇欄號"
-                  searchPlaceholder="輸入欄號搜尋..."
-                  emptyMessage="找不到此欄號，請確認欄號正確"
+                  placeholder={t('animalPages.shared.selectPen')}
+                  searchPlaceholder={t('animalPages.editPage.penSearchPlaceholder')}
+                  emptyMessage={t('animalPages.editPage.penNotFoundCheck')}
                 />
                 {errors.pen_location && (
                   <p className="text-sm text-destructive">{errors.pen_location.message}</p>
@@ -145,17 +147,17 @@ export function AnimalEditPage() {
                   {...register('iacuc_no', {
                     validate: (value, formValues) =>
                       !(formValues.status === 'in_experiment' && !value) ||
-                      '選擇「實驗中」狀態時，IACUC No. 為必填欄位',
+                      t('animalPages.editPage.iacucRequiredInExperiment'),
                   })}
                 />
                 {animal.status === 'in_experiment' ? (
                   <>
                     <Input value={animal.iacuc_no || ''} disabled className="bg-muted" />
-                    <p className="text-xs text-status-warning-text">實驗中的動物無法更改 IACUC No.</p>
+                    <p className="text-xs text-status-warning-text">{t('animalPages.editPage.iacucLocked')}</p>
                   </>
                 ) : (
                   <Select value={watchedIacucNo || ''} onValueChange={(v) => setValue('iacuc_no', v === '' ? '' : v, { shouldValidate: true, shouldDirty: true })}>
-                    <SelectTrigger><SelectValue placeholder="選擇 IACUC No." /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t('animalPages.editPage.selectIacuc')} /></SelectTrigger>
                     <SelectContent>
                       {approvedProtocols?.map((protocol) => (
                         <SelectItem key={protocol.id} value={protocol.iacuc_no!}>{protocol.iacuc_no}</SelectItem>
@@ -167,25 +169,25 @@ export function AnimalEditPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>實驗日期</Label>
+                <Label>{t('animalPages.editPage.experimentDate')}</Label>
                 <Input type="date" {...register('experiment_date')} />
               </div>
 
               {/* 備註 */}
               <div className="space-y-2 col-span-2">
-                <Label htmlFor="remark">備註</Label>
-                <Textarea id="remark" {...register('remark')} placeholder="其他備註..." className="min-h-[100px]" />
+                <Label htmlFor="remark">{t('animalPages.shared.remark')}</Label>
+                <Textarea id="remark" {...register('remark')} placeholder={t('animalPages.shared.otherRemarks')} className="min-h-[100px]" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         <div className="flex items-center justify-end gap-3 mt-6">
-          <Button type="button" variant="outline" onClick={() => navigate(`/animals/${animalId}`)}>取消</Button>
+          <Button type="button" variant="outline" onClick={() => navigate(`/animals/${animalId}`)}>{t('common.cancel')}</Button>
           <Button type="submit" disabled={updateMutation.isPending || !isDirty} className="bg-primary hover:bg-primary/90">
             {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             <Save className="h-4 w-4 mr-2" />
-            儲存變更
+            {t('animalPages.editPage.saveChanges')}
           </Button>
         </div>
       </form>

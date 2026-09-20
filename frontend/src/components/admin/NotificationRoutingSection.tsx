@@ -8,6 +8,7 @@
  */
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,8 +49,23 @@ import type {
     EventTypeCategory,
     NotificationFrequency,
 } from '@/types/notification'
-import { BATCH_EVENT_TYPES, frequencyNames } from '@/types/notification'
+import { BATCH_EVENT_TYPES } from '@/types/notification'
 
+/** 事件不屬於任何後端分類時的內部分組鍵；顯示時才翻譯（不可與後端分類名稱衝突）。 */
+const OTHER_CATEGORY = '__other__'
+
+/** 頻率值 → i18n 鍵（顯示文字在渲染時才 `t()`）。 */
+const FREQUENCY_LABEL_KEYS: Record<NotificationFrequency, string> = {
+    immediate: 'adminOps.notificationRouting.frequency.immediate',
+    daily: 'adminOps.notificationRouting.frequency.daily',
+    weekly: 'adminOps.notificationRouting.frequency.weekly',
+    monthly: 'adminOps.notificationRouting.frequency.monthly',
+}
+
+/** 星期日(0)～星期六(6)，順序對應 day_of_week 數值；顯示文字走 i18n。 */
+const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
+
+// 鍵為後端 event-types 端點回傳的分類名稱（資料值，用於比對 icon，非顯示字串）
 const categoryIcons: Record<string, React.ReactNode> = {
     'AUP 計畫審查': <Shield className="h-4 w-4" />,
     '修正案': <FileText className="h-4 w-4" />,
@@ -85,8 +101,8 @@ function categorizeRules(
 
     const categoryOrder = categories.map(c => c.category)
     const sortedEntries = [...grouped.entries()].sort((a, b) => {
-        const catA = eventCategoryMap.get(a[0])?.category || '其他'
-        const catB = eventCategoryMap.get(b[0])?.category || '其他'
+        const catA = eventCategoryMap.get(a[0])?.category || OTHER_CATEGORY
+        const catB = eventCategoryMap.get(b[0])?.category || OTHER_CATEGORY
         const idxA = categoryOrder.indexOf(catA)
         const idxB = categoryOrder.indexOf(catB)
         return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB)
@@ -95,7 +111,7 @@ function categorizeRules(
     for (const [eventType, eventRules] of sortedEntries) {
         const info = eventCategoryMap.get(eventType)
         result.push({
-            category: info?.category || '其他',
+            category: info?.category || OTHER_CATEGORY,
             eventType,
             eventName: info?.name || eventType,
             rules: eventRules,
@@ -106,6 +122,7 @@ function categorizeRules(
 }
 
 export function NotificationRoutingSection() {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const { dialogState, confirm } = useConfirmDialog()
     const [showAddForm, setShowAddForm] = useState(false)
@@ -156,12 +173,12 @@ export function NotificationRoutingSection() {
             queryClient.invalidateQueries({ queryKey: ['notification-routing'] })
             setShowAddForm(false)
             setNewRule({ event_type: '', role_code: '', channel: 'both' })
-            toast({ title: '成功', description: '已新增通知路由規則' })
+            toast({ title: t('common.success'), description: t('adminOps.notificationRouting.section.toast.created') })
         },
         onError: (error: unknown) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '新增失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('adminOps.shared.createFailed')),
                 variant: 'destructive',
             })
         },
@@ -175,8 +192,8 @@ export function NotificationRoutingSection() {
         },
         onError: (error: unknown) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '更新失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('adminOps.shared.updateFailed')),
                 variant: 'destructive',
             })
         },
@@ -186,12 +203,12 @@ export function NotificationRoutingSection() {
         mutationFn: (id: string) => notificationRoutingApi.delete(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['notification-routing'] })
-            toast({ title: '成功', description: '規則已刪除' })
+            toast({ title: t('common.success'), description: t('adminOps.notificationRouting.section.toast.deleted') })
         },
         onError: (error: unknown) => {
             toast({
-                title: '錯誤',
-                description: getApiErrorMessage(error, '刪除失敗'),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('adminOps.shared.deleteFailed')),
                 variant: 'destructive',
             })
         },
@@ -256,10 +273,10 @@ export function NotificationRoutingSection() {
     const handleDelete = async (rule: NotificationRouting) => {
         const roleName = roleNameMap.get(rule.role_code) || rule.role_code
         const ok = await confirm({
-            title: '刪除路由規則',
-            description: `確定要刪除「${roleName}」的此條規則嗎？此操作無法復原。`,
+            title: t('adminOps.notificationRouting.deleteDialog.title'),
+            description: t('adminOps.notificationRouting.section.deleteConfirmDescription', { role: roleName }),
             variant: 'destructive',
-            confirmLabel: '刪除',
+            confirmLabel: t('common.delete'),
         })
         if (ok) deleteMutation.mutate(rule.id)
     }
@@ -267,8 +284,8 @@ export function NotificationRoutingSection() {
     const handleCreate = () => {
         if (!newRule.event_type || !newRule.role_code) {
             toast({
-                title: '提示',
-                description: '請選擇事件類型和角色',
+                title: t('adminOps.notificationRouting.section.toast.noticeTitle'),
+                description: t('adminOps.notificationRouting.section.toast.selectEventAndRole'),
                 variant: 'destructive',
             })
             return
@@ -283,12 +300,12 @@ export function NotificationRoutingSection() {
         <div className="border-t pt-6">
             <div className="flex items-center justify-between mb-4">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight">通知路由管理</h2>
+                    <h2 className="text-2xl font-bold tracking-tight">{t('adminOps.notificationRouting.section.title')}</h2>
                     <p className="text-muted-foreground">
-                        設定各類事件的通知收件角色與管道
+                        {t('adminOps.notificationRouting.section.subtitle')}
                         {totalRules > 0 && (
                             <span className="ml-2 text-xs">
-                                （共 {totalRules} 條規則，{activeRules} 條啟用中）
+                                {t('adminOps.notificationRouting.section.totalSummary', { total: totalRules, active: activeRules })}
                             </span>
                         )}
                     </p>
@@ -299,7 +316,7 @@ export function NotificationRoutingSection() {
                     onClick={() => setShowAddForm(!showAddForm)}
                 >
                     <Plus className="mr-1 h-4 w-4" />
-                    新增規則
+                    {t('adminOps.notificationRouting.page.addRule')}
                 </Button>
             </div>
 
@@ -307,18 +324,18 @@ export function NotificationRoutingSection() {
             {showAddForm && (
                 <Card className="mb-6 border-status-info-border bg-status-info-bg/30">
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-base">新增路由規則</CardTitle>
+                        <CardTitle className="text-base">{t('adminOps.notificationRouting.section.addFormTitle')}</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                             <div className="space-y-1.5">
-                                <Label>事件類型</Label>
+                                <Label>{t('adminOps.notificationRouting.section.eventType')}</Label>
                                 <Select
                                     value={newRule.event_type}
                                     onValueChange={(v) => setNewRule({ ...newRule, event_type: v })}
                                 >
                                     <SelectTrigger>
-                                        <SelectValue placeholder="選擇事件類型" />
+                                        <SelectValue placeholder={t('adminOps.notificationRouting.createDialog.eventTypePlaceholder')} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {(eventCategories || []).map((cat) => (
@@ -339,13 +356,13 @@ export function NotificationRoutingSection() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label>角色</Label>
+                                <Label>{t('adminOps.notificationRouting.section.role')}</Label>
                                 <Select
                                     value={newRule.role_code}
                                     onValueChange={(v) => setNewRule({ ...newRule, role_code: v })}
                                 >
                                     <SelectTrigger>
-                                        <SelectValue placeholder="選擇角色" />
+                                        <SelectValue placeholder={t('adminOps.notificationRouting.createDialog.rolePlaceholder')} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {(availableRoles || []).map((role) => (
@@ -358,7 +375,7 @@ export function NotificationRoutingSection() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label>通道</Label>
+                                <Label>{t('adminOps.notificationRouting.section.channel')}</Label>
                                 <Select
                                     value={newRule.channel || 'both'}
                                     onValueChange={(v) => setNewRule({ ...newRule, channel: v })}
@@ -367,9 +384,9 @@ export function NotificationRoutingSection() {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="in_app">站內通知</SelectItem>
-                                        <SelectItem value="email">Email</SelectItem>
-                                        <SelectItem value="both">兩者</SelectItem>
+                                        <SelectItem value="in_app">{t('adminOps.notificationRouting.channels.inApp')}</SelectItem>
+                                        <SelectItem value="email">{t('adminOps.notificationRouting.channels.email')}</SelectItem>
+                                        <SelectItem value="both">{t('adminOps.notificationRouting.section.channelBoth')}</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -385,20 +402,20 @@ export function NotificationRoutingSection() {
                                     ) : (
                                         <Plus className="mr-1 h-4 w-4" />
                                     )}
-                                    新增
+                                    {t('common.create')}
                                 </Button>
                                 <Button size="sm" variant="ghost" onClick={() => setShowAddForm(false)}>
-                                    取消
+                                    {t('common.cancel')}
                                 </Button>
                             </div>
                         </div>
 
                         <div className="mt-3">
-                            <Label>說明（選填）</Label>
+                            <Label>{t('adminOps.notificationRouting.section.descriptionOptional')}</Label>
                             <Input
                                 value={newRule.description || ''}
                                 onChange={(e) => setNewRule({ ...newRule, description: e.target.value })}
-                                placeholder="管理者備註"
+                                placeholder={t('adminOps.notificationRouting.section.descriptionPlaceholder')}
                                 className="mt-1"
                             />
                         </div>
@@ -416,7 +433,7 @@ export function NotificationRoutingSection() {
                 <Card className="border-status-error-border bg-status-error-bg">
                     <CardContent className="flex items-center gap-3 py-6">
                         <AlertCircle className="h-5 w-5 text-status-error-solid" />
-                        <span className="text-status-error-text">無法載入通知路由設定</span>
+                        <span className="text-status-error-text">{t('adminOps.notificationRouting.section.loadError')}</span>
                     </CardContent>
                 </Card>
             )}
@@ -426,7 +443,7 @@ export function NotificationRoutingSection() {
                     {groupedByCategory.size === 0 ? (
                         <Card>
                             <CardContent className="py-8 text-center text-muted-foreground">
-                                尚未設定任何通知路由規則
+                                {t('adminOps.notificationRouting.section.empty')}
                             </CardContent>
                         </Card>
                     ) : (
@@ -454,10 +471,12 @@ export function NotificationRoutingSection() {
                                             <span className="text-muted-foreground">
                                                 {categoryIcons[category] || <Route className="h-4 w-4" />}
                                             </span>
-                                            <span className="font-semibold">{category}</span>
+                                            <span className="font-semibold">
+                                                {category === OTHER_CATEGORY ? t('adminOps.notificationRouting.section.categoryOther') : category}
+                                            </span>
                                         </div>
                                         <span className="text-xs text-muted-foreground tabular-nums">
-                                            {catActiveCount}/{catRuleCount} 啟用
+                                            {t('adminOps.notificationRouting.section.categoryActiveCount', { active: catActiveCount, total: catRuleCount })}
                                         </span>
                                     </button>
 
@@ -477,6 +496,7 @@ export function NotificationRoutingSection() {
                                                     <div className="space-y-1.5 ml-0.5">
                                                         {item.rules.map((rule) => {
                                                             const isBatch = BATCH_EVENT_TYPES.has(rule.event_type)
+                                                            const frequencyKey = FREQUENCY_LABEL_KEYS[rule.frequency as NotificationFrequency]
                                                             return (
                                                                 <div key={rule.id} className="space-y-1">
                                                                     <div
@@ -490,7 +510,7 @@ export function NotificationRoutingSection() {
                                                                                 {roleNameMap.get(rule.role_code) || rule.role_code}
                                                                             </span>
                                                                             <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
-                                                                                {frequencyNames[rule.frequency as NotificationFrequency] ?? rule.frequency}
+                                                                                {frequencyKey ? t(frequencyKey) : rule.frequency}
                                                                             </span>
                                                                             {rule.description && (
                                                                                 <span className="text-xs text-muted-foreground truncate" title={rule.description}>
@@ -508,9 +528,9 @@ export function NotificationRoutingSection() {
                                                                                 <SelectValue />
                                                                             </SelectTrigger>
                                                                             <SelectContent>
-                                                                                <SelectItem value="in_app">站內通知</SelectItem>
-                                                                                <SelectItem value="email">Email</SelectItem>
-                                                                                <SelectItem value="both">兩者</SelectItem>
+                                                                                <SelectItem value="in_app">{t('adminOps.notificationRouting.channels.inApp')}</SelectItem>
+                                                                                <SelectItem value="email">{t('adminOps.notificationRouting.channels.email')}</SelectItem>
+                                                                                <SelectItem value="both">{t('adminOps.notificationRouting.section.channelBoth')}</SelectItem>
                                                                             </SelectContent>
                                                                         </Select>
 
@@ -534,7 +554,7 @@ export function NotificationRoutingSection() {
                                                                     {/* 批次事件的頻率設定列 */}
                                                                     {isBatch && (
                                                                         <div className="flex items-center gap-2 pl-4 pb-1">
-                                                                            <span className="text-xs text-muted-foreground w-12 shrink-0">頻率：</span>
+                                                                            <span className="text-xs text-muted-foreground w-12 shrink-0">{t('adminOps.notificationRouting.section.frequencyLabel')}</span>
                                                                             <Select
                                                                                 value={rule.frequency}
                                                                                 onValueChange={(v) => handleFrequencyChange(rule, v as NotificationFrequency)}
@@ -543,12 +563,12 @@ export function NotificationRoutingSection() {
                                                                                     <SelectValue />
                                                                                 </SelectTrigger>
                                                                                 <SelectContent>
-                                                                                    <SelectItem value="daily">每日</SelectItem>
-                                                                                    <SelectItem value="weekly">每週</SelectItem>
-                                                                                    <SelectItem value="monthly">每月</SelectItem>
+                                                                                    <SelectItem value="daily">{t('adminOps.notificationRouting.frequency.daily')}</SelectItem>
+                                                                                    <SelectItem value="weekly">{t('adminOps.notificationRouting.frequency.weekly')}</SelectItem>
+                                                                                    <SelectItem value="monthly">{t('adminOps.notificationRouting.frequency.monthly')}</SelectItem>
                                                                                 </SelectContent>
                                                                             </Select>
-                                                                            <span className="text-xs text-muted-foreground">時間：</span>
+                                                                            <span className="text-xs text-muted-foreground">{t('adminOps.notificationRouting.section.timeLabel')}</span>
                                                                             <Select
                                                                                 value={String(rule.hour_of_day)}
                                                                                 onValueChange={(v) => handleHourChange(rule, Number(v))}
@@ -566,7 +586,7 @@ export function NotificationRoutingSection() {
                                                                             </Select>
                                                                             {rule.frequency === 'weekly' && (
                                                                                 <>
-                                                                                    <span className="text-xs text-muted-foreground">星期：</span>
+                                                                                    <span className="text-xs text-muted-foreground">{t('adminOps.notificationRouting.section.weekdayLabel')}</span>
                                                                                     <Select
                                                                                         value={String(rule.day_of_week ?? 1)}
                                                                                         onValueChange={(v) => handleDowChange(rule, Number(v))}
@@ -575,8 +595,8 @@ export function NotificationRoutingSection() {
                                                                                             <SelectValue />
                                                                                         </SelectTrigger>
                                                                                         <SelectContent>
-                                                                                            {['日','一','二','三','四','五','六'].map((d, i) => (
-                                                                                                <SelectItem key={i} value={String(i)}>星期{d}</SelectItem>
+                                                                                            {WEEKDAY_KEYS.map((d, i) => (
+                                                                                                <SelectItem key={i} value={String(i)}>{t(`adminOps.notificationRouting.weekdays.${d}`)}</SelectItem>
                                                                                             ))}
                                                                                         </SelectContent>
                                                                                     </Select>

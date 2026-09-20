@@ -1,5 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
+import i18n from '@/lib/i18n'
 import api, { isAxiosError, deleteResource, User, Role, ResetPasswordRequest } from '@/lib/api'
 import { confirmPassword } from '@/lib/api/client'
 import { getErrorMessage, ApiErrorPayload } from '@/types/error'
@@ -10,14 +13,17 @@ import { getPasswordError, PASSWORD_MIN_LENGTH } from '@/lib/passwordValidation'
 // === 表單驗證（R58: 改為原生檢查避免 Zod 4 Function 探測觸發 CSP） ===
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-function validateCreateUserForm(data: { email: string; password: string; display_name: string; role_ids: string[] }): string | null {
-  if (!data.email) return '請輸入 Email'
-  if (!EMAIL_PATTERN.test(data.email)) return '請輸入有效的 Email'
-  if (data.password.length < PASSWORD_MIN_LENGTH) return `密碼至少需要 ${PASSWORD_MIN_LENGTH} 個字元`
+function validateCreateUserForm(
+  data: { email: string; password: string; display_name: string; role_ids: string[] },
+  t: TFunction,
+): string | null {
+  if (!data.email) return t('adminUsers.users.validation.emailRequired')
+  if (!EMAIL_PATTERN.test(data.email)) return t('adminUsers.users.validation.emailInvalid')
+  if (data.password.length < PASSWORD_MIN_LENGTH) return t('adminUsers.users.validation.passwordMinLength', { min: PASSWORD_MIN_LENGTH })
   const name = data.display_name.trim()
-  if (name.length < 2) return '至少 2 個字元'
-  if (name.length > 50) return '最多 50 個字元'
-  if (data.role_ids.length < 1) return '請選擇角色'
+  if (name.length < 2) return t('adminUsers.users.validation.nameMinLength')
+  if (name.length > 50) return t('adminUsers.users.validation.nameMaxLength')
+  if (data.role_ids.length < 1) return t('adminUsers.users.validation.rolesRequired')
   return null
 }
 
@@ -83,6 +89,7 @@ const defaultFormData: CreateUserData = {
 }
 
 export function useUserManagement() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { user: currentUser, impersonate } = useAuthStore()
@@ -184,7 +191,7 @@ export function useUserManagement() {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setShowCreateDialog(false)
       resetForm()
-      toast({ title: '成功', description: '用戶已創建' })
+      toast({ title: t('common.success'), description: t('adminUsers.users.toast.created') })
     },
     onError: (error: unknown) => {
       let errorMessage: string
@@ -195,34 +202,34 @@ export function useUserManagement() {
         const rawData = error.response?.data
         if (backendMessage) {
           if (backendMessage.includes('Password must be at least'))
-            errorMessage = `密碼至少需要 ${PASSWORD_MIN_LENGTH} 個字元`
+            errorMessage = t('adminUsers.users.validation.passwordMinLength', { min: PASSWORD_MIN_LENGTH })
           else if (
             backendMessage.includes('Password must contain uppercase, lowercase, and numeric')
           )
-            errorMessage = '密碼必須包含大寫字母、小寫字母和數字'
-          else if (backendMessage.includes('Invalid email format')) errorMessage = 'Email 格式不正確'
+            errorMessage = t('adminUsers.users.createError.passwordComplexity')
+          else if (backendMessage.includes('Invalid email format')) errorMessage = t('adminUsers.users.createError.emailFormat')
           else if (backendMessage.includes('Display name is required'))
-            errorMessage = '顯示名稱為必填欄位'
-          else if (backendMessage.includes('Email already exists')) errorMessage = '此 Email 已被使用'
+            errorMessage = t('adminUsers.users.createError.displayNameRequired')
+          else if (backendMessage.includes('Email already exists')) errorMessage = t('adminUsers.users.createError.emailTaken')
           else if (backendMessage.includes('Validation failed'))
-            errorMessage = backendMessage.replace('Validation failed:', '驗證失敗:')
+            errorMessage = backendMessage.replace('Validation failed:', t('adminUsers.users.createError.validationFailedPrefix'))
           else errorMessage = backendMessage
         } else if (typeof rawData === 'string' && statusCode === 422) {
-          errorMessage = '資料格式錯誤 (422)'
+          errorMessage = t('adminUsers.users.createError.badFormat422')
           detailMessage = rawData
         } else if (statusCode === 500) {
-          errorMessage = '伺服器內部錯誤，請稍後再試'
+          errorMessage = t('adminUsers.users.createError.serverError')
         } else if (statusCode === 403) {
-          errorMessage = '權限不足'
+          errorMessage = t('adminUsers.users.createError.forbidden')
         } else {
-          errorMessage = `請求失敗 (${statusCode || 'Unknown'})`
+          errorMessage = t('adminUsers.users.createError.requestFailed', { status: statusCode || 'Unknown' })
           detailMessage = typeof rawData === 'object' ? JSON.stringify(rawData) : String(rawData)
         }
       } else {
-        errorMessage = getErrorMessage(error) || '創建失敗'
+        errorMessage = getErrorMessage(error) || t('adminUsers.shared.createFailed')
       }
       toast({
-        title: '錯誤',
+        title: t('common.error'),
         description: detailMessage
           ? `${errorMessage}\n\nDetail: ${detailMessage}`
           : errorMessage,
@@ -252,12 +259,12 @@ export function useUserManagement() {
       setShowEditDialog(false)
       setShowRolesDialog(false)
       setSelectedUser(null)
-      toast({ title: '成功', description: '用戶已更新' })
+      toast({ title: t('common.success'), description: t('adminUsers.users.toast.updated') })
     },
     onError: (error: unknown) => {
       // 未結清事項衝突改由 handleUpdateRoles 用專屬對話框列出明細，不另外跳 toast
       if (getUnsettledItems(error)) return
-      toast({ title: '錯誤', description: getErrorMessage(error) || '更新失敗', variant: 'destructive' })
+      toast({ title: t('common.error'), description: getErrorMessage(error) || t('adminUsers.shared.updateFailed'), variant: 'destructive' })
     },
   })
 
@@ -267,7 +274,7 @@ export function useUserManagement() {
     // 刪除使用者後，其 session 已失效，需刷新 session 相關查詢
     queryClient.invalidateQueries({ queryKey: ['audit-sessions'] })
     queryClient.invalidateQueries({ queryKey: ['audit-dashboard'] })
-    toast({ title: '成功', description: '用戶已刪除' })
+    toast({ title: t('common.success'), description: t('adminUsers.users.toast.deleted') })
   }
 
   const resetPasswordMutation = useMutation({
@@ -285,7 +292,7 @@ export function useUserManagement() {
       })
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '密碼已重設' })
+      toast({ title: t('common.success'), description: t('adminUsers.users.toast.passwordReset') })
       setShowResetPasswordDialog(false)
       setUserToResetPassword(null)
       setNewPassword('')
@@ -294,23 +301,23 @@ export function useUserManagement() {
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getErrorMessage(error) || '重設密碼失敗',
+        title: t('common.error'),
+        description: getErrorMessage(error) || t('adminUsers.users.toast.resetPasswordFailed'),
         variant: 'destructive',
       })
     },
   })
 
   const handleCreate = () => {
-    const validationError = validateCreateUserForm(formData)
+    const validationError = validateCreateUserForm(formData, t)
     if (validationError) {
-      toast({ title: '錯誤', description: validationError, variant: 'destructive' })
+      toast({ title: t('common.error'), description: validationError, variant: 'destructive' })
       return
     }
     // 密碼複雜度驗證（含大寫、小寫、數字、弱密碼黑名單）
     const pwError = getPasswordError(formData.password)
     if (pwError) {
-      toast({ title: '錯誤', description: pwError, variant: 'destructive' })
+      toast({ title: t('common.error'), description: pwError, variant: 'destructive' })
       return
     }
     createMutation.mutate({
@@ -324,7 +331,7 @@ export function useUserManagement() {
   const handleCreateWithData = (data: CreateUserData) => {
     const pwError = getPasswordError(data.password)
     if (pwError) {
-      toast({ title: '錯誤', description: pwError, variant: 'destructive' })
+      toast({ title: t('common.error'), description: pwError, variant: 'destructive' })
       return
     }
     createMutation.mutate({
@@ -348,10 +355,10 @@ export function useUserManagement() {
       position: user.position || '',
       aup_roles: user.aup_roles || [],
       years_experience: user.years_experience || 0,
-      trainings: (user.trainings || []).map((t) => ({
-        code: t.code,
-        certificate_no: t.certificate_no || '',
-        received_date: t.received_date || '',
+      trainings: (user.trainings || []).map((training) => ({
+        code: training.code,
+        certificate_no: training.certificate_no || '',
+        received_date: training.received_date || '',
       })),
     })
     setShowEditDialog(true)
@@ -432,27 +439,27 @@ export function useUserManagement() {
       })
     },
     onError: () => {
-      toast({ title: '錯誤', description: '密碼錯誤，請重新輸入您的登入密碼', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('adminUsers.users.toast.passwordWrong'), variant: 'destructive' })
     },
   })
 
   const handleResetPassword = () => {
     if (!userToResetPassword) return
     if (!reauthPassword) {
-      toast({ title: '錯誤', description: '請輸入您的登入密碼以確認身份', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('adminUsers.users.toast.reauthRequired'), variant: 'destructive' })
       return
     }
     if (!newPassword || !confirmNewPassword) {
-      toast({ title: '錯誤', description: '請填寫所有欄位', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('adminUsers.users.toast.fillAllFields'), variant: 'destructive' })
       return
     }
     const resetPwError = getPasswordError(newPassword)
     if (resetPwError) {
-      toast({ title: '錯誤', description: resetPwError, variant: 'destructive' })
+      toast({ title: t('common.error'), description: resetPwError, variant: 'destructive' })
       return
     }
     if (newPassword !== confirmNewPassword) {
-      toast({ title: '錯誤', description: '兩次輸入的密碼不一致', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('adminUsers.users.toast.passwordMismatch'), variant: 'destructive' })
       return
     }
     confirmPasswordMutation.mutate(reauthPassword)
@@ -463,7 +470,7 @@ export function useUserManagement() {
     if (!userToResetPassword) return
     const resetPwError = getPasswordError(data.new_password)
     if (resetPwError) {
-      toast({ title: '錯誤', description: resetPwError, variant: 'destructive' })
+      toast({ title: t('common.error'), description: resetPwError, variant: 'destructive' })
       return
     }
     setNewPassword(data.new_password)
@@ -496,10 +503,23 @@ export function useUserManagement() {
 
   const handleExportUsers = () => {
     if (!sortedUsers || sortedUsers.length === 0) {
-      toast({ title: '無資料可匯出', description: '目前沒有使用者', variant: 'destructive' })
+      toast({ title: t('adminUsers.users.toast.noDataToExport'), description: t('adminUsers.users.toast.noUsers'), variant: 'destructive' })
       return
     }
-    const headers = ['Email', '名稱', '電話', '組織', '角色', '職稱', '到職日', '狀態', 'AUP角色', '年資']
+    // 內部匯出檔固定中文（使用者裁定 2026-09-19）
+    const tZh = i18n.getFixedT('zh-TW')
+    const headers = [
+      'Email',
+      tZh('admin.userTable.name'),
+      tZh('adminUsers.users.csv.phone'),
+      tZh('adminUsers.users.csv.organization'),
+      tZh('admin.userTable.role'),
+      tZh('adminUsers.users.csv.position'),
+      tZh('adminUsers.users.csv.entryDate'),
+      tZh('admin.userTable.status'),
+      tZh('adminUsers.users.csv.aupRoles'),
+      tZh('adminUsers.users.csv.yearsExperience'),
+    ]
     const rows = sortedUsers.map((u) => [
       u.email,
       u.display_name,
@@ -508,7 +528,7 @@ export function useUserManagement() {
       (u.roles || []).join('; '),
       u.position || '',
       u.entry_date || '',
-      u.is_active ? '啟用' : '停用',
+      u.is_active ? tZh('admin.userTable.active') : tZh('admin.userTable.inactive'),
       (u.aup_roles || []).join('; '),
       String(u.years_experience ?? ''),
     ])
@@ -521,7 +541,7 @@ export function useUserManagement() {
     link.download = `users_${new Date().toISOString().split('T')[0]}.csv`
     link.click()
     URL.revokeObjectURL(link.href)
-    toast({ title: '匯出成功', description: `已匯出 ${sortedUsers.length} 位使用者` })
+    toast({ title: t('common.exportSuccess'), description: t('adminUsers.users.toast.exported', { count: sortedUsers.length }) })
   }
 
   return {

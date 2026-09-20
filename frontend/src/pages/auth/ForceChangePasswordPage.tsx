@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form'
 import { useToggle } from '@/hooks/useToggle'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
 import { useAuthStore } from '@/stores/auth'
@@ -20,6 +21,7 @@ type ChangePasswordFormData = {
 }
 
 export function ForceChangePasswordPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { user, checkAuth } = useAuthStore()
 
@@ -59,17 +61,17 @@ export function ForceChangePasswordPage() {
     },
     onSuccess: async () => {
       toast({
-        title: '密碼變更成功',
-        description: '您的密碼已成功更新',
+        title: t('auth.forceChange.successToastTitle'),
+        description: t('auth.forceChange.successToastDescription'),
       })
       // 重新載入用戶資訊
       await checkAuth()
       navigate('/dashboard')
     },
     onError: (error: unknown) => {
-      const message = getErrorMessage(error) || '密碼變更失敗'
+      const message = getErrorMessage(error) || t('auth.forceChange.failedFallback')
       toast({
-        title: '錯誤',
+        title: t('common.error'),
         description: message,
         variant: 'destructive',
       })
@@ -78,7 +80,7 @@ export function ForceChangePasswordPage() {
 
   const onValid = (data: ChangePasswordFormData) => {
     if (data.current_password === data.new_password) {
-      setError('new_password', { message: '新密碼不能與目前密碼相同' })
+      setError('new_password', { message: t('auth.validation.newPasswordSameAsCurrent') })
       return
     }
     changePasswordMutation.mutate(data)
@@ -95,14 +97,14 @@ export function ForceChangePasswordPage() {
             <ShieldAlert className="h-7 w-7 text-status-warning-text" />
           </div>
           <CardTitle className="text-2xl font-bold text-center text-foreground">
-            需要變更密碼
+            {t('auth.forceChange.title')}
           </CardTitle>
           <CardDescription className="text-center text-muted-foreground">
-            為了您的帳號安全，請立即變更初始密碼
+            {t('auth.forceChange.description')}
           </CardDescription>
           {user && (
             <p className="text-center text-sm text-muted-foreground pt-2">
-              登入帳號：{user.email}
+              {t('auth.forceChange.loggedInAs', { email: user.email })}
             </p>
           )}
         </CardHeader>
@@ -119,14 +121,14 @@ export function ForceChangePasswordPage() {
               className="absolute opacity-0 pointer-events-none h-0 w-0"
               aria-hidden
             />
-            <FormField label="目前密碼" htmlFor="currentPassword" error={errors.current_password?.message}>
+            <FormField label={t('password.currentPassword')} htmlFor="currentPassword" error={errors.current_password?.message}>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="currentPassword"
                   type={showCurrentPassword ? 'text' : 'password'}
-                  placeholder="請輸入目前密碼"
-                  {...register('current_password', { required: '請輸入目前密碼' })}
+                  placeholder={t('auth.fields.currentPasswordPlaceholder')}
+                  {...register('current_password', { required: t('auth.validation.currentPasswordRequired') })}
                   className="pl-9 pr-10 bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring"
                   autoComplete="current-password"
                   autoFocus
@@ -142,16 +144,16 @@ export function ForceChangePasswordPage() {
             </FormField>
 
             <div className="space-y-2">
-              <FormField label="新密碼" htmlFor="newPassword" error={errors.new_password?.message}>
+              <FormField label={t('password.newPassword')} htmlFor="newPassword" error={errors.new_password?.message}>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="newPassword"
                     type={showNewPassword ? 'text' : 'password'}
-                    placeholder="請輸入新密碼"
+                    placeholder={t('auth.fields.newPasswordPlaceholder')}
                     {...register('new_password', {
-                      required: '請輸入新密碼',
-                      minLength: { value: PASSWORD_MIN_LENGTH, message: `密碼至少 ${PASSWORD_MIN_LENGTH} 個字元` },
+                      required: t('auth.validation.newPasswordRequired'),
+                      minLength: { value: PASSWORD_MIN_LENGTH, message: t('auth.passwordRules.minLengthShort', { min: PASSWORD_MIN_LENGTH }) },
                     })}
                     className="pl-9 pr-10 bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring"
                     autoComplete="new-password"
@@ -181,36 +183,36 @@ export function ForceChangePasswordPage() {
                   </div>
                   <div className="text-xs space-y-1 text-muted-foreground">
                     <p className={passwordChecks.length ? 'text-status-success-text' : ''}>
-                      {passwordChecks.length ? '\u2713' : '\u25CB'} {`\u81F3\u5C11 ${PASSWORD_MIN_LENGTH} \u500B\u5B57\u5143`}
+                      {passwordChecks.length ? '\u2713' : '\u25CB'} {t('auth.passwordChecks.minLength', { min: PASSWORD_MIN_LENGTH })}
                     </p>
                     <p className={passwordChecks.uppercase ? 'text-status-success-text' : ''}>
-                      {passwordChecks.uppercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5927\u5BEB\u5B57\u6BCD'}
+                      {passwordChecks.uppercase ? '\u2713' : '\u25CB'} {t('auth.passwordChecks.uppercase')}
                     </p>
                     <p className={passwordChecks.lowercase ? 'text-status-success-text' : ''}>
-                      {passwordChecks.lowercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5C0F\u5BEB\u5B57\u6BCD'}
+                      {passwordChecks.lowercase ? '\u2713' : '\u25CB'} {t('auth.passwordChecks.lowercase')}
                     </p>
                     <p className={passwordChecks.number ? 'text-status-success-text' : ''}>
-                      {passwordChecks.number ? '\u2713' : '\u25CB'} {'\u5305\u542B\u6578\u5B57'}
+                      {passwordChecks.number ? '\u2713' : '\u25CB'} {t('auth.passwordChecks.number')}
                     </p>
                     <p className={passwordChecks.notCommon ? 'text-status-success-text' : ''}>
-                      {passwordChecks.notCommon ? '\u2713' : '\u25CB'} {'\u975E\u5E38\u898B\u5F31\u5BC6\u78BC'}
+                      {passwordChecks.notCommon ? '\u2713' : '\u25CB'} {t('auth.passwordChecks.notCommon')}
                     </p>
                   </div>
                 </div>
               )}
             </div>
 
-            <FormField label="確認新密碼" htmlFor="confirmPassword" error={errors.confirm_password?.message}>
+            <FormField label={t('password.confirmPassword')} htmlFor="confirmPassword" error={errors.confirm_password?.message}>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="confirmPassword"
                   type={showConfirmPassword ? 'text' : 'password'}
-                  placeholder="再次輸入新密碼"
+                  placeholder={t('auth.fields.confirmNewPasswordPlaceholder')}
                   {...register('confirm_password', {
-                    required: '請確認新密碼',
+                    required: t('auth.validation.confirmNewPasswordRequired'),
                     validate: (value, formValues) =>
-                      value === formValues.new_password || '新密碼與確認密碼不一致',
+                      value === formValues.new_password || t('auth.forceChange.passwordsDoNotMatch'),
                   })}
                   className="pl-9 pr-10 bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-ring"
                   autoComplete="new-password"
@@ -224,7 +226,7 @@ export function ForceChangePasswordPage() {
                 </button>
               </div>
               {confirmPassword && newPassword === confirmPassword && newPassword && (
-                <p className="text-xs text-status-success-text">✓ 密碼一致</p>
+                <p className="text-xs text-status-success-text">✓ {t('auth.passwordChecks.match')}</p>
               )}
             </FormField>
 
@@ -236,10 +238,10 @@ export function ForceChangePasswordPage() {
               {changePasswordMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  處理中...
+                  {t('common.processed')}
                 </>
               ) : (
-                '確認變更密碼'
+                t('auth.forceChange.submit')
               )}
             </Button>
           </form>

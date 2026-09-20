@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 
 const STORAGE_KEY = 'cookie-consent'
@@ -47,6 +48,7 @@ function injectGoogleFonts() {
 }
 
 export function CookieConsent() {
+  const { t } = useTranslation()
   const [visible, setVisible] = useState(
     () => getCookieConsent() === null,
   )
@@ -72,10 +74,9 @@ export function CookieConsent() {
     <div className="fixed bottom-0 inset-x-0 z-50 bg-foreground/95 text-background px-4 py-3 text-sm backdrop-blur-sm">
       <div className="mx-auto flex max-w-5xl flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <p className="flex-1 min-w-0">
-          本系統使用必要性 Cookie 以維持您的登入狀態與安全性。
-          選擇「接受全部」將允許載入第三方字型等外部資源以提升顯示效果。
+          {t('cookieConsent.message')}
           <Link to="/privacy" className="ml-1 underline underline-offset-2 opacity-70 hover:opacity-100">
-            了解更多
+            {t('cookieConsent.learnMore')}
           </Link>
         </p>
         <div className="flex gap-2 sm:shrink-0">
@@ -85,14 +86,14 @@ export function CookieConsent() {
             onClick={() => handleAccept('essential')}
             className="flex-1 sm:flex-none border-background/40 bg-background text-foreground hover:bg-background/90"
           >
-            僅必要 Cookie
+            {t('cookieConsent.essentialOnly')}
           </Button>
           <Button
             size="sm"
             onClick={() => handleAccept('all')}
             className="flex-1 sm:flex-none"
           >
-            接受全部
+            {t('cookieConsent.acceptAll')}
           </Button>
         </div>
       </div>

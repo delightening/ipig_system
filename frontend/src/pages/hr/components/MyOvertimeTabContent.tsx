@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Clock, Send, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -6,7 +7,7 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table'
 import { parseDecimal } from '@/lib/utils'
 import type { OvertimeWithUser } from '@/types/hr'
 import type { PaginatedResponse } from '@/types/common'
-import { OVERTIME_TYPE_NAMES, formatDate } from '../constants'
+import { overtimeTypeLabel, formatDate } from '../constants'
 import { OvertimeStatusBadge } from './OvertimeStatusBadge'
 
 interface MyOvertimeTabContentProps {
@@ -26,49 +27,50 @@ export function MyOvertimeTabContent({
     isSubmitting,
     isDeleting,
 }: MyOvertimeTabContentProps) {
+    const { t } = useTranslation()
     const columns: ColumnDef<OvertimeWithUser>[] = [
         {
             key: 'date',
-            header: '日期',
+            header: t('hrPages.shared.col.date'),
             cell: (ot) => (
                 <span className="whitespace-nowrap">{formatDate(ot.overtime_date)}</span>
             ),
         },
         {
             key: 'time',
-            header: '時間',
+            header: t('hrPages.shared.col.time'),
             cell: (ot) => `${ot.start_time} ~ ${ot.end_time}`,
         },
         {
             key: 'type',
-            header: '類型',
-            cell: (ot) => OVERTIME_TYPE_NAMES[ot.overtime_type] || ot.overtime_type,
+            header: t('hrPages.shared.col.type'),
+            cell: (ot) => overtimeTypeLabel(t, ot.overtime_type),
         },
         {
             key: 'hours',
-            header: '加班時數',
-            cell: (ot) => `${parseDecimal(ot.hours).toFixed(1)} 小時`,
+            header: t('hrPages.overtime.hoursColumn'),
+            cell: (ot) => t('hrPages.shared.hoursValue', { hours: parseDecimal(ot.hours).toFixed(1) }),
         },
         {
             key: 'comp_time',
-            header: '補休',
+            header: t('hrPages.shared.col.compLeave'),
             className: 'text-status-success-text font-medium',
-            cell: (ot) => `${parseDecimal(ot.comp_time_hours).toFixed(1)} 小時`,
+            cell: (ot) => t('hrPages.shared.hoursValue', { hours: parseDecimal(ot.comp_time_hours).toFixed(1) }),
         },
         {
             key: 'reason',
-            header: '事由',
+            header: t('hrPages.shared.col.reason'),
             className: 'max-w-[150px] whitespace-normal break-words',
             cell: (ot) => ot.reason,
         },
         {
             key: 'status',
-            header: '狀態',
+            header: t('hrPages.shared.col.status'),
             cell: (ot) => <OvertimeStatusBadge status={ot.status} pendingOwner={ot.pending_owner} />,
         },
         {
             key: 'actions',
-            header: '操作',
+            header: t('common.actions'),
             className: 'text-right',
             cell: (ot) => (
                 <div className="flex items-center justify-end gap-1">
@@ -81,7 +83,7 @@ export function MyOvertimeTabContent({
                                 disabled={isSubmitting}
                             >
                                 <Send className="h-4 w-4 mr-1" />
-                                送審
+                                {t('hrPages.shared.action.submit')}
                             </Button>
                             <Button
                                 variant="destructive"
@@ -105,7 +107,7 @@ export function MyOvertimeTabContent({
                 data={overtimeData?.data}
                 isLoading={isLoading}
                 emptyIcon={Clock}
-                emptyTitle="沒有加班記錄"
+                emptyTitle={t('hrPages.overtime.mine.empty')}
                 rowKey={(row) => row.id}
             />
         </Card>

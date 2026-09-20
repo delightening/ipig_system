@@ -1,11 +1,13 @@
 import { useMutation } from '@tanstack/react-query'
+import type { TFunction } from 'i18next'
 
+import i18n from '@/lib/i18n'
 import api from '@/lib/api'
 import { formatDateTime } from '@/lib/utils'
 import { logger } from '@/lib/logger'
 import type { UserActivityLog } from '@/types/hr'
 
-import { categoryLabels, eventTypeLabels } from '../constants/auditLogs'
+import { getCategoryLabel, getEventTypeConfig } from '../constants/auditLogs'
 
 interface ExportParams {
   dateFrom: string
@@ -28,12 +30,22 @@ function buildExportQueryString(params: ExportParams): string {
   return qs.toString()
 }
 
-function buildCsvContent(logs: UserActivityLog[]): string {
-  const headers = ['時間', '操作者', '操作者信箱', '類別', '事件類型', '資料類型', '資料名稱', 'IP 位址', '可疑']
+function buildCsvContent(logs: UserActivityLog[], t: TFunction): string {
+  const headers = [
+    t('admin.auditLogTable.colTime'),
+    t('admin.auditLogTable.colActor'),
+    t('adminUsers.audit.export.actorEmail'),
+    t('admin.auditLogTable.colCategory'),
+    t('admin.activityLogDetailDialog.eventType'),
+    t('admin.auditLogTable.colEntityType'),
+    t('admin.auditLogTable.colEntityName'),
+    t('admin.activityLogDetailDialog.ipAddress'),
+    t('adminUsers.audit.export.suspicious'),
+  ]
   const csvRows = [headers.join(',')]
   for (const log of logs) {
-    const evtLabel = eventTypeLabels[log.event_type]?.label || log.event_type
-    const catLabel = categoryLabels[log.event_category] || log.event_category
+    const evtLabel = getEventTypeConfig(t, log.event_type)?.label || log.event_type
+    const catLabel = getCategoryLabel(t, log.event_category) || log.event_category
     const row = [
       formatDateTime(log.created_at),
       `"${(log.actor_display_name || '').replace(/"/g, '""')}"`,
@@ -43,7 +55,7 @@ function buildCsvContent(logs: UserActivityLog[]): string {
       log.entity_type || '',
       `"${(log.entity_display_name || '').replace(/"/g, '""')}"`,
       log.ip_address || '',
-      log.is_suspicious ? '是' : '否',
+      log.is_suspicious ? t('common.yes') : t('common.no'),
     ]
     csvRows.push(row.join(','))
   }
@@ -81,12 +93,14 @@ export function useAuditLogExport(params: ExportParams) {
   const exportCSVMutation = useMutation({
     mutationFn: () => fetchExportLogs(params),
     onSuccess: (logs) => {
+      // \u5167\u90E8\u532F\u51FA\u6A94\u56FA\u5B9A\u4E2D\u6587\uFF08\u4F7F\u7528\u8005\u88C1\u5B9A 2026-09-19\uFF09
+      const tZh = i18n.getFixedT('zh-TW')
       const bom = '\uFEFF'
-      const blob = new Blob([bom + buildCsvContent(logs)], { type: 'text/csv;charset=utf-8;' })
+      const blob = new Blob([bom + buildCsvContent(logs, tZh)], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `操作日誌_${params.dateFrom}_${params.dateTo}.csv`
+      a.download = `${tZh('adminUsers.audit.export.filenamePrefix')}_${params.dateFrom}_${params.dateTo}.csv`
       a.click()
       URL.revokeObjectURL(url)
     },
@@ -107,10 +121,10 @@ export function useAuditLogExport(params: ExportParams) {
       const a = document.createElement('a')
       a.href = url
       // 從 backend Content-Disposition 解出檔名（單一真實來源 per Gemini PR #346）；
-      // 解析失敗才退回前端組合 fallback
+      // 解析失敗才退回前端組合 fallback（檔名前綴固定中文，使用者裁定 2026-09-19）
       a.download = parseFilenameFromContentDisposition(
         res.headers?.['content-disposition'] as string | undefined
-      ) ?? `操作日誌_${params.dateFrom || 'all'}_${params.dateTo || 'all'}.pdf`
+      ) ?? `${i18n.t('adminUsers.audit.export.filenamePrefix', { lng: 'zh-TW' })}_${params.dateFrom || 'all'}_${params.dateTo || 'all'}.pdf`
       document.body.appendChild(a)
       a.click()
       a.remove()

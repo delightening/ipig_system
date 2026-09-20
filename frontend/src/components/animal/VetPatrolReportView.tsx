@@ -57,19 +57,19 @@ interface PatrolReport {
     entry_photos: EntryPhoto[]
 }
 
-// 類別顯示順序與標題（對齊後端 pdf_export 的 category_order；本元件僅需 key→label）
-const CATEGORY_ORDER: { key: string; label: string }[] = [
-    { key: 'pig_condition', label: '豬隻狀況' },
-    { key: 'epidemic_prevention', label: '防疫及消毒計畫' },
-    { key: 'case_record', label: '病歷紀錄' },
-    { key: 'other', label: '其他' },
+// 類別顯示順序與標題（對齊後端 pdf_export 的 category_order；本元件僅需 key→labelKey）
+const CATEGORY_ORDER: { key: string; labelKey: string }[] = [
+    { key: 'pig_condition', labelKey: 'animalActions.vetPatrol.category.pigCondition' },
+    { key: 'epidemic_prevention', labelKey: 'animalActions.vetPatrol.category.epidemicPrevention' },
+    { key: 'case_record', labelKey: 'animalActions.vetPatrol.category.caseRecord' },
+    { key: 'other', labelKey: 'animalActions.common.other' },
 ]
 
-const STATUS_LABEL: Record<PatrolReport['status'], string> = {
-    draft: '草稿',
-    awaiting_acknowledgement: '已送出',
-    awaiting_follow_up: '已送出',
-    completed: '已完成',
+const STATUS_LABEL_KEYS: Record<PatrolReport['status'], string> = {
+    draft: 'animalActions.vetPatrol.status.draft',
+    awaiting_acknowledgement: 'animalActions.vetPatrol.status.submitted',
+    awaiting_follow_up: 'animalActions.vetPatrol.status.submitted',
+    completed: 'common.actionCompleted',
 }
 
 interface VetPatrolReportViewProps {
@@ -127,9 +127,11 @@ function EntryPhotoGrid({ photos }: { photos: EntryPhoto[] }) {
 function EntryHeading({
     label, earTags, index,
 }: { label: string; earTags?: string[]; index: number }) {
+    const { t } = useTranslation()
     const tags = earTags ?? []
+    const sep = t('animalActions.common.listSeparator')
     if (tags.length === 0) {
-        return <h4 className="text-base font-bold leading-snug">條目 #{index + 1}</h4>
+        return <h4 className="text-base font-bold leading-snug">{t('animalActions.vetPatrol.entryNumber', { index: index + 1 })}</h4>
     }
     return (
         <div className="flex items-baseline justify-between gap-3">
@@ -138,12 +140,12 @@ function EntryHeading({
                 必須一併寫進去，否則輔助技術讀不到隻數（CodeRabbit #44）。 */}
             <h4
                 className="text-base font-bold leading-snug"
-                aria-label={`${label}，耳號 ${tags.join('、')}，共 ${tags.length} 隻`}
+                aria-label={t('animalActions.vetPatrol.entryAriaLabel', { label, earTags: tags.join(sep), count: tags.length })}
             >
-                {tags.join('、')}
-                <span className="ml-1.5 text-xs font-normal text-muted-foreground">{tags.length} 隻</span>
+                {tags.join(sep)}
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">{t('animalActions.common.animalCount', { count: tags.length })}</span>
             </h4>
-            <span className="shrink-0 text-xs text-muted-foreground">條目 #{index + 1}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">{t('animalActions.vetPatrol.entryNumber', { index: index + 1 })}</span>
         </div>
     )
 }
@@ -152,6 +154,7 @@ function EntryHeading({
 function CategorySection({
     label, entries, entryPhotos,
 }: { label: string; entries: EntryWithAnimal[]; entryPhotos: EntryPhoto[] }) {
+    const { t } = useTranslation()
     if (entries.length === 0) return null
     return (
         <section>
@@ -164,9 +167,9 @@ function CategorySection({
                     return (
                         <div key={entry.id} className="rounded-lg border bg-card p-3 space-y-2">
                             <EntryHeading label={label} earTags={entry.ear_tags} index={idx} />
-                            <Field label="觀察內容" value={entry.observation} />
-                            <Field label="建議" value={entry.suggestion} />
-                            <Field label="追蹤改善" value={entry.follow_up} />
+                            <Field label={t('animalActions.vetPatrol.observationContent')} value={entry.observation} />
+                            <Field label={t('animalActions.common.recommendation')} value={entry.suggestion} />
+                            <Field label={t('animalActions.common.followUp')} value={entry.follow_up} />
                             <EntryPhotoGrid photos={photos} />
                         </div>
                     )
@@ -178,11 +181,12 @@ function CategorySection({
 
 // 整體環境照（report-level）
 function EnvironmentPhotos({ photos }: { photos: PatrolPhoto[] }) {
+    const { t } = useTranslation()
     if (!photos || photos.length === 0) return null
     const sorted = photos.slice().sort((a, b) => a.sort_order - b.sort_order)
     return (
         <section>
-            <h3 className="mb-3 border-b pb-1.5 text-base font-bold">整體環境照</h3>
+            <h3 className="mb-3 border-b pb-1.5 text-base font-bold">{t('animalActions.vetPatrol.environmentPhotos')}</h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {sorted.map((photo) => (
                     <figure key={photo.id} className="space-y-1">
@@ -203,25 +207,26 @@ function EnvironmentPhotos({ photos }: { photos: PatrolPhoto[] }) {
 
 // 報告本體：基本資訊 + 各類別條目 + 整體環境照
 function ReportBody({ report }: { report: PatrolReport }) {
+    const { t } = useTranslation()
     const entryPhotos = report.entry_photos || []
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border bg-muted/30 p-4 text-sm">
                 <div>
-                    <span className="text-xs font-semibold text-muted-foreground">巡場日期</span>
+                    <span className="text-xs font-semibold text-muted-foreground">{t('animalActions.vetPatrol.patrolDate')}</span>
                     <p>{report.patrol_date}</p>
                 </div>
                 <div>
-                    <span className="text-xs font-semibold text-muted-foreground">陪同人員</span>
+                    <span className="text-xs font-semibold text-muted-foreground">{t('animalActions.vetPatrol.accompanying')}</span>
                     <p>{report.accompanying_personnel || '—'}</p>
                 </div>
                 <div>
-                    <span className="text-xs font-semibold text-muted-foreground">狀態</span>
-                    <p>{STATUS_LABEL[report.status]}</p>
+                    <span className="text-xs font-semibold text-muted-foreground">{t('animals.status')}</span>
+                    <p>{t(STATUS_LABEL_KEYS[report.status])}</p>
                 </div>
             </div>
 
-            {CATEGORY_ORDER.map(({ key, label }) => {
+            {CATEGORY_ORDER.map(({ key, labelKey }) => {
                 // 保留有文字 / 耳號 / 照片任一的條目（純照片條目也要顯示）
                 const catEntries = (report.entries || [])
                     .filter((e) => e.category === key)
@@ -233,7 +238,7 @@ function ReportBody({ report }: { report: PatrolReport }) {
                         || entryPhotos.some((p) => p.entry_id === e.id),
                     )
                     .sort((a, b) => a.sort_order - b.sort_order)
-                return <CategorySection key={key} label={label} entries={catEntries} entryPhotos={entryPhotos} />
+                return <CategorySection key={key} label={t(labelKey)} entries={catEntries} entryPhotos={entryPhotos} />
             })}
 
             <EnvironmentPhotos photos={report.photos} />
@@ -259,21 +264,21 @@ export function VetPatrolReportView({ reportId, open, onOpenChange, onDownloadPd
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-status-success-solid">
                         <Stethoscope className="h-5 w-5" />
-                        獸醫巡場報告
+                        {t('animalActions.vetPatrol.title')}
                     </DialogTitle>
                     <DialogDescription className="sr-only">
-                        唯讀檢視獸醫巡場報告內容；如需列印請使用「下載 PDF」。
+                        {t('animalActions.vetPatrol.view.description')}
                     </DialogDescription>
                 </DialogHeader>
 
                 {isLoading ? (
                     <div className="flex items-center justify-center py-20 text-muted-foreground">
                         <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                        載入中…
+                        {t('animalActions.common.loadingEllipsis')}
                     </div>
                 ) : isError || !report ? (
                     <div className="py-20 text-center text-sm text-destructive">
-                        報告載入失敗，請稍後再試或改用「下載 PDF」。
+                        {t('animalActions.vetPatrol.view.loadFailed')}
                     </div>
                 ) : (
                     <ReportBody report={report} />
@@ -282,12 +287,12 @@ export function VetPatrolReportView({ reportId, open, onOpenChange, onDownloadPd
                 {/* 動作列：檢視為 HTML，列印走 PDF */}
                 <div className="mt-4 flex justify-end gap-2 border-t pt-3">
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        {t('common.close', '關閉')}
+                        {t('common.closeDialog')}
                     </Button>
                     {onDownloadPdf && (
                         <Button variant="outline" onClick={onDownloadPdf}>
                             <FileDown className="mr-1 h-4 w-4" />
-                            下載 PDF
+                            {t('common.pdfExport.downloadPdf')}
                         </Button>
                     )}
                 </div>

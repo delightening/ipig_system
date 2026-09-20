@@ -1,11 +1,15 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface QuickSelectItem {
   id: string
   icon?: React.ReactNode
+  /** 按鈕顯示文字（隨 UI 語系） */
   label: string
+  /** 點按後寫入名稱欄的資料值（固定中文，使用者裁定 2026-09-19）；未提供時退回 label */
+  value?: string
   displayLabel?: React.ReactNode
   sublabel?: string
   specs?: QuickSelectSpec[]
@@ -13,8 +17,11 @@ export interface QuickSelectItem {
 
 export interface QuickSelectSpec {
   id: string
+  /** 按鈕顯示文字（隨 UI 語系） */
   primary: string
   secondary?: string
+  /** 點按後寫入規格欄的資料值（固定中文，使用者裁定 2026-09-19）；未提供時退回 primary / secondary */
+  value?: { primary: string; secondary?: string }
 }
 
 interface QuickSelectCardProps {
@@ -94,6 +101,8 @@ export function QuickSelectGrid({
   onShowMore,
   className,
 }: QuickSelectGridProps) {
+  const { t } = useTranslation()
+
   return (
     <div className={cn("grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4", className)}>
       {items.map((item) => (
@@ -118,7 +127,7 @@ export function QuickSelectGrid({
           )}
         >
           <ChevronRight className="w-5 h-5 text-muted-foreground mb-1" />
-          <span className="text-xs text-muted-foreground">更多</span>
+          <span className="text-xs text-muted-foreground">{t('erpMaster.quickSelect.more')}</span>
         </button>
       )}
     </div>
@@ -150,10 +159,12 @@ export function SpecSelectionPanel({
   disabled = false,
   className,
 }: SpecSelectionPanelProps) {
+  const { t } = useTranslation()
+
   return (
     <div className={cn("space-y-4", className)}>
       <h4 className="text-sm font-medium text-foreground dark:text-muted-foreground">
-        選擇規格：{title}
+        {t('erpMaster.quickSelect.selectSpec', { title })}
       </h4>
 
       <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -184,7 +195,7 @@ export function SpecSelectionPanel({
           {extraOptions.map((option, index) => (
             <div key={index} className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground dark:text-muted-foreground min-w-[60px]">
-                {option.label}：
+                {t('erpMaster.quickSelect.optionLabel', { label: option.label })}
               </span>
               <div className="flex gap-2">
                 {option.options.map((opt) => (

@@ -107,7 +107,7 @@ export function DashboardPage() {
     },
     onError: (error) => {
       logger.error('儲存佈局失敗:', error)
-      toast({ title: '錯誤', description: '儲存佈局失敗', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('dashboard.messages.layoutSaveFailed'), variant: 'destructive' })
     },
   })
 
@@ -212,7 +212,7 @@ export function DashboardPage() {
       saveLayoutMutation.mutate(pref, {
         onSuccess: () => {
           exitEditMode()
-          toast({ title: '成功', description: '佈局已儲存' })
+          toast({ title: t('common.success'), description: t('dashboard.messages.layoutSaved') })
         },
       })
     } else {
@@ -233,7 +233,7 @@ export function DashboardPage() {
       onSuccess: () => {
         setShowSettingsDialog(false)
         exitEditMode()
-        toast({ title: '成功', description: '佈局已重設為預設值' })
+        toast({ title: t('common.success'), description: t('dashboard.messages.layoutReset') })
       },
     })
   }

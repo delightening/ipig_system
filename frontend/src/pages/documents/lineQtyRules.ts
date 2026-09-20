@@ -5,6 +5,7 @@
  * 兩邊必須同進退——前端比後端寬會讓錯誤拖到 API 才浮現，比後端嚴則會擋掉合法操作
  * （2026-09-14 的 STK／ADJ 故障就是後者）。
  */
+import i18n from '@/lib/i18n'
 import type { DocType } from '@/lib/api'
 
 /**
@@ -30,14 +31,22 @@ export function lineQtyError(
   rawQty: string | undefined,
   lineNo: number,
 ): string | undefined {
+  // 訊息＝「第 N 行：」前綴＋規則本體；前綴永遠在句首，兩種語言語序一致。
+  const withLine = (message: string) =>
+    `${i18n.t('erpDocs.documents.validation.linePrefix', { lineNo })}${message}`
+
   const qty = parseFloat(rawQty ?? '')
-  if (Number.isNaN(qty)) return `第 ${lineNo} 行：數量必須是數字`
+  if (Number.isNaN(qty)) return withLine(i18n.t('erpDocs.documents.validation.qtyNotNumber'))
 
   if (docType === 'STK') {
-    return qty < 0 ? `第 ${lineNo} 行：盤點數量不可為負數` : undefined
+    return qty < 0
+      ? withLine(i18n.t('erpDocs.documents.validation.stocktakeQtyNegative'))
+      : undefined
   }
   if (docType === 'ADJ') {
-    return qty === 0 ? `第 ${lineNo} 行：調整數量不可為 0` : undefined
+    return qty === 0
+      ? withLine(i18n.t('erpDocs.documents.validation.adjustQtyZero'))
+      : undefined
   }
-  return qty <= 0 ? `第 ${lineNo} 行：數量必須大於 0` : undefined
+  return qty <= 0 ? withLine(i18n.t('validation.quantityPositive')) : undefined
 }

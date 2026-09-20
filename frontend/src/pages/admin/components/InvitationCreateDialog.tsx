@@ -270,7 +270,7 @@ export function InvitationCreateDialog({ open, onOpenChange, onSuccess }: Invita
                             // ——正是本 PR 要消滅的那個靜默猜測。
                             validate: v =>
                                 typeof v === 'boolean' ||
-                                '請選擇受邀者是本場受僱人員或外部人員',
+                                t('adminUsers.invitations.affiliationRequired'),
                         })}
                     />
                     <StaffAffiliationField

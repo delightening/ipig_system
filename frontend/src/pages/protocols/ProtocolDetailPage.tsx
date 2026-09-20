@@ -129,10 +129,10 @@ export function ProtocolDetailPage() {
         {protocol.import_pending && (
           <div className="flex items-center justify-between gap-3 rounded-lg border border-status-warning-border bg-status-warning-bg px-4 py-3">
             <p className="text-sm text-status-warning-text">
-              此計劃為「補登中」：可編輯內容並補登歷史審查文件，完成補登後將鎖定。
+              {t('protocolPages.detail.importPendingNotice')}
             </p>
             <Button asChild size="sm" className="shrink-0">
-              <Link to={`/protocols/${id}/import-review`}>前往補登作業</Link>
+              <Link to={`/protocols/${id}/import-review`}>{t('protocolPages.detail.goToImportReview')}</Link>
             </Button>
           </div>
         )}

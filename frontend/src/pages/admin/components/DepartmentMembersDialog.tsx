@@ -128,7 +128,7 @@ export function DepartmentMembersDialog({ open, onOpenChange, department, canMan
                       {/* 外部人員一律加標籤：名單放寬後不標示的話，
                           很容易把外聘委員誤選進一般部門 */}
                       {!u.is_internal && (
-                        <span className="ml-2 text-xs text-muted-foreground">（外部人員）</span>
+                        <span className="ml-2 text-xs text-muted-foreground">{t('adminUsers.shared.externalStaffTag')}</span>
                       )}
                     </SelectItem>
                   ))}
@@ -156,10 +156,10 @@ export function DepartmentMembersDialog({ open, onOpenChange, department, canMan
                   if (!next) setSelectedUser('')
                 }}
               />
-              一併顯示外部人員
+              {t('adminUsers.facilities.departmentMembers.showExternal')}
             </label>
             <p className="mt-1 text-xs text-muted-foreground">
-              外部人員（例如 IACUC 外聘委員）可以編入部門，但不適用請假、加班等人事作業。
+              {t('adminUsers.facilities.departmentMembers.externalHint')}
             </p>
           </FormField>
         )}
@@ -187,7 +187,7 @@ export function DepartmentMembersDialog({ open, onOpenChange, department, canMan
                     {/* 名冊也要標——只在下拉標的話，人編進來之後就再也
                         分不出誰是外聘的 */}
                     {!m.is_internal && (
-                      <span className="ml-2 text-xs text-muted-foreground">（外部人員）</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{t('adminUsers.shared.externalStaffTag')}</span>
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{m.email}</TableCell>

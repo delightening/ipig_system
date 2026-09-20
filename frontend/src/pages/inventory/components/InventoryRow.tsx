@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { InventoryOnHand } from '@/lib/api'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
@@ -13,6 +14,7 @@ import { AssignToShelfDialog } from './AssignToShelfDialog'
 
 /** 效期日期 Badge：依剩餘天數顯示不同顏色 */
 function ExpiryDateBadge({ date }: { date: string }) {
+  const { t } = useTranslation()
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const expiry = new Date(date)
@@ -21,14 +23,14 @@ function ExpiryDateBadge({ date }: { date: string }) {
   if (diffDays < 0) {
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-xs font-medium">
-        已過期 ({date})
+        {t('erpDocs.inventory.row.expired', { date })}
       </span>
     )
   }
   if (diffDays <= 30) {
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-status-warning-solid/15 text-status-warning-text text-xs font-medium">
-        {diffDays}天後到期 ({date})
+        {t('erpDocs.inventory.row.expiresIn', { days: diffDays, date })}
       </span>
     )
   }
@@ -47,6 +49,7 @@ function BatchDetailRows({
   batchFilter?: string
   colSpan: number
 }) {
+  const { t } = useTranslation()
   const params: Record<string, string> = { warehouse_id: warehouseId, product_id: productId }
   if (batchFilter) params.batch_no = batchFilter
 
@@ -78,7 +81,7 @@ function BatchDetailRows({
         <TableCell colSpan={colSpan} className="py-3 pl-12">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            載入批號明細...
+            {t('erpDocs.inventory.row.loadingBatchDetail')}
           </div>
         </TableCell>
       </TableRow>
@@ -89,7 +92,7 @@ function BatchDetailRows({
     return (
       <TableRow className="bg-muted/20">
         <TableCell colSpan={colSpan} className="py-3 pl-12 text-sm text-muted-foreground">
-          無批號明細資料
+          {t('erpDocs.inventory.row.noBatchDetail')}
         </TableCell>
       </TableRow>
     )
@@ -108,18 +111,18 @@ function BatchDetailRows({
                 <Link
                   to={`/inventory/lot-movements?product_id=${productId}&batch_no=${encodeURIComponent(d.batch_no)}${d.expiry_date ? `&expiry_date=${d.expiry_date}` : ''}&sku=${encodeURIComponent(d.product_sku)}`}
                   className="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-mono font-medium hover:underline"
-                  title="查此批號完整履歷"
+                  title={t('erpDocs.inventory.viewLotHistory')}
                 >
                   {d.batch_no}
                 </Link>
               ) : (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-mono font-medium">
-                  無批號
+                  {t('erpDocs.shared.noBatch')}
                 </span>
               )}
               {d.expiry_date && (
                 <span className="text-xs text-muted-foreground">
-                  效期 {d.expiry_date}
+                  {t('erpDocs.shared.expiryLabel', { date: d.expiry_date })}
                 </span>
               )}
             </div>
@@ -146,7 +149,7 @@ function BatchDetailRows({
             <TableCell className="pl-12" colSpan={2}>
               <div className="flex items-center gap-1.5 text-status-warning-text italic">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                未分配庫存（尚未上架至儲位）
+                {t('erpDocs.inventory.row.unassignedStock')}
               </div>
             </TableCell>
             <TableCell className="text-right font-medium text-status-warning-text">
@@ -161,7 +164,7 @@ function BatchDetailRows({
                   onClick={() => setAssignDialogOpen(true)}
                 >
                   <PackagePlus className="h-3.5 w-3.5" />
-                  分配至儲位
+                  {t('erpDocs.inventory.row.assignToLocation')}
                 </Button>
               </Can>
             </TableCell>
@@ -203,6 +206,7 @@ export function InventoryRow({
   colCount: number
   batchFilter?: string
 }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   return (
     <>
@@ -244,8 +248,8 @@ export function InventoryRow({
               size="icon"
               variant="ghost"
               className="h-7 w-7 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-              title="查入庫/異動紀錄"
-              aria-label="查入庫/異動紀錄"
+              title={t('erpDocs.inventory.row.viewLedger')}
+              aria-label={t('erpDocs.inventory.row.viewLedger')}
               onClick={(e) => {
                 e.stopPropagation()
                 navigate(
@@ -265,7 +269,7 @@ export function InventoryRow({
                   to={`/inventory/lot-movements?product_id=${item.product_id}&batch_no=${encodeURIComponent(item.batch_no)}${item.expiry_date ? `&expiry_date=${item.expiry_date}` : ''}&sku=${encodeURIComponent(item.product_sku)}`}
                   onClick={(e) => e.stopPropagation()}
                   className="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-mono font-medium hover:underline"
-                  title="查此批號完整履歷"
+                  title={t('erpDocs.inventory.viewLotHistory')}
                 >
                   {item.batch_no}
                 </Link>

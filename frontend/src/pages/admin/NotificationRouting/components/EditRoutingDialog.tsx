@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,12 +26,13 @@ import { channelOptions, recipientLabel } from '../constants'
 import { BATCH_EVENT_TYPES } from '@/types/notification'
 
 const FREQUENCY_OPTIONS = [
-    { value: 'daily', label: '每日' },
-    { value: 'weekly', label: '每週' },
-    { value: 'monthly', label: '每月' },
+    { value: 'daily', labelKey: 'adminOps.notificationRouting.frequency.daily' },
+    { value: 'weekly', labelKey: 'adminOps.notificationRouting.frequency.weekly' },
+    { value: 'monthly', labelKey: 'adminOps.notificationRouting.frequency.monthly' },
 ] as const
 
-const DOW_OPTIONS = ['日', '一', '二', '三', '四', '五', '六'] as const
+/** 星期日(0)～星期六(6)，順序對應 day_of_week 數值；顯示文字走 i18n。 */
+const DOW_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
 interface EditRoutingDialogProps {
     open: boolean
@@ -54,24 +57,25 @@ export function EditRoutingDialog({
     eventNameMap,
     roleNameMap,
 }: EditRoutingDialogProps) {
+    const { t } = useTranslation()
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>編輯通知路由規則</DialogTitle>
+                    <DialogTitle>{t('adminOps.notificationRouting.editDialog.title')}</DialogTitle>
                     <DialogDescription>
                         {selectedRule && (
                             <>
                                 {eventNameMap[selectedRule.event_type] || selectedRule.event_type}
                                 {' → '}
-                                {recipientLabel(selectedRule, roleNameMap)}
+                                {recipientLabel(selectedRule, roleNameMap, t)}
                             </>
                         )}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label>通知管道</Label>
+                        <Label>{t('adminOps.notificationRouting.channelLabel')}</Label>
                         <Select
                             value={form.channel}
                             onValueChange={(v) => onFormChange({ ...form, channel: v })}
@@ -82,7 +86,7 @@ export function EditRoutingDialog({
                             <SelectContent>
                                 {channelOptions.map((opt) => (
                                     <SelectItem key={opt.value} value={opt.value}>
-                                        {opt.label}
+                                        {t(opt.labelKey)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -90,7 +94,7 @@ export function EditRoutingDialog({
                     </div>
 
                     <div className="flex items-center justify-between">
-                        <Label>啟用狀態</Label>
+                        <Label>{t('adminOps.notificationRouting.editDialog.activeLabel')}</Label>
                         <Switch
                             checked={form.is_active ?? true}
                             onCheckedChange={(checked) => onFormChange({ ...form, is_active: checked })}
@@ -98,20 +102,20 @@ export function EditRoutingDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <Label>描述</Label>
+                        <Label>{t('adminOps.notificationRouting.descriptionLabel')}</Label>
                         <Input
                             value={form.description ?? ''}
                             onChange={(e) => onFormChange({ ...form, description: e.target.value })}
-                            placeholder="規則描述"
+                            placeholder={t('adminOps.notificationRouting.editDialog.descriptionPlaceholder')}
                         />
                     </div>
 
                     {/* 批次事件的頻率設定 */}
                     {selectedRule && BATCH_EVENT_TYPES.has(selectedRule.event_type) && (
                         <div className="space-y-3 rounded-md border p-4 bg-muted/20">
-                            <Label className="text-sm font-semibold">通知頻率設定</Label>
+                            <Label className="text-sm font-semibold">{t('adminOps.notificationRouting.editDialog.frequencySettings')}</Label>
                             <div className="space-y-2">
-                                <Label className="text-xs text-muted-foreground">頻率</Label>
+                                <Label className="text-xs text-muted-foreground">{t('adminOps.notificationRouting.editDialog.frequencyLabel')}</Label>
                                 <Select
                                     value={form.frequency ?? 'daily'}
                                     onValueChange={(v) => onFormChange({
@@ -125,14 +129,14 @@ export function EditRoutingDialog({
                                     </SelectTrigger>
                                     <SelectContent>
                                         {FREQUENCY_OPTIONS.map((opt) => (
-                                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                            <SelectItem key={opt.value} value={opt.value}>{t(opt.labelKey)}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-2">
-                                    <Label className="text-xs text-muted-foreground">執行時間</Label>
+                                    <Label className="text-xs text-muted-foreground">{t('adminOps.notificationRouting.editDialog.executionTime')}</Label>
                                     <Select
                                         value={String(form.hour_of_day ?? 8)}
                                         onValueChange={(v) => onFormChange({ ...form, hour_of_day: Number(v) })}
@@ -151,7 +155,7 @@ export function EditRoutingDialog({
                                 </div>
                                 {form.frequency === 'weekly' && (
                                     <div className="space-y-2">
-                                        <Label className="text-xs text-muted-foreground">星期幾</Label>
+                                        <Label className="text-xs text-muted-foreground">{t('adminOps.notificationRouting.editDialog.dayOfWeek')}</Label>
                                         <Select
                                             value={String(form.day_of_week ?? 1)}
                                             onValueChange={(v) => onFormChange({ ...form, day_of_week: Number(v) })}
@@ -160,8 +164,8 @@ export function EditRoutingDialog({
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {DOW_OPTIONS.map((d, i) => (
-                                                    <SelectItem key={i} value={String(i)}>星期{d}</SelectItem>
+                                                {DOW_KEYS.map((d, i) => (
+                                                    <SelectItem key={i} value={String(i)}>{t(`adminOps.notificationRouting.weekdays.${d}`)}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -173,11 +177,11 @@ export function EditRoutingDialog({
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        取消
+                        {t('common.cancel')}
                     </Button>
                     <Button onClick={onSubmit} disabled={isPending}>
                         {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                        儲存
+                        {t('common.save')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

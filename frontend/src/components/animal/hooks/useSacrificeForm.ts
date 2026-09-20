@@ -118,11 +118,11 @@ export function useSacrificeForm({ open, animalId, sacrifice, onOpenChange }: Us
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['animal-sacrifice', animalId] })
             queryClient.invalidateQueries({ queryKey: ['animal', animalId] })
-            toast({ title: '成功', description: isEdit ? '犧牲紀錄已更新' : '犧牲紀錄已建立' })
+            toast({ title: t('common.success'), description: isEdit ? t('animalRecords.sacrifice.updated') : t('animalRecords.sacrifice.created') })
             onOpenChange(false)
         },
         onError: (error: unknown) => {
-            toast({ title: '錯誤', description: getApiErrorMessage(error, '儲存失敗'), variant: 'destructive' })
+            toast({ title: t('common.error'), description: getApiErrorMessage(error, t('animalRecords.shared.saveFailed')), variant: 'destructive' })
         },
     })
 
@@ -136,12 +136,12 @@ export function useSacrificeForm({ open, animalId, sacrifice, onOpenChange }: Us
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['sacrifice-signature', sacrifice?.id] })
-            toast({ title: t('signature.signed', '已簽署'), description: t('signature.signSuccess', '簽章完成') })
+            toast({ title: t('signature.signed'), description: t('signature.signSuccess') })
         },
         onError: (error: unknown) => {
             toast({
-                title: t('common.error', '錯誤'),
-                description: getApiErrorMessage(error, t('signature.signFailed', '簽章失敗')),
+                title: t('common.error'),
+                description: getApiErrorMessage(error, t('signature.signFailed')),
                 variant: 'destructive',
             })
         },

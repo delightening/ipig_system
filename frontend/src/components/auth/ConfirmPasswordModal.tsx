@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ export function ConfirmPasswordModal({
   description,
   onSubmit,
 }: ConfirmPasswordModalProps) {
+  const { t } = useTranslation()
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -43,7 +45,7 @@ export function ConfirmPasswordModal({
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!password.trim()) {
-      setError('請輸入密碼')
+      setError(t('auth.validation.passwordRequired'))
       return
     }
     setError(null)
@@ -52,7 +54,7 @@ export function ConfirmPasswordModal({
       await onSubmit(password)
       onOpenChange(false)
     } catch {
-      setError('密碼錯誤或已過期，請重新輸入')
+      setError(t('auth.confirmPassword.wrongPassword'))
     } finally {
       setIsSubmitting(false)
     }
@@ -67,13 +69,13 @@ export function ConfirmPasswordModal({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="reauth-password">您的登入密碼</Label>
+            <Label htmlFor="reauth-password">{t('auth.confirmPassword.passwordLabel')}</Label>
             <Input
               id="reauth-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="請輸入密碼以確認身份"
+              placeholder={t('auth.confirmPassword.passwordPlaceholder')}
               disabled={isSubmitting}
               autoFocus
             />
@@ -88,11 +90,11 @@ export function ConfirmPasswordModal({
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
             >
-              取消
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              確認
+              {t('common.confirm')}
             </Button>
           </DialogFooter>
         </form>

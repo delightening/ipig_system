@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next'
+
 import { PendingOwnerBadge } from '@/components/PendingOwnerBadge'
 import { StatusBadge } from '@/components/ui/status-badge'
 import type { PendingOwner } from '@/types/pendingOwner'
 
-import { OVERTIME_STATUS_NAMES } from '../constants'
+import { overtimeStatusLabel } from '../constants'
 
 interface OvertimeStatusBadgeProps {
     status: string
@@ -15,7 +17,8 @@ interface OvertimeStatusBadgeProps {
 
 /** Get badge component for overtime status */
 export function OvertimeStatusBadge({ status, pendingOwner }: OvertimeStatusBadgeProps) {
-    const statusName = OVERTIME_STATUS_NAMES[status] || status
+    const { t } = useTranslation()
+    const statusName = overtimeStatusLabel(t, status)
     const badge = (() => {
         switch (status) {
             case 'approved':

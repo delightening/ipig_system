@@ -1,5 +1,6 @@
 import { Pill, Syringe, Package, FlaskConical, Settings } from 'lucide-react'
 import { createElement } from 'react'
+import type { TFunction } from 'i18next'
 import type { Step } from '@/components/product/StepIndicator'
 import type { QuickSelectItem, QuickSelectSpec } from '@/components/product/QuickSelectCard'
 
@@ -52,35 +53,63 @@ export const initialFormData: ProductFormData = {
   reorderPointUnit: '',
 }
 
-// 步驟定義
-export const STEPS: Step[] = [
-  { id: 'input', label: '輸入名稱', description: '名稱 + 規格' },
-  { id: 'confirm', label: '確認規格', description: '分類 + 單位' },
-  { id: 'complete', label: '完成建立', description: '檢視結果' },
-]
+// 步驟定義（顯示文字在呼叫當下才翻譯，語系切換後重繪即更新）
+export function getSteps(t: TFunction): Step[] {
+  return [
+    {
+      id: 'input',
+      label: t('erpMaster.createProduct.steps.inputLabel'),
+      description: t('erpMaster.createProduct.steps.inputDescription'),
+    },
+    {
+      id: 'confirm',
+      label: t('erpMaster.createProduct.steps.confirmLabel'),
+      description: t('erpMaster.createProduct.steps.confirmDescription'),
+    },
+    {
+      id: 'complete',
+      label: t('erpMaster.createProduct.steps.completeLabel'),
+      description: t('erpMaster.createProduct.steps.completeDescription'),
+    },
+  ]
+}
 
 // 快速選擇品項
-export const QUICK_ITEMS: QuickSelectItem[] = [
-  { id: 'glove', icon: '🧤', label: '手套' },
-  { id: 'mask', icon: '😷', label: '口罩' },
-  { id: 'syringe', icon: '💉', label: '針筒' },
-  { id: 'gauze', icon: '🩹', label: '紗布' },
-  { id: 'cotton', icon: '⚪', label: '棉球' },
-  { id: 'alcohol', icon: '🧴', label: '酒精' },
-  { id: 'saline', icon: '💧', label: '生理食鹽水' },
-]
+// label = 按鈕顯示文字（隨 UI 語系）；value = 點按後寫入名稱欄的資料值（固定中文，使用者裁定 2026-09-19）
+export function getQuickItems(t: TFunction): QuickSelectItem[] {
+  const zh = { lng: 'zh-TW' }
+  return [
+    { id: 'glove', icon: '🧤', label: t('erpMaster.createProduct.quickItems.glove'), value: t('erpMaster.createProduct.quickItems.glove', zh) },
+    { id: 'mask', icon: '😷', label: t('erpMaster.createProduct.quickItems.mask'), value: t('erpMaster.createProduct.quickItems.mask', zh) },
+    { id: 'syringe', icon: '💉', label: t('erpMaster.createProduct.quickItems.needleSyringe'), value: t('erpMaster.createProduct.quickItems.needleSyringe', zh) },
+    { id: 'gauze', icon: '🩹', label: t('erpMaster.createProduct.quickItems.gauze'), value: t('erpMaster.createProduct.quickItems.gauze', zh) },
+    { id: 'cotton', icon: '⚪', label: t('erpMaster.createProduct.quickItems.cottonBall'), value: t('erpMaster.createProduct.quickItems.cottonBall', zh) },
+    { id: 'alcohol', icon: '🧴', label: t('erpMaster.createProduct.quickItems.alcohol'), value: t('erpMaster.createProduct.quickItems.alcohol', zh) },
+    { id: 'saline', icon: '💧', label: t('erpMaster.createProduct.quickItems.saline'), value: t('erpMaster.createProduct.quickItems.saline', zh) },
+  ]
+}
 
 // 手套規格
-export const GLOVE_SPECS: QuickSelectSpec[] = [
-  { id: 's-powder-free', primary: 'S號', secondary: '無粉' },
-  { id: 'm-powder-free', primary: 'M號', secondary: '無粉' },
-  { id: 'l-powder-free', primary: 'L號', secondary: '無粉' },
-  { id: 'xl-powder-free', primary: 'XL號', secondary: '無粉' },
-  { id: 's-powdered', primary: 'S號', secondary: '有粉' },
-  { id: 'm-powdered', primary: 'M號', secondary: '有粉' },
-  { id: 'l-powdered', primary: 'L號', secondary: '有粉' },
-  { id: 'xl-powdered', primary: 'XL號', secondary: '有粉' },
-]
+// primary/secondary = 按鈕顯示文字（隨 UI 語系）；value = 點按後寫入規格欄的資料值（固定中文，使用者裁定 2026-09-19）
+export function getGloveSpecs(t: TFunction): QuickSelectSpec[] {
+  const zh = { lng: 'zh-TW' }
+  const size = (s: string) => t('erpMaster.createProduct.gloveSpecs.size', { size: s })
+  const sizeZh = (s: string) => t('erpMaster.createProduct.gloveSpecs.size', { size: s, ...zh })
+  const powderFree = t('erpMaster.createProduct.gloveSpecs.powderFree')
+  const powdered = t('erpMaster.createProduct.gloveSpecs.powdered')
+  const powderFreeZh = t('erpMaster.createProduct.gloveSpecs.powderFree', zh)
+  const powderedZh = t('erpMaster.createProduct.gloveSpecs.powdered', zh)
+  return [
+    { id: 's-powder-free', primary: size('S'), secondary: powderFree, value: { primary: sizeZh('S'), secondary: powderFreeZh } },
+    { id: 'm-powder-free', primary: size('M'), secondary: powderFree, value: { primary: sizeZh('M'), secondary: powderFreeZh } },
+    { id: 'l-powder-free', primary: size('L'), secondary: powderFree, value: { primary: sizeZh('L'), secondary: powderFreeZh } },
+    { id: 'xl-powder-free', primary: size('XL'), secondary: powderFree, value: { primary: sizeZh('XL'), secondary: powderFreeZh } },
+    { id: 's-powdered', primary: size('S'), secondary: powdered, value: { primary: sizeZh('S'), secondary: powderedZh } },
+    { id: 'm-powdered', primary: size('M'), secondary: powdered, value: { primary: sizeZh('M'), secondary: powderedZh } },
+    { id: 'l-powdered', primary: size('L'), secondary: powdered, value: { primary: sizeZh('L'), secondary: powderedZh } },
+    { id: 'xl-powdered', primary: size('XL'), secondary: powdered, value: { primary: sizeZh('XL'), secondary: powderedZh } },
+  ]
+}
 
 // 品類圖示（顯示用，品類清單改由 API useSkuCategories 取得）
 export const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -93,6 +122,8 @@ export const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 }
 
 // 單位定義
+// ⚠️ `name` 是寫入表單並隨 API 送出的中文單位值（與 pages/master/constants.tsx 的 UNITS 相同），
+// 也是比對依據，不是顯示文字，不可翻譯。
 export const UNITS = {
   outer: [  // 外層單位
     { code: 'CTN', name: '箱' },

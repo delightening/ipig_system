@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { STALE_TIME } from '@/lib/query'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import {
     bloodTestPanelApi,
     bloodTestTemplateApi,
@@ -64,6 +65,7 @@ import { TableSkeleton } from '@/components/ui/table-skeleton'
 type ShowFilter = 'all' | 'active' | 'inactive'
 
 export function BloodTestPanelsPage() {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const navigate = useNavigate()
 
@@ -110,13 +112,13 @@ export function BloodTestPanelsPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['blood-test-panels'] })
             queryClient.invalidateQueries({ queryKey: ['blood-test-panels-all'] })
-            toast({ title: '成功', description: '分類已建立' })
+            toast({ title: t('common.success'), description: t('erpMaster.bloodTest.toast.panelCreated') })
             setDialogOpen(false)
             resetForm()
         },
         onError: (error: unknown) => {
-            const msg = getApiErrorMessage(error, '建立失敗')
-            toast({ title: '錯誤', description: msg, variant: 'destructive' })
+            const msg = getApiErrorMessage(error, t('erpMaster.bloodTest.toast.createFailed'))
+            toast({ title: t('common.error'), description: msg, variant: 'destructive' })
         },
     })
 
@@ -128,13 +130,13 @@ export function BloodTestPanelsPage() {
             queryClient.invalidateQueries({ queryKey: ['blood-test-panels'] })
             queryClient.invalidateQueries({ queryKey: ['blood-test-panels-all'] })
             queryClient.invalidateQueries({ queryKey: ['blood-test-templates-all'] })
-            toast({ title: '成功', description: '分類已更新' })
+            toast({ title: t('common.success'), description: t('erpMaster.bloodTest.toast.panelUpdated') })
             setDialogOpen(false)
             resetForm()
         },
         onError: (error: unknown) => {
-            const msg = getApiErrorMessage(error, '更新失敗')
-            toast({ title: '錯誤', description: msg, variant: 'destructive' })
+            const msg = getApiErrorMessage(error, t('erpMaster.bloodTest.toast.updateFailed'))
+            toast({ title: t('common.error'), description: msg, variant: 'destructive' })
         },
     })
 
@@ -146,13 +148,13 @@ export function BloodTestPanelsPage() {
             queryClient.invalidateQueries({ queryKey: ['blood-test-panels'] })
             queryClient.invalidateQueries({ queryKey: ['blood-test-panels-all'] })
             toast({
-                title: '成功',
-                description: variables.is_active ? '分類已恢復啟用' : '分類已停用',
+                title: t('common.success'),
+                description: variables.is_active ? t('erpMaster.bloodTest.toast.panelRestored') : t('erpMaster.bloodTest.toast.panelDeactivated'),
             })
         },
         onError: (error: unknown) => {
-            const msg = getApiErrorMessage(error, '操作失敗')
-            toast({ title: '錯誤', description: msg, variant: 'destructive' })
+            const msg = getApiErrorMessage(error, t('erpMaster.bloodTest.toast.operationFailed'))
+            toast({ title: t('common.error'), description: msg, variant: 'destructive' })
         },
     })
 
@@ -164,13 +166,13 @@ export function BloodTestPanelsPage() {
             queryClient.invalidateQueries({ queryKey: ['blood-test-panels'] })
             queryClient.invalidateQueries({ queryKey: ['blood-test-panels-all'] })
             queryClient.invalidateQueries({ queryKey: ['blood-test-templates-all'] })
-            toast({ title: '成功', description: '分類項目已更新' })
+            toast({ title: t('common.success'), description: t('erpMaster.bloodTest.toast.panelItemsUpdated') })
             setItemsDialogOpen(false)
             setManagingPanel(null)
         },
         onError: (error: unknown) => {
-            const msg = getApiErrorMessage(error, '更新項目失敗')
-            toast({ title: '錯誤', description: msg, variant: 'destructive' })
+            const msg = getApiErrorMessage(error, t('erpMaster.bloodTest.toast.updateItemsFailed'))
+            toast({ title: t('common.error'), description: msg, variant: 'destructive' })
         },
     })
 
@@ -195,7 +197,7 @@ export function BloodTestPanelsPage() {
     // 開啟管理項目
     const handleManageItems = (panel: BloodTestPanel) => {
         setManagingPanel(panel)
-        setSelectedTemplateIds(new Set(panel.items.map((t) => t.id)))
+        setSelectedTemplateIds(new Set(panel.items.map((tpl) => tpl.id)))
         setItemSearch('')
         setItemsDialogOpen(true)
     }
@@ -273,13 +275,13 @@ export function BloodTestPanelsPage() {
     // 篩選可選模板
     const filteredTemplates = useMemo(() => {
         if (!allTemplates) return []
-        let result = allTemplates.filter((t) => t.is_active)
+        let result = allTemplates.filter((tpl) => tpl.is_active)
         if (itemSearch) {
             const q = itemSearch.toLowerCase()
             result = result.filter(
-                (t) =>
-                    t.code.toLowerCase().includes(q) ||
-                    t.name.toLowerCase().includes(q)
+                (tpl) =>
+                    tpl.code.toLowerCase().includes(q) ||
+                    tpl.name.toLowerCase().includes(q)
             )
         }
         result.sort((a, b) => a.sort_order - b.sort_order)
@@ -297,18 +299,18 @@ export function BloodTestPanelsPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => navigate('/blood-test-templates')}
-                    aria-label="返回"
+                    aria-label={t('erpMaster.common.back')}
                 >
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <PageHeader
-                    title="血液檢查分類管理"
-                    description={`管理血液檢查組合分類（共 ${totalCount} 個，啟用 ${activeCount} 個）`}
+                    title={t('erpMaster.bloodTest.panels.title')}
+                    description={t('erpMaster.bloodTest.panels.description', { total: totalCount, active: activeCount })}
                     className="flex-1"
                     actions={
                         <Button size="sm" onClick={() => { resetForm(); setDialogOpen(true) }}>
                             <Plus className="mr-2 h-4 w-4" />
-                            新增分類
+                            {t('erpMaster.bloodTest.panels.addCategory')}
                         </Button>
                     }
                 />
@@ -319,7 +321,7 @@ export function BloodTestPanelsPage() {
                 <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                        placeholder="搜尋代碼或名稱..."
+                        placeholder={t('erpMaster.bloodTest.searchCodeOrName')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="pl-9"
@@ -333,7 +335,7 @@ export function BloodTestPanelsPage() {
                             size="sm"
                             onClick={() => setShowFilter(f)}
                         >
-                            {f === 'all' ? '全部' : f === 'active' ? '啟用中' : '已停用'}
+                            {f === 'all' ? t('erpMaster.common.all') : f === 'active' ? t('erpMaster.common.activeFilter') : t('erpMaster.common.inactiveFilter')}
                         </Button>
                     ))}
                 </div>
@@ -344,13 +346,13 @@ export function BloodTestPanelsPage() {
                 <Table>
                     <TableHeader>
                         <TableRow className="bg-muted/50 hover:bg-muted/50">
-                            <TableHead className="w-[60px]">圖示</TableHead>
-                            <SortableTableHead sortKey="key" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[120px]">代碼</SortableTableHead>
-                            <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>名稱</SortableTableHead>
-                            <SortableTableHead sortKey="sort_order" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px] text-center">排序</SortableTableHead>
-                            <TableHead className="w-[100px] text-center">包含項目</TableHead>
-                            <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px] text-center">狀態</SortableTableHead>
-                            <TableHead className="w-[180px] text-right">操作</TableHead>
+                            <TableHead className="w-[60px]">{t('erpMaster.common.icon')}</TableHead>
+                            <SortableTableHead sortKey="key" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[120px]">{t('erpMaster.common.code')}</SortableTableHead>
+                            <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('erpMaster.common.name')}</SortableTableHead>
+                            <SortableTableHead sortKey="sort_order" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px] text-center">{t('erpMaster.common.sortOrder')}</SortableTableHead>
+                            <TableHead className="w-[100px] text-center">{t('erpMaster.bloodTest.panels.includedItems')}</TableHead>
+                            <SortableTableHead sortKey="is_active" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort} className="w-[80px] text-center">{t('erpMaster.common.status')}</SortableTableHead>
+                            <TableHead className="w-[180px] text-right">{t('common.actions')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -361,7 +363,7 @@ export function BloodTestPanelsPage() {
                                 </TableCell>
                             </TableRow>
                         ) : filteredPanels.length === 0 ? (
-                            <TableEmptyRow colSpan={7} icon={Droplets} title="沒有符合條件的分類" />
+                            <TableEmptyRow colSpan={7} icon={Droplets} title={t('erpMaster.bloodTest.panels.noMatch')} />
                         ) : (
                             (sortedData ?? filteredPanels).map((panel) => (
                                 <TableRow
@@ -379,7 +381,7 @@ export function BloodTestPanelsPage() {
                                     </TableCell>
                                     <TableCell className="text-center">
                                         <Badge variant={panel.is_active ? 'default' : 'outline'}>
-                                            {panel.is_active ? '啟用' : '停用'}
+                                            {panel.is_active ? t('erpMaster.common.active') : t('erpMaster.common.inactive')}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
@@ -388,7 +390,7 @@ export function BloodTestPanelsPage() {
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => handleManageItems(panel)}
-                                                title="管理項目"
+                                                title={t('erpMaster.bloodTest.panels.manageItems')}
                                             >
                                                 <Settings className="h-4 w-4" />
                                             </Button>
@@ -396,7 +398,7 @@ export function BloodTestPanelsPage() {
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => handleEdit(panel)}
-                                                title="編輯"
+                                                title={t('common.edit')}
                                             >
                                                 <Edit className="h-4 w-4" />
                                             </Button>
@@ -409,7 +411,7 @@ export function BloodTestPanelsPage() {
                                                         is_active: !panel.is_active,
                                                     })
                                                 }
-                                                title={panel.is_active ? '停用' : '啟用'}
+                                                title={panel.is_active ? t('erpMaster.products.actions.deactivate') : t('erpMaster.products.actions.activate')}
                                             >
                                                 {panel.is_active ? (
                                                     <PowerOff className="h-4 w-4 text-destructive" />
@@ -430,47 +432,47 @@ export function BloodTestPanelsPage() {
             <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) { resetForm(); setDialogOpen(false) } }}>
                 <DialogContent size="sm">
                     <DialogHeader>
-                        <DialogTitle>{editingPanel ? '編輯分類' : '新增分類'}</DialogTitle>
+                        <DialogTitle>{editingPanel ? t('erpMaster.bloodTest.panels.editCategory') : t('erpMaster.bloodTest.panels.addCategory')}</DialogTitle>
                         <DialogDescription>
-                            {editingPanel ? '修改分類的名稱、圖示和排序' : '請輸入新分類的資訊'}
+                            {editingPanel ? t('erpMaster.bloodTest.panels.editDescription') : t('erpMaster.bloodTest.panels.addDescription')}
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={rhfHandleSubmit(onPanelSubmit)}>
                         <div className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="panel-key" className="text-right">代碼</Label>
+                                <Label htmlFor="panel-key" className="text-right">{t('erpMaster.common.code')}</Label>
                                 <div className="col-span-3 space-y-1">
                                     <Input
                                         id="panel-key"
                                         {...register('key', { required: 'validation.required' })}
-                                        placeholder="例：CBC"
+                                        placeholder={t('erpMaster.bloodTest.panels.codePlaceholder')}
                                         disabled={!!editingPanel}
                                     />
                                     {errors.key && (
-                                        <p className="text-sm text-destructive">{errors.key.message}</p>
+                                        <p className="text-sm text-destructive">{t(errors.key.message ?? 'validation.required')}</p>
                                     )}
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="panel-name" className="text-right">名稱</Label>
+                                <Label htmlFor="panel-name" className="text-right">{t('erpMaster.common.name')}</Label>
                                 <div className="col-span-3 space-y-1">
                                     <Input
                                         id="panel-name"
                                         {...register('name', { required: 'validation.required' })}
-                                        placeholder="例：血液常規"
+                                        placeholder={t('erpMaster.bloodTest.panels.namePlaceholder')}
                                     />
                                     {errors.name && (
-                                        <p className="text-sm text-destructive">{errors.name.message}</p>
+                                        <p className="text-sm text-destructive">{t(errors.name.message ?? 'validation.required')}</p>
                                     )}
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="panel-icon" className="text-right">圖示</Label>
+                                <Label htmlFor="panel-icon" className="text-right">{t('erpMaster.common.icon')}</Label>
                                 <div className="col-span-3 flex items-center gap-2">
                                     <Input
                                         id="panel-icon"
                                         {...register('icon')}
-                                        placeholder="輸入 emoji"
+                                        placeholder={t('erpMaster.bloodTest.panels.iconPlaceholder')}
                                         className="flex-1"
                                     />
                                     {iconValue && (
@@ -479,7 +481,7 @@ export function BloodTestPanelsPage() {
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="panel-sort" className="text-right">排序</Label>
+                                <Label htmlFor="panel-sort" className="text-right">{t('erpMaster.common.sortOrder')}</Label>
                                 <Input
                                     id="panel-sort"
                                     type="number"
@@ -490,11 +492,11 @@ export function BloodTestPanelsPage() {
                         </div>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => { resetForm(); setDialogOpen(false) }}>
-                                取消
+                                {t('common.cancel')}
                             </Button>
                             <Button type="submit" disabled={isSaving}>
                                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {editingPanel ? '儲存' : '建立'}
+                                {editingPanel ? t('common.save') : t('erpMaster.common.createSubmit')}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -507,10 +509,10 @@ export function BloodTestPanelsPage() {
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             {managingPanel && <PanelIcon icon={managingPanel.icon} size={22} />}
-                            管理「{managingPanel?.name}」包含項目
+                            {t('erpMaster.bloodTest.panels.manageItemsTitle', { name: managingPanel?.name })}
                         </DialogTitle>
                         <DialogDescription>
-                            勾選要包含在此分類中的檢查項目（已選 {selectedTemplateIds.size} 項）
+                            {t('erpMaster.bloodTest.panels.manageItemsDescription', { count: selectedTemplateIds.size })}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -518,7 +520,7 @@ export function BloodTestPanelsPage() {
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                            placeholder="搜尋代碼或名稱..."
+                            placeholder={t('erpMaster.bloodTest.searchCodeOrName')}
                             value={itemSearch}
                             onChange={(e) => setItemSearch(e.target.value)}
                             className="pl-9"
@@ -531,31 +533,31 @@ export function BloodTestPanelsPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead className="w-[40px]"></TableHead>
-                                    <TableHead className="w-[100px]">代碼</TableHead>
-                                    <TableHead>名稱</TableHead>
-                                    <TableHead className="w-[80px]">單位</TableHead>
+                                    <TableHead className="w-[100px]">{t('erpMaster.common.code')}</TableHead>
+                                    <TableHead>{t('erpMaster.common.name')}</TableHead>
+                                    <TableHead className="w-[80px]">{t('erpMaster.common.unit')}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredTemplates.map((t) => (
+                                {filteredTemplates.map((tpl) => (
                                     <TableRow
-                                        key={t.id}
+                                        key={tpl.id}
                                         className="cursor-pointer"
-                                        onClick={() => toggleTemplate(t.id)}
+                                        onClick={() => toggleTemplate(tpl.id)}
                                     >
                                         <TableCell>
                                             <Checkbox
-                                                checked={selectedTemplateIds.has(t.id)}
-                                                onCheckedChange={() => toggleTemplate(t.id)}
+                                                checked={selectedTemplateIds.has(tpl.id)}
+                                                onCheckedChange={() => toggleTemplate(tpl.id)}
                                             />
                                         </TableCell>
-                                        <TableCell className="font-mono text-sm">{t.code}</TableCell>
-                                        <TableCell>{t.name}</TableCell>
-                                        <TableCell className="text-muted-foreground">{t.default_unit || '-'}</TableCell>
+                                        <TableCell className="font-mono text-sm">{tpl.code}</TableCell>
+                                        <TableCell>{tpl.name}</TableCell>
+                                        <TableCell className="text-muted-foreground">{tpl.default_unit || '-'}</TableCell>
                                     </TableRow>
                                 ))}
                                 {filteredTemplates.length === 0 && (
-                                    <TableEmptyRow colSpan={4} icon={Search} title="沒有符合條件的項目" />
+                                    <TableEmptyRow colSpan={4} icon={Search} title={t('erpMaster.bloodTest.panels.noMatchItems')} />
                                 )}
                             </TableBody>
                         </Table>
@@ -567,14 +569,14 @@ export function BloodTestPanelsPage() {
                             variant="outline"
                             onClick={() => { setItemsDialogOpen(false); setManagingPanel(null) }}
                         >
-                            取消
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             onClick={handleSaveItems}
                             disabled={updateItemsMutation.isPending}
                         >
                             {updateItemsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            儲存 ({selectedTemplateIds.size} 項)
+                            {t('erpMaster.bloodTest.panels.saveItems', { count: selectedTemplateIds.size })}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

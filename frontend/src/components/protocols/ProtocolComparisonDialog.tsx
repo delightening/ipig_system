@@ -109,11 +109,11 @@ export function ProtocolComparisonDialog({
                             const o = item as Record<string, unknown>
                             return (
                             <div key={idx} className="text-xs border-l-2 border-border pl-2 py-0.5">
-                                {String(o.name ?? o.species ?? o.drug_name ?? o.agent_name ?? `項目 ${idx + 1}`)}
+                                {String(o.name ?? o.species ?? o.drug_name ?? o.agent_name ?? t('protocolComponents.comparison.itemIndex', { index: idx + 1 }))}
                             </div>
                             )
                         })}
-                        <div className="text-[10px] text-muted-foreground font-normal">共 {val.length} 筆項目</div>
+                        <div className="text-[10px] text-muted-foreground font-normal">{t('protocolComponents.comparison.itemCount', { count: val.length })}</div>
                     </div>
                 )
             }
@@ -136,7 +136,7 @@ export function ProtocolComparisonDialog({
         // Mapping paths to i18n keys or direct translations
         const mapping: Record<string, string> = {
             'basic.study_title': t('protocols.content.sections.projectName'),
-            'basic.apply_study_number': '申請編號',
+            'basic.apply_study_number': t('protocolComponents.comparison.fields.applicationNo'),
             'basic.is_glp': t('protocols.content.sections.glpAttribute'),
             'basic.project_type': t('protocols.content.sections.projectType'),
             'basic.project_category': t('protocols.content.sections.projectCategory'),
@@ -153,7 +153,7 @@ export function ProtocolComparisonDialog({
             'purpose.replacement.rationale': t('protocols.content.sections.replacementRationale'),
             'purpose.reduction.design': t('protocols.content.sections.reductionDesign'),
             'purpose.duplicate.experiment': t('protocols.content.sections.duplicate'),
-            'items.use_test_item': '投予試驗物質',
+            'items.use_test_item': t('protocolComponents.comparison.fields.useTestItem'),
             'items.test_items': t('protocols.content.sections.testItems'),
             'items.control_items': t('protocols.content.sections.controlItems'),
             'design.pain.category': t('protocols.content.sections.painCategory'),
@@ -162,10 +162,10 @@ export function ProtocolComparisonDialog({
             'design.procedures': t('protocols.content.sections.procedures'),
             'design.anesthesia.is_under_anesthesia': t('protocols.content.sections.anesthesia'),
             'design.anesthesia.anesthesia_type': t('protocols.content.sections.anesthesiaType'),
-            'design.final_handling.method': '最終處理方式',
-            'design.carcass_disposal.method': '屍體處理方法',
-            'design.hazards.used': '使用危害性物質',
-            'design.controlled_substances.used': '使用管制藥品',
+            'design.final_handling.method': t('protocolComponents.comparison.fields.finalHandling'),
+            'design.carcass_disposal.method': t('protocolComponents.comparison.fields.carcassDisposal'),
+            'design.hazards.used': t('protocolComponents.comparison.fields.hazardsUsed'),
+            'design.controlled_substances.used': t('protocolComponents.comparison.fields.controlledSubstancesUsed'),
             'surgery.surgery_type': t('protocols.content.sections.surgeryType'),
             'surgery.preop_preparation': t('protocols.content.sections.preop_Preparation'),
             'surgery.surgery_description': t('protocols.content.sections.surgeryDescription'),
@@ -189,7 +189,7 @@ export function ProtocolComparisonDialog({
             const isIndex = !isNaN(Number(part))
 
             if (isIndex) {
-                currentLabel += ` (${t('common.noDocs')?.includes('無') ? '項目' : 'Item'} ${Number(part) + 1})`
+                currentLabel += ` (${t('protocolComponents.comparison.itemIndex', { index: Number(part) + 1 })})`
             } else {
                 currentPath = currentPath ? `${currentPath}.${part}` : part
                 const label = mapping[currentPath] || part

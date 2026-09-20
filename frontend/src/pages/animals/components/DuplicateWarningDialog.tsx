@@ -1,4 +1,4 @@
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import type { CreateAnimalRequest } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import {
@@ -40,10 +40,14 @@ export function DuplicateWarningDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-status-warning-text">
             <AlertTriangle className="h-5 w-5" />
-            耳號重複警告
+            {t('animalPages.duplicate.title')}
           </DialogTitle>
           <DialogDescription>
-            耳號 <span className="font-semibold text-foreground">{data?.earTag}</span> 已存在以下存活動物：
+            <Trans
+              i18nKey="animalPages.duplicate.existing"
+              values={{ earTag: data?.earTag }}
+              components={{ tag: <span className="font-semibold text-foreground" /> }}
+            />
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2 my-2">
@@ -51,14 +55,17 @@ export function DuplicateWarningDialog({
             <div key={animal.id} className="flex items-center gap-3 p-3 bg-status-warning-bg border border-status-warning-border rounded-lg text-sm">
               <AlertTriangle className="h-4 w-4 text-status-warning-text shrink-0" />
               <div>
-                <div>出生日期: <span className="font-medium">{animal.birth_date || '未設定'}</span></div>
-                <div>欄位: <span className="font-medium">{animal.pen_location || '-'}</span></div>
+                <div>{t('animalPages.duplicate.birthDateLabel')} <span className="font-medium">{animal.birth_date || t('animalPages.duplicate.notSet')}</span></div>
+                <div>{t('animalPages.duplicate.penLabel')} <span className="font-medium">{animal.pen_location || '-'}</span></div>
               </div>
             </div>
           ))}
         </div>
         <p className="text-sm text-muted-foreground">
-          確定仍要以<span className="font-semibold">不同出生日期</span>建立新動物嗎？
+          <Trans
+            i18nKey="animalPages.duplicate.confirmQuestion"
+            components={{ emphasis: <span className="font-semibold" /> }}
+          />
         </p>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
@@ -68,7 +75,7 @@ export function DuplicateWarningDialog({
             className="bg-status-warning-bg text-status-warning-text border border-status-warning-text/30 hover:bg-status-warning-bg/80"
           >
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            確認建立
+            {t('animalPages.duplicate.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

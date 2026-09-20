@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import api from '@/lib/api'
 import { useSteps } from '@/hooks/useSteps'
@@ -31,6 +32,7 @@ const TRACK_DEFAULT_BY_CATEGORY: Record<string, boolean> = {
 }
 
 export function useCreateProductForm() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { step: currentStep, setStep: setCurrentStep, prev } = useSteps(3)
   const { categories: skuCategories, subcategoriesByCategory, isLoading: skuCategoriesLoading } = useSkuCategories()
@@ -87,15 +89,15 @@ export function useCreateProductForm() {
   // Missing fields for SKU preview
   const missingFields: MissingField[] = useMemo(() => {
     const fields: MissingField[] = []
-    if (!formData.name && !formData.rawInput) fields.push({ field: 'name', label: '產品名稱' })
-    if (!formData.category) fields.push({ field: 'category', label: '分類' })
+    if (!formData.name && !formData.rawInput) fields.push({ field: 'name', label: t('erpMaster.productDetail.productName') })
+    if (!formData.category) fields.push({ field: 'category', label: t('erpMaster.createProduct.category') })
     const categoryHasSubcategories = formData.category && hasSubcategories(formData.category)
     if (!formData.subcategory && formData.category && categoryHasSubcategories) {
-      fields.push({ field: 'subcategory', label: '子分類' })
+      fields.push({ field: 'subcategory', label: t('erpMaster.createProduct.subcategory') })
     }
-    if (!formData.baseUnit) fields.push({ field: 'baseUnit', label: '基礎單位' })
+    if (!formData.baseUnit) fields.push({ field: 'baseUnit', label: t('erpMaster.createProduct.baseUnit') })
     return fields
-  }, [formData, hasSubcategories])
+  }, [formData, hasSubcategories, t])
 
   const canPreview = missingFields.length === 0
 
@@ -144,11 +146,11 @@ export function useCreateProductForm() {
         preview_sku: previewSku,
         rule_version: 'v3.0',
         rule_updated_at: new Date().toISOString().split('T')[0],
-        rule_change_summary: '簡化 SKU 結構：種類-品項-流水號',
+        rule_change_summary: t('erpMaster.skuPreview.ruleChangeSummary'),
         segments: [
-          { code: 'CATEGORY', label: '種類', value: category, source: catOption?.name ?? formData.category },
-          { code: 'ITEM', label: '品項', value: subcategory, source: subOption?.name ?? formData.subcategory ?? category },
-          { code: 'SERIAL', label: '流水號', value: 'XXX', source: '自動遞增序號' },
+          { code: 'CATEGORY', label: t('erpMaster.skuPreview.segment.CATEGORY'), value: category, source: catOption?.name ?? formData.category },
+          { code: 'ITEM', label: t('erpMaster.skuPreview.segment.ITEM'), value: subcategory, source: subOption?.name ?? formData.subcategory ?? category },
+          { code: 'SERIAL', label: t('erpMaster.skuPreview.segment.SERIAL'), value: 'XXX', source: t('erpMaster.skuPreview.serialSource') },
         ],
       }
 
@@ -159,13 +161,13 @@ export function useCreateProductForm() {
       setSkuStatus('S4')
       setPreviewError({
         code: 'E5',
-        message: getApiErrorMessage(error, '預覽失敗，請稍後再試'),
-        suggestion: '請確認網路連線正常，並檢查分類和單位是否已選擇',
+        message: getApiErrorMessage(error, t('erpMaster.skuPreview.previewFailedMessage')),
+        suggestion: t('erpMaster.skuPreview.previewFailedSuggestion'),
       })
     } finally {
       setIsPreviewLoading(false)
     }
-  }, [canPreview, formData.category, formData.subcategory, formData.baseUnit, formData.name, hasSubcategories, getSubcategories, skuCategories])
+  }, [canPreview, formData.category, formData.subcategory, formData.baseUnit, formData.name, hasSubcategories, getSubcategories, skuCategories, t])
 
   // Auto-clear subcategory when switching to a category without subcategories
   useEffect(() => {
@@ -228,10 +230,12 @@ export function useCreateProductForm() {
     if (item.id === 'cotton' || item.id === 'gauze' || item.id === 'syringe' || item.id === 'alcohol' || item.id === 'saline') {
       category = 'CON'
     }
+    // 寫進資料的名稱用固定中文 value；label 只是按鈕顯示文字（使用者裁定 2026-09-19）
+    const itemName = item.value ?? item.label
     setFormData(prev => ({
       ...prev,
-      rawInput: item.label,
-      name: item.label,
+      rawInput: itemName,
+      name: itemName,
       spec: '',
       category: category,
       subcategory: item.id === 'glove' ? 'GLV' : '',
@@ -241,12 +245,14 @@ export function useCreateProductForm() {
   const handleSpecSelect = (spec: QuickSelectSpec) => {
     setSelectedSpec(spec)
     if (selectedQuickItem) {
+      // 寫進資料的規格用固定中文 value；primary/secondary 只是按鈕顯示文字（使用者裁定 2026-09-19）
+      const specValue = spec.value ?? { primary: spec.primary, secondary: spec.secondary }
       const fullSpec = selectedQuickItem.id === 'glove'
-        ? `${spec.primary} ${spec.secondary} ${glovesMaterial}`
-        : `${spec.primary}${spec.secondary ? ' ' + spec.secondary : ''}`
+        ? `${specValue.primary} ${specValue.secondary} ${glovesMaterial}`
+        : `${specValue.primary}${specValue.secondary ? ' ' + specValue.secondary : ''}`
       setFormData(prev => ({
         ...prev,
-        rawInput: `${selectedQuickItem.label} ${fullSpec}`,
+        rawInput: `${selectedQuickItem.value ?? selectedQuickItem.label} ${fullSpec}`,
         spec: fullSpec,
       }))
     }
@@ -295,13 +301,13 @@ export function useCreateProductForm() {
       setFinalSku(data.sku)
       setSkuStatus('S6')
       setCurrentStep(2)
-      toast({ title: '產品建立成功！', description: `SKU: ${data.sku}` })
+      toast({ title: t('erpMaster.createProduct.created'), description: `SKU: ${data.sku}` })
     },
     onError: (error: unknown) => {
       setSkuStatus('S3')
       toast({
-        title: '建立失敗',
-        description: getApiErrorMessage(error, '建立產品時發生錯誤'),
+        title: t('erpMaster.createProduct.toast.createFailed'),
+        description: getApiErrorMessage(error, t('erpMaster.createProduct.toast.createError')),
         variant: 'destructive',
       })
     },
@@ -310,14 +316,14 @@ export function useCreateProductForm() {
   const handleNext = () => {
     if (currentStep === 0) {
       if (!formData.rawInput && !formData.name) {
-        toast({ title: '請輸入產品名稱', variant: 'destructive' })
+        toast({ title: t('erpMaster.createProduct.toast.enterName'), variant: 'destructive' })
         return
       }
       setCurrentStep(1)
       generatePreview()
     } else if (currentStep === 1) {
       if (!formData.baseUnit) {
-        toast({ title: '請選擇基礎單位', variant: 'destructive' })
+        toast({ title: t('erpMaster.createProduct.toast.selectBaseUnit'), variant: 'destructive' })
         return
       }
       createMutation.mutate()

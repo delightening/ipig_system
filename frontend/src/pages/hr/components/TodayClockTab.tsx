@@ -1,3 +1,5 @@
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { LogIn, LogOut } from 'lucide-react'
 
 import { useAuthIsGuest } from '@/stores/auth'
@@ -7,19 +9,19 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { formatTime, uiLocale } from '@/lib/utils'
 import type { AttendanceWithUser } from '@/types/hr'
 
-function formatHours(hours: number | string | null) {
+function formatHours(t: TFunction, hours: number | string | null) {
     if (hours === null || hours === undefined) return '-'
     const numHours = typeof hours === 'string' ? parseFloat(hours) : hours
     if (isNaN(numHours)) return '-'
-    return `${numHours.toFixed(1)} 小時`
+    return t('hrPages.shared.hoursValue', { hours: numHours.toFixed(1) })
 }
 
-function getStatusBadge(status: string) {
+function getStatusBadge(t: TFunction, status: string) {
     switch (status) {
-        case 'normal': return <StatusBadge variant="success">正常</StatusBadge>
-        case 'late': return <StatusBadge variant="error">遲到</StatusBadge>
-        case 'early_leave': return <StatusBadge variant="warning">早退</StatusBadge>
-        case 'absent': return <StatusBadge variant="error">缺勤</StatusBadge>
+        case 'normal': return <StatusBadge variant="success">{t('hrPages.shared.attendanceStatus.normal')}</StatusBadge>
+        case 'late': return <StatusBadge variant="error">{t('hrPages.shared.attendanceStatus.late')}</StatusBadge>
+        case 'early_leave': return <StatusBadge variant="warning">{t('hrPages.shared.attendanceStatus.early_leave')}</StatusBadge>
+        case 'absent': return <StatusBadge variant="error">{t('hrPages.shared.attendanceStatus.absent')}</StatusBadge>
         default: return <StatusBadge variant="neutral">{status}</StatusBadge>
     }
 }
@@ -33,16 +35,17 @@ interface TodayClockTabProps {
 }
 
 export function TodayClockTab({ todayAttendance, clockInPending, clockOutPending, onClockIn, onClockOut }: TodayClockTabProps) {
+    const { t } = useTranslation()
     // R49 follow-up：guest 看到完整頁面 + 按鈕，但按鈕 disabled 並提示 demo 限制。
     // 採 Gemini review：() 寫在 selector 內讓 Zustand 訂閱 boolean 結果而非函式 ref，
     // 避免使用者狀態變動時組件不 re-render。
     const isGuest = useAuthIsGuest()
-    const guestTitle = isGuest ? 'Demo 模式無法操作' : undefined
+    const guestTitle = isGuest ? t('hrPages.attendance.today.guestDemoTitle') : undefined
     return (
         <Card>
             <CardHeader>
                 <CardTitle>{new Date().toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' })}</CardTitle>
-                <CardDescription>今日出勤狀態</CardDescription>
+                <CardDescription>{t('hrPages.attendance.today.statusDescription')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2">
@@ -51,7 +54,7 @@ export function TodayClockTab({ todayAttendance, clockInPending, clockOutPending
                             <div className="text-center space-y-4">
                                 <LogIn className="h-12 w-12 mx-auto text-status-success-text" />
                                 <div>
-                                    <div className="text-sm text-muted-foreground">上班打卡</div>
+                                    <div className="text-sm text-muted-foreground">{t('hrPages.attendance.today.clockInLabel')}</div>
                                     <div className="text-3xl font-bold">
                                         {todayAttendance?.clock_in_time
                                             ? formatTime(todayAttendance.clock_in_time)
@@ -66,7 +69,7 @@ export function TodayClockTab({ todayAttendance, clockInPending, clockOutPending
                                     title={guestTitle}
                                 >
                                     <LogIn className="h-4 w-4 mr-2" />
-                                    {todayAttendance?.clock_in_time ? '已打卡' : '打卡上班'}
+                                    {todayAttendance?.clock_in_time ? t('hrPages.attendance.today.alreadyClocked') : t('hrPages.attendance.today.clockInButton')}
                                 </Button>
                             </div>
                         </CardContent>
@@ -77,7 +80,7 @@ export function TodayClockTab({ todayAttendance, clockInPending, clockOutPending
                             <div className="text-center space-y-4">
                                 <LogOut className="h-12 w-12 mx-auto text-status-error-text" />
                                 <div>
-                                    <div className="text-sm text-muted-foreground">下班打卡</div>
+                                    <div className="text-sm text-muted-foreground">{t('hrPages.attendance.today.clockOutLabel')}</div>
                                     <div className="text-3xl font-bold">
                                         {todayAttendance?.clock_out_time
                                             ? formatTime(todayAttendance.clock_out_time)
@@ -98,7 +101,7 @@ export function TodayClockTab({ todayAttendance, clockInPending, clockOutPending
                                     title={guestTitle}
                                 >
                                     <LogOut className="h-4 w-4 mr-2" />
-                                    {todayAttendance?.clock_out_time ? '已打卡' : '打卡下班'}
+                                    {todayAttendance?.clock_out_time ? t('hrPages.attendance.today.alreadyClocked') : t('hrPages.attendance.today.clockOutButton')}
                                 </Button>
                             </div>
                         </CardContent>
@@ -108,16 +111,16 @@ export function TodayClockTab({ todayAttendance, clockInPending, clockOutPending
                 {todayAttendance && (
                     <div className="grid gap-4 md:grid-cols-3">
                         <div className="text-center">
-                            <div className="text-sm text-muted-foreground">工作時數</div>
-                            <div className="text-xl font-semibold">{formatHours(todayAttendance.regular_hours)}</div>
+                            <div className="text-sm text-muted-foreground">{t('hrPages.attendance.today.regularHours')}</div>
+                            <div className="text-xl font-semibold">{formatHours(t, todayAttendance.regular_hours)}</div>
                         </div>
                         <div className="text-center">
-                            <div className="text-sm text-muted-foreground">加班時數</div>
-                            <div className="text-xl font-semibold">{formatHours(todayAttendance.overtime_hours)}</div>
+                            <div className="text-sm text-muted-foreground">{t('hrPages.attendance.today.overtimeHours')}</div>
+                            <div className="text-xl font-semibold">{formatHours(t, todayAttendance.overtime_hours)}</div>
                         </div>
                         <div className="text-center">
-                            <div className="text-sm text-muted-foreground">狀態</div>
-                            <div className="text-xl">{getStatusBadge(todayAttendance.status)}</div>
+                            <div className="text-sm text-muted-foreground">{t('hrPages.shared.col.status')}</div>
+                            <div className="text-xl">{getStatusBadge(t, todayAttendance.status)}</div>
                         </div>
                     </div>
                 )}

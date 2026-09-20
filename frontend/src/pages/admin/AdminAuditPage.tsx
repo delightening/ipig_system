@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Activity, AlertTriangle, Ban, LogIn, RefreshCw, Shield, ShieldAlert, Users } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -18,6 +19,7 @@ import { AuditLogDetailDialog } from './components/AuditLogDetailDialog'
 import { AuditAlertDetailDialog } from './components/AuditAlertDetailDialog'
 
 export function AdminAuditPage() {
+    const { t } = useTranslation()
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
     const [selectedAlert, setSelectedAlert] = useState<SecurityAlert | null>(null)
 
@@ -26,25 +28,25 @@ export function AdminAuditPage() {
     return (
         <div className="space-y-6">
             <PageHeader
-                title="安全審計"
-                description="監控系統活動與安全事件"
+                title={t('nav.adminSecurityAudit')}
+                description={t('adminUsers.audit.page.description')}
                 actions={
                     <Button size="sm" variant="outline" onClick={audit.refreshAll}>
                         <RefreshCw className="h-4 w-4 mr-2" />
-                        重新整理
+                        {t('adminUsers.audit.page.refresh')}
                     </Button>
                 }
             />
 
             <PageTabs
                 tabs={[
-                    { value: 'dashboard', label: '總覽', icon: Shield },
-                    { value: 'activities', label: '活動記錄', icon: Activity },
-                    { value: 'logins', label: '登入事件', icon: LogIn },
-                    { value: 'sessions', label: '活躍 Sessions', icon: Users },
-                    { value: 'alerts', label: '安全警報', icon: AlertTriangle, badge: audit.dashboardStats?.open_alerts },
-                    { value: 'security-events', label: '安全事件', icon: ShieldAlert },
-                    { value: 'ip-blocklist', label: 'IP 黑名單', icon: Ban },
+                    { value: 'dashboard', label: t('adminUsers.audit.tab.overview'), icon: Shield },
+                    { value: 'activities', label: t('adminUsers.audit.tab.activities'), icon: Activity },
+                    { value: 'logins', label: t('adminUsers.audit.tab.logins'), icon: LogIn },
+                    { value: 'sessions', label: t('adminUsers.audit.tab.sessions'), icon: Users },
+                    { value: 'alerts', label: t('adminUsers.audit.tab.alerts'), icon: AlertTriangle, badge: audit.dashboardStats?.open_alerts },
+                    { value: 'security-events', label: t('adminUsers.audit.tab.securityEvents'), icon: ShieldAlert },
+                    { value: 'ip-blocklist', label: t('adminUsers.audit.tab.ipBlocklist'), icon: Ban },
                 ]}
                 defaultTab="dashboard"
             >

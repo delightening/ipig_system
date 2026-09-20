@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import { reservationPlanningApi } from '@/lib/api/reservationPlanning'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -22,6 +23,7 @@ export function CreatePlannedExperimentDialog({
   open: boolean
   onOpenChange: (o: boolean) => void
 }) {
+  const { t } = useTranslation()
   const [unit, setUnit] = useState('')
   const [description, setDescription] = useState('')
   const [demand, setDemand] = useState('')
@@ -36,40 +38,51 @@ export function CreatePlannedExperimentDialog({
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reservation-planning'] })
-      toast({ title: '已新增', description: '預定試驗已建立' })
+      toast({
+        title: t('animalPages.reservation.createDialog.createdTitle'),
+        description: t('animalPages.reservation.createDialog.createdDescription'),
+      })
       setUnit('')
       setDescription('')
       setDemand('')
       onOpenChange(false)
     },
     onError: (e: unknown) =>
-      toast({ title: '錯誤', description: getApiErrorMessage(e, '新增失敗'), variant: 'destructive' }),
+      toast({
+        title: t('common.error'),
+        description: getApiErrorMessage(e, t('animalPages.shared.addFailed')),
+        variant: 'destructive',
+      }),
   })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="md">
         <DialogHeader>
-          <DialogTitle>新增預定試驗</DialogTitle>
-          <DialogDescription>規劃中（未核准）試驗，供預約動物；核准後連結真計畫。</DialogDescription>
+          <DialogTitle>{t('animalPages.reservation.addPlanned')}</DialogTitle>
+          <DialogDescription>{t('animalPages.reservation.createDialog.description')}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <label className="block text-sm">
             <span className="mb-1 block text-muted-foreground">
-              委託單位 <span className="text-status-error-text">*</span>
+              {t('animalPages.reservation.createDialog.client')} <span className="text-status-error-text">*</span>
             </span>
-            <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="如：昱展新藥" />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-muted-foreground">試驗內容概述</span>
             <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="如：心臟支架長期試驗"
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              placeholder={t('animalPages.reservation.createDialog.clientPlaceholder')}
             />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block text-muted-foreground">需求動物數</span>
+            <span className="mb-1 block text-muted-foreground">{t('animalPages.reservation.createDialog.summary')}</span>
+            <Input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={t('animalPages.reservation.createDialog.summaryPlaceholder')}
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-muted-foreground">{t('animalPages.reservation.createDialog.demand')}</span>
             <Input
               type="number"
               min="0"
@@ -81,10 +94,10 @@ export function CreatePlannedExperimentDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            取消
+            {t('common.cancel')}
           </Button>
           <Button disabled={!unit.trim() || create.isPending} onClick={() => create.mutate()}>
-            建立
+            {t('animalPages.reservation.createDialog.submit')}
           </Button>
         </DialogFooter>
       </DialogContent>

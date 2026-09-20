@@ -2,6 +2,8 @@
  * 修正案型別
  */
 
+import { createLabelMap, createLabelOptions } from '@/lib/i18nLabels'
+
 import type { PendingOwner } from './pendingOwner'
 
 export type AmendmentType = 'MAJOR' | 'MINOR' | 'PENDING'
@@ -17,18 +19,22 @@ export type AmendmentStatus =
     | 'ADMIN_APPROVED'
     | 'EFFECTIVE'
 
-export const amendmentStatusNames: Record<AmendmentStatus, string> = {
-    DRAFT: '草稿',
-    SUBMITTED: '已提交',
-    CLASSIFIED: '已分類',
-    UNDER_REVIEW: '審查中',
-    REVISION_REQUIRED: '需修訂',
-    RESUBMITTED: '已重送',
-    APPROVED: '已核准',
-    REJECTED: '已否決',
-    ADMIN_APPROVED: '行政核准',
-    EFFECTIVE: '已生效',
-}
+/** 修正案狀態名稱（getter 版：每次讀取才依當下語言翻譯，見 `@/lib/i18nLabels`；沿用 `amendments.status.*`） */
+export const amendmentStatusNames: Record<AmendmentStatus, string> = createLabelMap(
+    'amendments.status',
+    [
+        'DRAFT',
+        'SUBMITTED',
+        'CLASSIFIED',
+        'UNDER_REVIEW',
+        'REVISION_REQUIRED',
+        'RESUBMITTED',
+        'APPROVED',
+        'REJECTED',
+        'ADMIN_APPROVED',
+        'EFFECTIVE',
+    ],
+)
 
 // Status colors
 export const amendmentStatusColors: Record<AmendmentStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
@@ -44,25 +50,25 @@ export const amendmentStatusColors: Record<AmendmentStatus, 'default' | 'seconda
     EFFECTIVE: 'success',
 }
 
-export const amendmentTypeNames: Record<AmendmentType, string> = {
-    MAJOR: '重大變更',
-    MINOR: '小變更',
-    PENDING: '待分類',
-}
+/** 修正案類型名稱（getter 版；沿用 `amendments.types.*`） */
+export const amendmentTypeNames: Record<AmendmentType, string> = createLabelMap(
+    'amendments.types',
+    ['MAJOR', 'MINOR', 'PENDING'],
+)
 
-// 變更項目選項（多選）
-export const AMENDMENT_CHANGE_ITEM_OPTIONS = [
-    { value: 'ANIMAL_COUNT', label: '動物數量' },
-    { value: 'PROCEDURE', label: '實驗程序' },
-    { value: 'PERSONNEL', label: '試驗工作人員' },
-    { value: 'DURATION', label: '執行期間' },
-    { value: 'FUNDING', label: '經費來源' },
-    { value: 'FACILITY', label: '設施/場地' },
-    { value: 'SPECIES', label: '動物種類/品系' },
-    { value: 'ANESTHESIA', label: '麻醉方式' },
-    { value: 'EUTHANASIA', label: '安樂死方法' },
-    { value: 'OTHER', label: '其他' },
-] as const
+// 變更項目選項（多選）。`value` 是送後端的代碼；`label` 為 getter（沿用 `amendments.changeItemLabels.*`）。
+export const AMENDMENT_CHANGE_ITEM_OPTIONS = createLabelOptions('amendments.changeItemLabels', [
+    'ANIMAL_COUNT',
+    'PROCEDURE',
+    'PERSONNEL',
+    'DURATION',
+    'FUNDING',
+    'FACILITY',
+    'SPECIES',
+    'ANESTHESIA',
+    'EUTHANASIA',
+    'OTHER',
+] as const)
 
 /**
  * R71-12：結構化變更明細（存入既有 changes_content jsonb，無需 migration）。

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import type { ImportVetReview } from '@/lib/api/protocol'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,6 +32,7 @@ export function VetReviewSection({
   users: UserOption[]
   usersLoading: boolean
 }) {
+  const { t } = useTranslation()
   const items = value.items
 
   function updateItem(index: number, patch: Partial<VetItem>) {
@@ -46,7 +49,7 @@ export function VetReviewSection({
   }
 
   function loadTemplate() {
-    if (items.length > 0 && !window.confirm('確定要載入標準範本嗎？這將會覆蓋目前已填寫的評比項目。')) {
+    if (items.length > 0 && !window.confirm(t('protocolPages.importReview.vetReview.loadTemplateConfirm'))) {
       return
     }
     onChange({ ...value, items: DEFAULT_VET_REVIEW_ITEMS.map((item) => ({ ...item })) })
@@ -55,7 +58,7 @@ export function VetReviewSection({
   return (
     <div className="grid gap-3">
       <ReviewerSelect
-        label="獸醫師"
+        label={t('protocolPages.importReview.vetReview.veterinarian')}
         role={VET}
         users={users}
         value={{ reviewer_id: value.vet_id ?? null, reviewer_name: value.vet_name ?? '' }}
@@ -63,20 +66,20 @@ export function VetReviewSection({
         disabled={usersLoading}
       />
       <div className="grid gap-1">
-        <Label>評比結論（選填）</Label>
+        <Label>{t('protocolPages.importReview.vetReview.decision')}</Label>
         <Input
           value={value.decision ?? ''}
           onChange={(e) => onChange({ ...value, decision: e.target.value })}
-          placeholder="例：APPROVED / 同意"
+          placeholder={t('protocolPages.importReview.vetReview.decisionPlaceholder')}
         />
       </div>
 
       <div className="grid gap-2">
         <div className="flex items-center justify-between">
-          <Label className="text-sm text-muted-foreground">評比項目</Label>
+          <Label className="text-sm text-muted-foreground">{t('protocolPages.importReview.vetReview.items')}</Label>
           <Button type="button" variant="outline" size="sm" onClick={loadTemplate}>
             <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
-            從標準範本填入
+            {t('protocolPages.importReview.vetReview.loadTemplate')}
           </Button>
         </div>
 
@@ -85,9 +88,9 @@ export function VetReviewSection({
             <thead>
               <tr className="bg-muted text-muted-foreground font-semibold">
                 <th className="p-2.5 text-left border-b w-8">#</th>
-                <th className="p-2.5 text-left border-b">審查項目</th>
-                <th className="p-2.5 text-center border-b w-32 whitespace-nowrap">符合性 (V/X/-)</th>
-                <th className="p-2.5 text-left border-b">審查意見</th>
+                <th className="p-2.5 text-left border-b">{t('protocolPages.shared.reviewItem')}</th>
+                <th className="p-2.5 text-center border-b w-32 whitespace-nowrap">{t('protocolPages.shared.complianceHeader')}</th>
+                <th className="p-2.5 text-left border-b">{t('protocolPages.shared.reviewComment')}</th>
                 <th className="p-2.5 border-b w-10" />
               </tr>
             </thead>
@@ -95,7 +98,7 @@ export function VetReviewSection({
               {items.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-6 text-center text-muted-foreground">
-                    尚無評比項目，請點選「從標準範本填入」或手動新增
+                    {t('protocolPages.importReview.vetReview.empty')}
                   </td>
                 </tr>
               ) : (
@@ -106,7 +109,7 @@ export function VetReviewSection({
                       <Input
                         value={item.item_name}
                         onChange={(e) => updateItem(index, { item_name: e.target.value })}
-                        placeholder="審查項目名稱"
+                        placeholder={t('protocolPages.importReview.vetReview.itemNamePlaceholder')}
                         className="border-0 shadow-none focus-visible:ring-1 bg-transparent"
                       />
                     </td>
@@ -126,13 +129,13 @@ export function VetReviewSection({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="V" className="text-status-success-text">
-                            <div className="flex items-center"><Check className="mr-2 h-4 w-4" />符合 (V)</div>
+                            <div className="flex items-center"><Check className="mr-2 h-4 w-4" />{t('protocolPages.shared.complianceYes')}</div>
                           </SelectItem>
                           <SelectItem value="X" className="text-status-error-text">
-                            <div className="flex items-center"><X className="mr-2 h-4 w-4" />不符 (X)</div>
+                            <div className="flex items-center"><X className="mr-2 h-4 w-4" />{t('protocolPages.shared.complianceNo')}</div>
                           </SelectItem>
                           <SelectItem value="-" className="text-muted-foreground">
-                            <div className="flex items-center"><Minus className="mr-2 h-4 w-4" />不適用 (-)</div>
+                            <div className="flex items-center"><Minus className="mr-2 h-4 w-4" />{t('protocolPages.shared.complianceNa')}</div>
                           </SelectItem>
                         </SelectContent>
                       </Select>
@@ -142,7 +145,7 @@ export function VetReviewSection({
                         rows={2}
                         value={item.comment ?? ''}
                         onChange={(e) => updateItem(index, { comment: e.target.value })}
-                        placeholder="獸醫師意見（選填）"
+                        placeholder={t('protocolPages.importReview.vetReview.commentPlaceholder')}
                         className="min-h-[60px] resize-y border-0 shadow-none focus-visible:ring-1 bg-transparent"
                       />
                     </td>
@@ -166,7 +169,7 @@ export function VetReviewSection({
 
         <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addItem}>
           <Plus className="mr-1.5 h-3.5 w-3.5" />
-          新增項目
+          {t('protocolPages.importReview.vetReview.addItem')}
         </Button>
       </div>
     </div>

@@ -152,11 +152,18 @@ export function AnimalsPage() {
       const all = prev.flatMap(g => g.animals)
       const animal = all.find(a => a.ear_tag === tag || a.ear_tag === earTag.trim())
       if (!animal) {
-        toast({ title: '找不到動物', description: `耳號 ${earTag} 不存在`, variant: 'destructive' })
+        toast({
+          title: t('animalPages.list.guestMove.notFoundTitle'),
+          description: t('animalPages.list.guestMove.notFoundDescription', { earTag }),
+          variant: 'destructive',
+        })
         return prev
       }
       if (animal.pen_location === target) {
-        toast({ title: '提示', description: `動物 ${animal.ear_tag} 已在 ${target}` })
+        toast({
+          title: t('animalPages.list.guestMove.noticeTitle'),
+          description: t('animalPages.list.guestMove.alreadyThere', { earTag: animal.ear_tag, pen: target }),
+        })
         return prev
       }
       const updated = prev.map(g => ({ ...g, animals: g.animals.filter(a => a.ear_tag !== animal.ear_tag) }))
@@ -167,10 +174,13 @@ export function AnimalsPage() {
       } else {
         updated.push({ pen_location: target, animals: [moved] })
       }
-      toast({ title: '移動成功', description: `${animal.ear_tag} → ${target}（訪客模式，重整後還原）` })
+      toast({
+        title: t('animalPages.list.guestMove.successTitle'),
+        description: t('animalPages.list.guestMove.successDescription', { earTag: animal.ear_tag, pen: target }),
+      })
       return updated
     })
-  }, [])
+  }, [t])
 
   // ─── Mutations ─────────────────────────────────────────────────────────────
   const { createAnimalMutation, batchAssignMutation, quickMoveMutation, quickAddMutation, forceCreateMutation } = useAnimalsMutations({
@@ -241,7 +251,7 @@ export function AnimalsPage() {
               {canCreateVetPatrol && (
                 <Button size="sm" variant="outline" className="w-full gap-2 text-status-success-solid border-status-success-solid/30 hover:bg-status-success-solid/10 text-xs md:text-sm" onClick={() => setShowVetPatrolDialog(true)}>
                   <Stethoscope className="h-4 w-4 shrink-0" />
-                  <span className="truncate">獸醫巡場紀錄</span>
+                  <span className="truncate">{t('animalPages.list.vetPatrolRecord')}</span>
                 </Button>
               )}
               {/* R32-A3b：欄位狀態表 xlsx/PDF 匯出已併入 AnimalPenReport dialog

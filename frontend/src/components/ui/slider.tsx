@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 interface SliderProps {
@@ -32,6 +33,7 @@ export function Slider({
   disabled = false,
   className,
 }: SliderProps) {
+  const { t } = useTranslation()
   const percentage = ((value - min) / (max - min)) * 100
   const inputRef = React.useRef<HTMLInputElement>(null)
 
@@ -89,7 +91,7 @@ export function Slider({
             disabled && "opacity-50 cursor-not-allowed"
           )}
         >
-          自訂
+          {t('common.custom')}
         </button>
       </div>
 
@@ -136,7 +138,7 @@ export function Slider({
 
       {/* Value Input with Unit */}
       <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground dark:text-muted-foreground">當前值：</span>
+        <span className="text-sm text-muted-foreground dark:text-muted-foreground">{t('common.currentValue')}</span>
         <input
           ref={inputRef}
           type="number"

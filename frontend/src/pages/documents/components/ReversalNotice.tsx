@@ -1,3 +1,4 @@
+import { Trans } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { AlertTriangle, Undo2 } from 'lucide-react'
 import type { Document } from '@/lib/api'
@@ -11,6 +12,9 @@ import { formatDate } from '@/lib/utils'
  *
  * 沖銷單尚未經管理員核准時 `reversed_at` 為空——此時原單上顯示「沖銷處理中」，
  * 避免使用者誤以為帳已經沖掉（實際庫存與會計要等核准才反向）。
+ *
+ * 句中夾著可點的單號，用 `<Trans>` 而非拼接字串：兩種語言的語序不同，
+ * 單號的位置由譯文自己決定。
  */
 export function ReversalNotice({
   document,
@@ -30,20 +34,26 @@ export function ReversalNotice({
         <CardContent className="flex items-center gap-3 py-4">
           <Undo2 className="h-4 w-4 shrink-0 text-status-warning-text" />
           <p className="text-sm">
-            <span className="font-medium">本單是沖銷單</span>
-            ：沖銷原單{' '}
-            {document.reverses_doc_id ? (
-              <button
-                type="button"
-                className="text-primary hover:underline"
-                onClick={() => navigate(`/documents/${document.reverses_doc_id}`)}
-              >
-                {document.reverses_doc_no ?? document.reverses_doc_id}
-              </button>
-            ) : (
-              (document.reverses_doc_no ?? '-')
-            )}
-            。核准後將反向沖銷原單的庫存與會計帳。
+            <Trans
+              i18nKey="erpDocs.documents.reversal.isReversal"
+              values={{
+                docNo: document.reverses_doc_id
+                  ? (document.reverses_doc_no ?? document.reverses_doc_id)
+                  : (document.reverses_doc_no ?? '-'),
+              }}
+              components={{
+                bold: <span className="font-medium" />,
+                docref: document.reverses_doc_id ? (
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={() => navigate(`/documents/${document.reverses_doc_id}`)}
+                  />
+                ) : (
+                  <span />
+                ),
+              }}
+            />
           </p>
         </CardContent>
       </Card>
@@ -51,6 +61,14 @@ export function ReversalNotice({
   }
 
   const done = !!document.reversed_at
+  const reversedByDocRef = (
+    <button
+      type="button"
+      className="text-primary hover:underline"
+      onClick={() => navigate(`/documents/${reversedBy}`)}
+    />
+  )
+  const reversedByDocNo = document.reversed_by_doc_no ?? reversedBy
   return (
     <Card className={done ? 'border-destructive' : 'border-status-warning-border'}>
       <CardContent className="flex items-center gap-3 py-4">
@@ -59,24 +77,24 @@ export function ReversalNotice({
         />
         <p className="text-sm">
           {done ? (
-            <>
-              <span className="font-medium text-destructive">此單已被沖銷</span>
-              ：於 {formatDate(document.reversed_at!)} 由沖銷單{' '}
-            </>
+            <Trans
+              i18nKey="erpDocs.documents.reversal.done"
+              values={{ date: formatDate(document.reversed_at!), docNo: reversedByDocNo }}
+              components={{
+                bold: <span className="font-medium text-destructive" />,
+                docref: reversedByDocRef,
+              }}
+            />
           ) : (
-            <>
-              <span className="font-medium text-status-warning-text">沖銷處理中</span>
-              ：已建立沖銷單{' '}
-            </>
+            <Trans
+              i18nKey="erpDocs.documents.reversal.pending"
+              values={{ docNo: reversedByDocNo }}
+              components={{
+                bold: <span className="font-medium text-status-warning-text" />,
+                docref: reversedByDocRef,
+              }}
+            />
           )}
-          <button
-            type="button"
-            className="text-primary hover:underline"
-            onClick={() => navigate(`/documents/${reversedBy}`)}
-          >
-            {document.reversed_by_doc_no ?? reversedBy}
-          </button>
-          {done ? ' 沖銷，庫存與會計帳已反向。' : '，待管理員核准後才會反向沖銷庫存與會計帳。'}
         </p>
       </CardContent>
     </Card>

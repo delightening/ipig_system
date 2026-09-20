@@ -5,6 +5,7 @@
  */
 import { useCallback, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { deleteResource } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -32,6 +33,7 @@ interface UseEquipmentMaintenanceOptions {
 }
 
 export function useEquipmentMaintenance(options: UseEquipmentMaintenanceOptions) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   /* ── 篩選 / 分頁 ── */
@@ -96,10 +98,10 @@ export function useEquipmentMaintenance(options: UseEquipmentMaintenanceOptions)
     mutationFn: (id: string) => deleteResource(`/equipment-maintenance/${id}`),
     onSuccess: () => {
       invalidateMaint()
-      toast({ title: '成功', description: '已刪除紀錄' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.recordDeleted') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '刪除失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.deleteFailed')), variant: 'destructive' })
     },
   })
 
@@ -122,10 +124,10 @@ export function useEquipmentMaintenance(options: UseEquipmentMaintenanceOptions)
       invalidateMaint()
       options.closeMaintCreate()
       setMaintForm(emptyMaintenanceForm())
-      toast({ title: '成功', description: '已新增維修/保養紀錄' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.maintenanceCreated') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '新增失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.createFailed')), variant: 'destructive' })
     },
   })
 
@@ -144,10 +146,10 @@ export function useEquipmentMaintenance(options: UseEquipmentMaintenanceOptions)
       options.closeMaintEdit()
       setEditingMaint(null)
       setMaintForm(emptyMaintenanceForm())
-      toast({ title: '成功', description: '已更新維修/保養紀錄' })
+      toast({ title: t('common.success'), description: t('adminOps.equipment.toast.maintenanceUpdated') })
     },
     onError: (err: unknown) => {
-      toast({ title: '錯誤', description: getApiErrorMessage(err, '更新失敗'), variant: 'destructive' })
+      toast({ title: t('common.error'), description: getApiErrorMessage(err, t('adminOps.shared.updateFailed')), variant: 'destructive' })
     },
   })
 

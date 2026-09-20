@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Trans } from 'react-i18next'
 import { Info } from 'lucide-react'
 import api from '@/lib/api'
 import type { Warehouse } from '@/types/erp'
@@ -45,10 +46,11 @@ export function StocktakeExemptNotice({ warehouseId }: Props) {
         <div className="col-span-2 flex items-start gap-2 rounded-lg border border-sky-300 bg-sky-50 p-3 text-sm dark:border-sky-800 dark:bg-sky-950/30">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden="true" />
             <span>
-                「{wh.name}」<strong>不在例行盤點名單內</strong>
-                ——這裡的東西流動快，帳面不維護準確度。
-                若你是照每月盤點的慣例開這張單，請確認是否選錯倉庫；
-                若是因為<strong>領不出來或發現帳實不符</strong>而要校正，那就對了，請繼續。
+                <Trans
+                    i18nKey="erpDocs.warehouse.stocktakeExempt.notice"
+                    values={{ name: wh.name }}
+                    components={{ strong: <strong /> }}
+                />
             </span>
         </div>
     )

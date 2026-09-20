@@ -55,7 +55,7 @@ export function SectionSignature({ formData, setFormData, t }: SectionProps) {
             onClick={() => setSignMode('upload')}
           >
             <Upload className="h-4 w-4 mr-1" />
-            {t('aup.signature.uploadMode', '上傳簽名檔')}
+            {t('aup.signature.uploadMode')}
           </Button>
           <Button
             type="button"
@@ -63,7 +63,7 @@ export function SectionSignature({ formData, setFormData, t }: SectionProps) {
             onClick={() => setSignMode('handwriting')}
           >
             <PenLine className="h-4 w-4 mr-1" />
-            {t('signature.handwriting', '手寫簽名')}
+            {t('signature.handwriting')}
           </Button>
         </div>
 
@@ -99,7 +99,7 @@ export function SectionSignature({ formData, setFormData, t }: SectionProps) {
         {/* 手寫簽名模式 */}
         {signMode === 'handwriting' && (
           <div className="space-y-2 min-w-0 max-w-full">
-            <Label>{t('signature.handwriting', '手寫簽名')}</Label>
+            <Label>{t('signature.handwriting')}</Label>
             <HandwrittenSignaturePad
               onSignatureChange={handleSignatureChange}
               height={200}
@@ -107,7 +107,7 @@ export function SectionSignature({ formData, setFormData, t }: SectionProps) {
             />
             {formData.working_content.handwriting_svg && (
               <p className="text-sm text-status-success-text">
-                ✓ {t('signature.signed', '已簽署')}
+                ✓ {t('signature.signed')}
               </p>
             )}
           </div>
