@@ -14,13 +14,13 @@
 #   - Guard: SQL injection
 #   - Guard: unsafe code
 #   - Backend: clippy
-#   - Security: npm audit
+#   - Security: OSV 依賴掃描（frontend + 兩份 package-lock.json）
 #   - Security: Trivy container scan
 #
 # Port 對照（docker-compose.test.ci-local.yml）：
 #   PostgreSQL: 15432 | API: 18000 | Web: 18080
 #
-# 前置需求：Rust、Node.js 22、Docker
+# 前置需求：Rust、Node.js 22、Docker、osv-scanner
 # ============================================
 
 param(
@@ -187,13 +187,22 @@ if (-not $SkipFrontend) {
     }
 }
 
-# ----- 9. Security: pnpm audit -----
+# ----- 9. Security: 依賴漏洞掃描（OSV）-----
+# 2026-09-20：原本這一步是 `pnpm audit --audit-level=high`，已失效。npm 於 2026-07
+# 下架 pnpm audit 依賴的 audit API 端點（回 410，連 pnpm 10.x 也無法查詢），CI 當時
+# 就改用 osv-scanner 掃 OSV.dev（理由見 .github/workflows/ci.yml 的 npm-audit job
+# 註解），本腳本沒跟著改，那一步等於打一支空號——非零退出還會讓整輪本機 CI 誤紅。
+#
+# 此處對齊 CI 的兩個 job：
+#   🔒 Security: pnpm audit    → frontend/pnpm-lock.yaml（帶豁免清單）
+#   🔒 Security: npm 依賴掃描  → package-lock.json + deploy/watchdog/package-lock.json
 if (-not $SkipSecurity) {
-    $null = Invoke-Step "Security: pnpm audit" {
-        Set-Location "$ProjectRoot\frontend"
-        pnpm audit --audit-level=high
-        if ($LASTEXITCODE -ne 0) { throw "pnpm audit exited with $LASTEXITCODE" }
+    $null = Invoke-Step "Security: OSV 依賴掃描" {
         Set-Location $ProjectRoot
+        osv-scanner scan --config=frontend/osv-scanner.toml --lockfile=frontend/pnpm-lock.yaml
+        if ($LASTEXITCODE -ne 0) { throw "osv-scanner (frontend) exited with $LASTEXITCODE" }
+        osv-scanner scan --lockfile=package-lock.json --lockfile=deploy/watchdog/package-lock.json
+        if ($LASTEXITCODE -ne 0) { throw "osv-scanner (npm lockfiles) exited with $LASTEXITCODE" }
     }
 }
 
