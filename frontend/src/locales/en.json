@@ -3824,7 +3824,24 @@
       "submit": "Log In",
       "forgotPassword": "Forgot password?",
       "privacyPolicy": "Privacy Policy",
-      "termsOfService": "Terms of Service"
+      "termsOfService": "Terms of Service",
+      "orDivider": "or",
+      "googleButton": "Sign in with Google",
+      "googleCheckingSession": "Finishing Google sign-in...",
+      "googleFailedTitle": "Google sign-in not completed",
+      "googleErrors": {
+        "not_configured": "Google sign-in is not enabled. Please log in with your email and password.",
+        "cancelled": "Google sign-in was cancelled.",
+        "invalid_state": "The sign-in request expired. Please click \"Sign in with Google\" again.",
+        "provider_error": "We couldn't confirm your identity with Google. Please try again later, or log in with your password.",
+        "email_not_verified": "This Google account's email address is not verified, so it can't be used to sign in.",
+        "no_account": "No account matches this Google account's email. Accounts are invitation-only; please contact an administrator.",
+        "ambiguous_account": "This email matches more than one account. Please contact an administrator.",
+        "account_unavailable": "This account is disabled or has expired. Please contact an administrator.",
+        "identity_conflict": "This account is already linked to a different Google account. Use that Google account, or contact an administrator.",
+        "session_missing": "Google sign-in finished, but the session could not be established. Please refresh the page and try again.",
+        "unknown": "Google sign-in failed. Please log in with your password or try again later."
+      }
     },
     "twoFactor": {
       "challengeTitle": "Two-Step Verification",
