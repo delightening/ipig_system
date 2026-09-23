@@ -59,10 +59,8 @@ pub const GOOGLE_FLOW_COOKIE_PATH: &str = "/api/v1/auth/google";
 /// 從按下按鈕到 Google 導回來的時限。含 Google 帳號選擇與可能的 Google 端 2FA，給 10 分鐘。
 pub const GOOGLE_FLOW_TTL_SECS: i64 = 600;
 
-const GOOGLE_AUTHORIZATION_ENDPOINT: &str = "https://accounts.google.com/o/oauth2/v2/auth";
-const GOOGLE_TOKEN_ENDPOINT: &str = "https://oauth2.googleapis.com/token";
-/// Google 文件載明 `iss` 可能是這兩種寫法之一。
-const GOOGLE_ISSUERS: [&str; 2] = ["https://accounts.google.com", "accounts.google.com"];
+// 授權頁／token endpoint／合法 `iss` 由 `GoogleOAuthConfig::endpoints` 提供
+// （正式一律是真 Google；本機模擬才會指向假 Google，限制見 `config/google_oauth.rs`）。
 /// 只要身分與 email，不要任何 Google API 權限。
 const GOOGLE_SCOPES: &str = "openid email";
 /// flow cookie 的簽章金鑰由 CSRF_SECRET 以此標籤派生，與 CSRF token 本身的用途隔開。
@@ -297,7 +295,7 @@ impl AuthService {
             exp: now + GOOGLE_FLOW_TTL_SECS,
         };
 
-        let mut url = url::Url::parse(GOOGLE_AUTHORIZATION_ENDPOINT)
+        let mut url = url::Url::parse(&google.endpoints.authorization)
             .map_err(|e| AppError::Internal(format!("Google 授權端點網址無效: {e}")))?;
         url.query_pairs_mut()
             .append_pair("client_id", &google.client_id)
@@ -374,7 +372,7 @@ impl AuthService {
             GoogleLoginFailure::ProviderError
         })?;
         let response = client
-            .post(GOOGLE_TOKEN_ENDPOINT)
+            .post(&google.endpoints.token)
             .header(
                 reqwest::header::CONTENT_TYPE,
                 "application/x-www-form-urlencoded",
@@ -418,10 +416,11 @@ impl AuthService {
     /// 驗證 ID token 的 claims（簽章不驗的理由見模組文件）。
     pub fn verify_google_id_token(
         id_token: &str,
-        client_id: &str,
+        google: &GoogleOAuthConfig,
         expected_nonce: &str,
         now: i64,
     ) -> std::result::Result<VerifiedGoogleIdentity, GoogleLoginFailure> {
+        let client_id = google.client_id.as_str();
         let reject = |why: &str| {
             tracing::warn!("[Google OIDC] ID token 不合格：{why}");
             GoogleLoginFailure::ProviderError
@@ -439,8 +438,8 @@ impl AuthService {
         let claims: GoogleIdTokenClaims =
             serde_json::from_slice(&payload).map_err(|_| reject("payload 欄位不符"))?;
 
-        if !GOOGLE_ISSUERS.contains(&claims.iss.as_str()) {
-            return Err(reject("iss 不是 Google"));
+        if !google.endpoints.issuers.contains(&claims.iss) {
+            return Err(reject("iss 不在允許清單"));
         }
         let audience_ok = match &claims.aud {
             Audience::One(aud) => aud == client_id,
