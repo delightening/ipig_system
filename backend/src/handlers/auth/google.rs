@@ -216,12 +216,7 @@ async fn verify_callback(
         .ok_or(GoogleLoginFailure::ProviderError)?;
 
     let id_token = AuthService::exchange_google_code(google, code, &flow.code_verifier).await?;
-    AuthService::verify_google_id_token(
-        &id_token,
-        &google.client_id,
-        &flow.nonce,
-        Utc::now().timestamp(),
-    )
+    AuthService::verify_google_id_token(&id_token, google, &flow.nonce, Utc::now().timestamp())
 }
 
 fn failure_location(failure: GoogleLoginFailure) -> String {

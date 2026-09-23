@@ -13,6 +13,7 @@ fn google_config() -> GoogleOAuthConfig {
         client_id: CLIENT_ID.into(),
         client_secret: "secret".into(),
         redirect_uri: "https://ipig.example.org/api/v1/auth/google/callback".into(),
+        endpoints: crate::config::GoogleEndpoints::google(),
     }
 }
 
@@ -52,7 +53,7 @@ fn without(mut claims: serde_json::Value, key: &str) -> serde_json::Value {
 fn verify(
     claims: serde_json::Value,
 ) -> std::result::Result<VerifiedGoogleIdentity, GoogleLoginFailure> {
-    AuthService::verify_google_id_token(&id_token(claims), CLIENT_ID, NONCE, NOW)
+    AuthService::verify_google_id_token(&id_token(claims), &google_config(), NONCE, NOW)
 }
 
 #[test]
@@ -66,6 +67,31 @@ fn valid_id_token_yields_identity() {
 fn issuer_without_scheme_is_accepted() {
     verify(with(valid_claims(), "iss", "accounts.google.com".into()))
         .expect("Google 文件列出的兩種 iss 寫法都要接受");
+}
+
+#[test]
+fn mock_issuer_is_rejected_when_real_google_is_configured() {
+    // 正式設定下，假 Google 簽出的 token（iss = 本機位址）不能通過
+    verify(with(valid_claims(), "iss", "http://127.0.0.1:9099".into()))
+        .expect_err("正式設定只接受 Google 的 iss");
+}
+
+#[test]
+fn issuer_list_comes_from_config() {
+    let mock = GoogleOAuthConfig {
+        endpoints: crate::config::GoogleEndpoints {
+            authorization: "http://127.0.0.1:9099/o/oauth2/v2/auth".into(),
+            token: "http://127.0.0.1:9099/token".into(),
+            issuers: vec!["http://127.0.0.1:9099".into()],
+        },
+        ..google_config()
+    };
+    let token = id_token(with(valid_claims(), "iss", "http://127.0.0.1:9099".into()));
+    AuthService::verify_google_id_token(&token, &mock, NONCE, NOW)
+        .expect("模擬設定接受假 Google 的 iss");
+    let real = id_token(valid_claims());
+    AuthService::verify_google_id_token(&real, &mock, NONCE, NOW)
+        .expect_err("模擬設定下，真 Google 的 iss 反而不在清單內");
 }
 
 #[test]
@@ -149,7 +175,7 @@ fn missing_email_or_blank_subject_is_rejected() {
 #[test]
 fn malformed_token_is_rejected() {
     for bad in ["", "a.b", "a.b.c.d", "a.!!!.c"] {
-        AuthService::verify_google_id_token(bad, CLIENT_ID, NONCE, NOW)
+        AuthService::verify_google_id_token(bad, &google_config(), NONCE, NOW)
             .expect_err(&format!("格式錯誤必須拒絕：{bad:?}"));
     }
 }
@@ -216,7 +242,7 @@ fn begin_login_builds_pkce_url_and_matching_cookie() {
     let url = url::Url::parse(&start.authorization_url).expect("授權網址應可解析");
     assert!(start
         .authorization_url
-        .starts_with(GOOGLE_AUTHORIZATION_ENDPOINT));
+        .starts_with("https://accounts.google.com/o/oauth2/v2/auth"));
     let params: std::collections::HashMap<String, String> =
         url.query_pairs().into_owned().collect();
     assert_eq!(params.get("client_id").map(String::as_str), Some(CLIENT_ID));
