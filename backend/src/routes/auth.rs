@@ -11,6 +11,13 @@ pub fn public_routes() -> Router<AppState> {
         .route("/auth/login", post(handlers::login))
         .route("/auth/refresh", post(handlers::refresh_token))
         .route("/auth/2fa/verify", post(handlers::verify_2fa_login))
+        // R121：Google 帳號登入（OIDC）。皆為 GET：start / callback 是瀏覽器頂層導覽
+        .route("/auth/google/status", get(handlers::google_login_status))
+        .route("/auth/google/start", get(handlers::google_login_start))
+        .route(
+            "/auth/google/callback",
+            get(handlers::google_login_callback),
+        )
         // R30-27c：手機從 QR 開的簽名頁 submit，不需 JWT，由 mobile_token bearer 驗證
         .route(
             "/public/signing-bridge/{id}/submit",

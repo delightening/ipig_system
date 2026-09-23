@@ -185,6 +185,7 @@ fn test_config() -> crate::config::Config {
         ai_review_model: "claude-haiku-4-5".to_string(),
         ai_review_enabled: false,
         ai_review_timeout_secs: 30,
+        google_oauth: None,
     }
 }
 

@@ -92,7 +92,7 @@ pub use animal_medical_report::{
 };
 pub use application_notice::ApplicationNoticeService;
 pub use audit::AuditService;
-pub use auth::AuthService;
+pub use auth::{google_oidc, AuthService};
 pub use calendar::CalendarService;
 pub use document::DocumentService;
 pub use email::{EmailService, RenderedEmail};

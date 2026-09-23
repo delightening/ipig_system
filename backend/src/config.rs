@@ -118,6 +118,85 @@ pub fn read_audit_hmac_key_strict() -> anyhow::Result<Option<String>> {
     Ok(raw.filter(|s| s.len() >= 44))
 }
 
+/// R121：Google 帳號登入（OIDC）的 OAuth client 設定。
+///
+/// `client_secret` 不可出現在 log，故手動實作 `Debug`（`Config` 整體 derive `Debug`）。
+#[derive(Clone)]
+pub struct GoogleOAuthConfig {
+    pub client_id: String,
+    pub client_secret: String,
+    /// 在 Google Cloud Console 登記的 Authorized redirect URI，須與實際 callback 路徑逐字相同。
+    pub redirect_uri: String,
+}
+
+impl std::fmt::Debug for GoogleOAuthConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GoogleOAuthConfig")
+            .field("client_id", &self.client_id)
+            .field("client_secret", &"[REDACTED]")
+            .field("redirect_uri", &self.redirect_uri)
+            .finish()
+    }
+}
+
+/// 由三個可選值組出 Google OAuth 設定。
+///
+/// - 三者皆未設 → `Ok(None)`：功能關閉，登入頁不顯示 Google 按鈕。
+/// - 三者皆有 → 驗證 redirect URI 後回 `Ok(Some)`。
+/// - 只設一部分 → `Err`：刻意讓啟動失敗。半套設定若靜默當成「關閉」，
+///   設定者會以為已經開好而找不到原因；當成「開啟」則每次登入都在 Google 端才失敗。
+fn google_oauth_config_from_parts(
+    client_id: Option<String>,
+    client_secret: Option<String>,
+    redirect_uri: Option<String>,
+) -> anyhow::Result<Option<GoogleOAuthConfig>> {
+    let (client_id, client_secret, redirect_uri) = match (client_id, client_secret, redirect_uri) {
+        (None, None, None) => return Ok(None),
+        (Some(id), Some(secret), Some(uri)) => (id, secret, uri),
+        _ => anyhow::bail!(
+            "Google 登入設定不完整：GOOGLE_OAUTH_CLIENT_ID、GOOGLE_OAUTH_CLIENT_SECRET（或 _FILE）、\
+             GOOGLE_OAUTH_REDIRECT_URI 必須三個都設，或三個都不設（= 關閉 Google 登入）"
+        ),
+    };
+
+    let parsed = url::Url::parse(&redirect_uri)
+        .with_context(|| format!("GOOGLE_OAUTH_REDIRECT_URI 不是合法網址：{redirect_uri}"))?;
+    // Google 只接受 https，或 http://localhost（本機開發）。在這裡先擋，
+    // 否則錯誤要等到使用者按下登入、被 Google 拒絕時才看得到。
+    let is_local_http = parsed.scheme() == "http"
+        && matches!(parsed.host_str(), Some("localhost") | Some("127.0.0.1"));
+    anyhow::ensure!(
+        parsed.scheme() == "https" || is_local_http,
+        "GOOGLE_OAUTH_REDIRECT_URI 必須是 https（本機開發可用 http://localhost）：{redirect_uri}"
+    );
+    anyhow::ensure!(
+        parsed.path().ends_with("/api/v1/auth/google/callback"),
+        "GOOGLE_OAUTH_REDIRECT_URI 的路徑必須是 /api/v1/auth/google/callback：{redirect_uri}"
+    );
+
+    Ok(Some(GoogleOAuthConfig {
+        client_id,
+        client_secret,
+        redirect_uri,
+    }))
+}
+
+/// 從環境變數讀 Google OAuth 設定（secret 支援 `_FILE`），空字串視為未設定。
+fn read_google_oauth_config() -> anyhow::Result<Option<GoogleOAuthConfig>> {
+    let non_empty_env = |key: &str| {
+        std::env::var(key)
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+    };
+    google_oauth_config_from_parts(
+        non_empty_env("GOOGLE_OAUTH_CLIENT_ID"),
+        // filter 不可省：read_secret 對「_FILE 指向空檔」會回 Some("")（見 metrics_token 註解）
+        read_secret("GOOGLE_OAUTH_CLIENT_SECRET").filter(|s| !s.is_empty()),
+        non_empty_env("GOOGLE_OAUTH_REDIRECT_URI"),
+    )
+}
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub host: String,
@@ -247,6 +326,8 @@ pub struct Config {
     pub ai_review_timeout_secs: u64,
     /// R24-3: Alertmanager webhook 共享 token（未設定 = 不啟用驗證，允許所有）
     pub alertmanager_webhook_token: Option<String>,
+    /// R121：Google 帳號登入設定；`None` = 功能關閉。
+    pub google_oauth: Option<GoogleOAuthConfig>,
 }
 
 impl Config {
@@ -476,6 +557,7 @@ impl Config {
                 .unwrap_or(30),
             // R37-7: 改走 read_secret() 支援 ALERTMANAGER_WEBHOOK_TOKEN_FILE（避免 .env 明文）
             alertmanager_webhook_token: read_secret("ALERTMANAGER_WEBHOOK_TOKEN"),
+            google_oauth: read_google_oauth_config()?,
         });
 
         // R16-11: Production 模式下禁止關閉 CSRF
@@ -682,6 +764,7 @@ mod tests {
             ai_review_enabled: true,
             ai_review_timeout_secs: 30,
             alertmanager_webhook_token: None,
+            google_oauth: None,
         }
     }
 
@@ -742,5 +825,94 @@ mod tests {
     fn test_cookie_secure_default_false() {
         let config = minimal_config();
         assert!(!config.cookie_secure);
+    }
+
+    const GOOGLE_CALLBACK: &str = "https://ipig.example.org/api/v1/auth/google/callback";
+
+    fn some(s: &str) -> Option<String> {
+        Some(s.to_string())
+    }
+
+    #[test]
+    fn google_oauth_all_unset_means_disabled() {
+        let cfg = google_oauth_config_from_parts(None, None, None).expect("全未設不應報錯");
+        assert!(cfg.is_none());
+    }
+
+    #[test]
+    fn google_oauth_all_set_is_enabled() {
+        let cfg = google_oauth_config_from_parts(some("id"), some("secret"), some(GOOGLE_CALLBACK))
+            .expect("三者齊全應成功")
+            .expect("三者齊全應為 Some");
+        assert_eq!(cfg.client_id, "id");
+        assert_eq!(cfg.redirect_uri, GOOGLE_CALLBACK);
+    }
+
+    #[test]
+    fn google_oauth_partial_config_fails_fast() {
+        // 每一種「缺一或缺二」的組合都必須報錯，不可靜默當成關閉
+        let cases = [
+            (some("id"), None, None),
+            (None, some("secret"), None),
+            (None, None, some(GOOGLE_CALLBACK)),
+            (some("id"), some("secret"), None),
+            (some("id"), None, some(GOOGLE_CALLBACK)),
+            (None, some("secret"), some(GOOGLE_CALLBACK)),
+        ];
+        for (id, secret, uri) in cases {
+            let label = format!(
+                "{:?}/{:?}/{:?}",
+                id.is_some(),
+                secret.is_some(),
+                uri.is_some()
+            );
+            google_oauth_config_from_parts(id, secret, uri)
+                .expect_err(&format!("半套設定必須報錯：{label}"));
+        }
+    }
+
+    #[test]
+    fn google_oauth_rejects_non_https_redirect() {
+        google_oauth_config_from_parts(
+            some("id"),
+            some("secret"),
+            some("http://ipig.example.org/api/v1/auth/google/callback"),
+        )
+        .expect_err("非 localhost 的 http 必須拒絕");
+    }
+
+    #[test]
+    fn google_oauth_allows_localhost_http_redirect() {
+        let cfg = google_oauth_config_from_parts(
+            some("id"),
+            some("secret"),
+            some("http://localhost:8080/api/v1/auth/google/callback"),
+        )
+        .expect("localhost http 應允許");
+        assert!(cfg.is_some());
+    }
+
+    #[test]
+    fn google_oauth_rejects_wrong_callback_path() {
+        google_oauth_config_from_parts(
+            some("id"),
+            some("secret"),
+            some("https://ipig.example.org/login"),
+        )
+        .expect_err("路徑不是 callback 必須拒絕");
+    }
+
+    #[test]
+    fn google_oauth_debug_does_not_leak_secret() {
+        let cfg = GoogleOAuthConfig {
+            client_id: "id".into(),
+            client_secret: "super-secret-value".into(),
+            redirect_uri: GOOGLE_CALLBACK.into(),
+        };
+        let printed = format!("{cfg:?}");
+        assert!(
+            !printed.contains("super-secret-value"),
+            "Debug 輸出洩漏 secret：{printed}"
+        );
     }
 }

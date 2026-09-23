@@ -48,6 +48,8 @@ export const queryKeys = {
     all: ['users'] as const,
     detail: (id: string) => ['user', id] as const,
     preferences: (key: string) => ['user-preferences', key] as const,
+    /** R121：登入頁是否顯示 Google 按鈕（公開端點，未登入即可查） */
+    googleLoginStatus: ['auth-google-status'] as const,
   },
 
   // ───── Products ─────

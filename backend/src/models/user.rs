@@ -338,6 +338,22 @@ pub struct TwoFactorRequiredResponse {
     pub temp_token: String,
 }
 
+/// R121：`GET /auth/google/status` 回應——前端據此決定是否顯示「使用 Google 登入」。
+#[derive(Debug, Serialize, ToSchema)]
+pub struct GoogleLoginStatus {
+    /// 伺服器是否已設定 Google 登入（三個 `GOOGLE_OAUTH_*` 變數齊全）。
+    pub enabled: bool,
+}
+
+/// R121：Google 導回 callback 時帶的 query。三者皆可能缺（使用者取消時只有 `error` 與 `state`）。
+#[derive(Debug, Deserialize)]
+pub struct GoogleCallbackQuery {
+    pub code: Option<String>,
+    pub state: Option<String>,
+    /// 使用者取消或 Google 端出錯時的錯誤代碼（例如 `access_denied`）。
+    pub error: Option<String>,
+}
+
 /// 2FA 登入驗證請求
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct TwoFactorLoginRequest {
