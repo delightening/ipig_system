@@ -1006,7 +1006,10 @@ jobs:
 
       - name: OSV 依賴漏洞掃描（根目錄 + deploy/watchdog）
         run: |
+          # 新增 --config：根目錄 package-lock.json 若需窄範圍豁免，集中於本檔管理
+          # （frontend 仍使用 frontend/osv-scanner.toml）。
           osv-scanner scan \
+            --config=osv-scanner.root.toml \
             --lockfile=package-lock.json \
             --lockfile=deploy/watchdog/package-lock.json
 

@@ -1,0 +1,19 @@
+# OSV 依賴漏洞掃描豁免清單（根目錄 + deploy/watchdog 的 npm lockfile）
+#
+# 政策：預設「任一已知漏洞即 fail」。僅在漏洞無修復版本、且實際風險可控時，才以
+# 窄範圍、附註原因與到期日的方式暫時豁免。
+#
+## braces 3.0.3 — 無可用修復版（High）
+#
+## 影響範圍
+# - 來源：根目錄 package-lock.json（開發工具鏈用於 lint-staged / micromatch 的 transitive dev 依賴）
+# - 非執行時依賴（dev-only），不參與任何建置映像或發佈產物
+#
+## 現況與處置
+# - 上游尚無修復版本（OSV: GHSA-vfj7-8cjw-p6xm）。暫無法以升級排除
+# - 先行豁免以讓 CI 維持綠燈。到期後複審，或待上游釋出修復版即移除本條
+#
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2026-11-30
+reason = "root 開發環境的 dev 依賴。無修復版可升。到期複審或待上游釋出修復版。"
