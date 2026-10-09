@@ -101,10 +101,9 @@ FROM georgjung/nginx-brotli:1.31.2-alpine3.23
 #   本身不在任何可觸發路徑上；binary 仍在映像內，一併補以清 Trivy HIGH。（2026-09-05，
 #   同日 04:29 main 的 Trivy 掃描仍是綠的，07:35 起才出現——Alpine 安全公告即時新增，
 #   非本次改動造成）
-# 註：pcre2 (10.47-r0) 與 openssl (libcrypto3/libssl3 3.5.6-r0) 已由 georgjung base
-#     2026 重建涵蓋（CVE-2025-58050 / 6 個 openssl CVE 自動修復），無需額外升級。
+# 註：openssl (libcrypto3/libssl3 3.5.6-r0) 已由 georgjung base 2026 重建涵蓋多個 CVE。
 # 其他安全更新透過升級基底映像版號處理，見 docs/security.md。
-RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils libcrypto3 libssl3 nghttp2 nghttp2-libs libxml2 c-ares curl libcurl libuuid && rm -rf /var/cache/apk/*
+RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils libcrypto3 libssl3 nghttp2 nghttp2-libs libxml2 c-ares curl libcurl libuuid pcre2 tiff && rm -rf /var/cache/apk/*
 
 # 主配置：載入 Brotli 模組並 include conf.d
 COPY nginx-main.conf /etc/nginx/nginx.conf
