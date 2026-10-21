@@ -2,7 +2,7 @@ fastapi==0.141.1
 uvicorn[standard]==0.52.4
 jinja2==3.1.6
 # ⚠️ 必須與 Dockerfile 的 base image tag 同版
-# （`mcr.microsoft.com/playwright/python:v<版本>-jammy`）。base image 只預裝它
+# （`mcr.microsoft.com/playwright/python:v<版本>-noble`）。base image 只預裝它
 # 自己那版的瀏覽器（路徑含版本號，如 chromium_headless_shell-1148），版本一旦
 # 對不上，啟動時 `chromium.launch()` 會以
 # 「Executable doesn't exist at /ms-playwright/...」失敗，整個服務進重啟迴圈。
@@ -30,7 +30,13 @@ openpyxl==3.1.5
 # main 與**全部** open PR，不是哪一支 PR 的問題。
 # 下次看到某支 PR 莫名其妙掛在這一格，先查是不是又一批新 advisory。
 pypdf==6.19.0
-Pillow==12.3.0
+# 13.0.0：修 12.3.0 上的多個 advisory（含 1 個 Critical），皆為影像解碼／處理類。
+# 本服務會對 backend 帶入的 base64 照片呼叫 Image.open
+# （adapters/vet_patrol_report.py 的 _compress_data_url），輸入不是本服務自產的內容，
+# 所以不屬於「只處理自產內容」的可豁免情形。
+# ⚠️ 13.x 要求 Python >= 3.11：Dockerfile 因此由 *-jammy（Python 3.10）換成 *-noble
+# （Python 3.12）。若把 base image 退回 jammy，pip 只能解到 12.3.0，這條會裝不起來。
+Pillow==13.0.0
 
 # --- transitive 依賴的安全性下限（2026-08-04）---
 # 這兩個並非本服務直接 import，而是由 uvicorn[standard] / httpx 那條線帶進來。

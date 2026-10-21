@@ -1088,7 +1088,7 @@ jobs:
           # command substitution 失敗並直接中止本 step——下面 -z 的友善診斷訊息永遠跑不到
           # （Qodo code review，PR #86）。每條 pipeline 尾端補 `|| true` 讓找不到時視為空字串，
           # 交由後面的 -z 檢查統一報錯；PIN_VERSION 也補 head -1 避免意外多行結果。
-          IMAGE_VERSION=$( (grep -oE 'playwright/python:v[0-9]+\.[0-9]+\.[0-9]+-jammy' Dockerfile \
+          IMAGE_VERSION=$( (grep -oE 'playwright/python:v[0-9]+\.[0-9]+\.[0-9]+-(jammy|noble)' Dockerfile \
             | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || true)
           PIN_VERSION=$( (grep -E '^playwright==' requirements.txt | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || true)
 

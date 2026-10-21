@@ -172,7 +172,7 @@ updates:
     ignore:
       # playwright：**不從 pip 這端升**，否則會與 Docker base image 分家。
       #   `requirements.txt` 的 playwright 必須與 Dockerfile 的
-      #   `mcr.microsoft.com/playwright/python:v<版本>-jammy` tag 同版——base image
+      #   `mcr.microsoft.com/playwright/python:v<版本>-noble` tag 同版——base image
       #   只預裝自己那版的瀏覽器（路徑含版本號），對不上就
       #   「Executable doesn't exist at /ms-playwright/...」，服務進重啟迴圈。
       #   2026-08-06 prod 事故 #26 正是這樣炸的（docker 端升到 v1.62.0-jammy、

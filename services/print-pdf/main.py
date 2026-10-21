@@ -71,10 +71,11 @@ TZ = ZoneInfo(os.environ.get("TZ", "Asia/Taipei"))
 def _parse_iso_local(value: object) -> datetime:
     """ISO-8601 時間字串 → 本地時區（``TZ``）的 datetime。
 
-    後端送來的時間戳以 ``Z`` 結尾，而本服務跑在 **Python 3.10**（base image
-    ``playwright:*-jammy``）——``datetime.fromisoformat`` 要到 3.11 才原生接受
-    ``Z``。所以這裡必須先換成 ``+00:00``：**升上 3.11+ 之前不要拿掉這個 replace**，
-    拿掉會讓所有帶 Z 的時間戳解析失敗。
+    後端送來的時間戳以 ``Z`` 結尾。``datetime.fromisoformat`` 要到 3.11 才原生接受
+    ``Z``；本服務原本跑在 Python 3.10（base image ``playwright:*-jammy``），2026-10 起
+    base image 改為 ``*-noble``（Python 3.12），已可原生解析。這個 replace 現在是
+    多餘但無害，保留是為了不在換 base image 的 PR 裡順手改行為；若之後確定不會退回
+    3.10，可以另開 PR 拿掉。
 
     無時區資訊的輸入維持既有行為（``astimezone`` 視其為系統本地時間）。
     解析失敗照樣拋 ``ValueError`` / ``TypeError``，交由各呼叫端自己的 except 處理。
