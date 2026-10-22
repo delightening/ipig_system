@@ -23,11 +23,17 @@ async fn acquire_numbering_lock(tx: &mut Transaction<'_, Postgres>) -> Result<()
 
 /// 從編號字串解析流水號。
 /// 例如：`parse_no_sequence("APIG-115003", "APIG-115")` → `Some(3)`
+///
+/// 只認**剛好 3 碼 ASCII 數字**的後綴，與 `format_protocol_no` 的產出格式一致。
+/// 其他格式（匯入的舊編號、多一碼、帶符號等）一律回 `None`、不參與取最大值：
+/// 否則像 `PIG-1150012` 會被讀成流水號 50012，使該年度永遠超過 999 上限、
+/// 再也產生不了新編號。被排除的編號字串與新產生的 `前綴+3碼` 不會相同，不會撞號。
 pub(super) fn parse_no_sequence(no: &str, prefix: &str) -> Option<i32> {
-    if !no.starts_with(prefix) || no.len() <= prefix.len() {
+    let suffix = no.strip_prefix(prefix)?;
+    if suffix.len() != 3 || !suffix.bytes().all(|b| b.is_ascii_digit()) {
         return None;
     }
-    no[prefix.len()..].parse::<i32>().ok()
+    suffix.parse::<i32>().ok()
 }
 
 /// 將前綴與流水號格式化為 3 位補零編號。
@@ -240,6 +246,31 @@ mod tests {
     fn test_parse_no_sequence_exact_prefix() {
         // 前綴長度等於字串長度（無後綴）應回 None
         assert_eq!(parse_no_sequence("PIG-115", "PIG-115"), None);
+    }
+
+    #[test]
+    fn test_parse_no_sequence_rejects_non_three_digit_suffix() {
+        // 多於或少於 3 碼都不算流水號：多一碼的舊編號不得把上限墊爆
+        assert_eq!(parse_no_sequence("PIG-1150012", "PIG-115"), None);
+        assert_eq!(parse_no_sequence("PIG-11512345", "PIG-115"), None);
+        assert_eq!(parse_no_sequence("PIG-11501", "PIG-115"), None);
+        // 帶符號、帶分隔符也不算
+        assert_eq!(parse_no_sequence("PIG-115+12", "PIG-115"), None);
+        assert_eq!(parse_no_sequence("PIG-115-01", "PIG-115"), None);
+        // 剛好 3 碼的邊界值
+        assert_eq!(parse_no_sequence("PIG-115000", "PIG-115"), Some(0));
+        assert_eq!(parse_no_sequence("PIG-115999", "PIG-115"), Some(999));
+    }
+
+    #[test]
+    fn test_parse_no_sequence_roundtrip_with_format() {
+        // 產生端與解析端格式一致
+        for seq in [1, 42, 999] {
+            assert_eq!(
+                parse_no_sequence(&format_protocol_no("APIG-115", seq), "APIG-115"),
+                Some(seq)
+            );
+        }
     }
 
     // --- format_protocol_no ---
