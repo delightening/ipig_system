@@ -8,9 +8,9 @@
 #
 # 為何是 noble 不是 jammy：Pillow 13.0.0（修多個影像解碼 advisory，含 Critical）要求
 # Python >= 3.11，而 jammy 的系統 Python 是 3.10.12，pip 在 3.10 上最高只能裝到 12.3.0。
-# noble（Ubuntu 24.04）內建 Python 3.12，且 playwright 同版本（v1.62.0）有 noble 變體，
-# 瀏覽器版本不變，與 requirements.txt 的 playwright pin 仍須同版（見 CI 版本守衛）。
-FROM mcr.microsoft.com/playwright/python:v1.62.0-noble AS production
+# noble（Ubuntu 24.04）內建 Python 3.12，playwright 各版本皆有 noble 變體；
+# 與 requirements.txt 的 playwright pin 仍須同版（見 CI 版本守衛）。
+FROM mcr.microsoft.com/playwright/python:v1.64.0-noble AS production
 
 # CJK 字型：8 份非 GLP 文件經 base.html 以「Noto Sans CJK TC」名稱引用 → 需系統字型。
 # 3 份 GLP 文件（aup_protocol / vet_patrol / vet_patrol_report）主頁排版用 @font-face
