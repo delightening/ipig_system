@@ -31,7 +31,8 @@ openpyxl==3.1.5
 # 下次看到某支 PR 莫名其妙掛在這一格，先查是不是又一批新 advisory。
 # 6.20.1：再一批同類（解析惡意 PDF 時資源耗盡，皆 CVSS 6.0，修補版 6.20.0／6.20.1）。
 # 與上面兩次相同：不是我們改了什麼，是 OSV 收錄了新 advisory；本服務輸入仍皆為自產。
-pypdf==6.20.1
+# 6.21.1：GHSA-5hx5-vpf9-5wcv（CVSS 2.3，載入 JPEG 影像資料未驗證）；同樣是新收錄、輸入仍皆為自產。
+pypdf==6.21.1
 # 13.0.0：修 12.3.0 上的多個 advisory（含 1 個 Critical），皆為影像解碼／處理類。
 # 本服務會對 backend 帶入的 base64 照片呼叫 Image.open
 # （adapters/vet_patrol_report.py 的 _compress_data_url），輸入不是本服務自產的內容，
@@ -50,3 +51,5 @@ Pillow==13.0.0
 # 下次 rebuild 時把它降級，並擋掉之後的修補。上限交由上游套件的相依宣告決定。
 h11>=0.16.0   # PYSEC-2026-348 / GHSA-vqfr-h8mv-ghfj — CVSS 9.1
 idna>=3.19    # PYSEC-2026-215 / GHSA-65pc-fj4g-8rjx — CVSS 6.9
+# anyio 由 fastapi／starlette 帶進來，同上理由只設下限（2026-10-22 補）。
+anyio>=4.14.2 # PYSEC-2026-4025（CVSS 9.3，TLS 主機名編碼可致憑證偽冒）／PYSEC-2026-4024（CVSS 6.8，行程池阻塞）
