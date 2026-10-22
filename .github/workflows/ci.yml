@@ -1025,7 +1025,7 @@ jobs:
   # 可安全地設為 branch protection 的 required check——條件式 job 會 skip，
   # skip 的 required check 會讓 PR 永遠卡 pending（#16 已踩過一次）。
   # ⚠️ osv-scanner 不支援單獨的 pyproject.toml（僅認 poetry.lock 等 lockfile），
-  # 根目錄的 pyproject.toml 不在本 job 涵蓋範圍。
+  # 根目錄的 pyproject.toml 本身不掃；其依賴改由同目錄的 uv.lock 涵蓋（2026-10-22 補）。
   #
   # 2026-08-11 補 --no-resolve：osv-scanner v2.3.5 起對 requirements.txt 這類「只列
   # 直接依賴、無 lockfile」的格式，預設會多打一支 RPC 去 deps.dev 解析完整 transitive
@@ -1050,6 +1050,15 @@ jobs:
 
       - name: OSV 依賴漏洞掃描（services/print-pdf/requirements.txt）
         run: osv-scanner scan --no-resolve --lockfile=services/print-pdf/requirements.txt
+
+      # 根目錄 uv.lock（pyproject.toml 的本機開發腳本依賴）原本不在任何掃描範圍內，
+      # 只靠 Dependabot alert 才會發現問題（2026-10-22 的 certifi 即是如此）。
+      # uv.lock 是完整 lockfile、已含 transitive 版本，--no-resolve 不影響涵蓋範圍。
+      # 獨立成一個 step，轉紅時從 step 名稱就看得出是哪個檔；!cancelled() 讓上一步
+      # 轉紅時這一步照樣執行，兩個檔的結果一次都看得到。
+      - name: OSV 依賴漏洞掃描（uv.lock）
+        if: ${{ !cancelled() }}
+        run: osv-scanner scan --no-resolve --lockfile=uv.lock
 
   # =========================
   # 🔗 print-pdf: Dockerfile / requirements.txt playwright 版本一致性（#35）
