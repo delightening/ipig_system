@@ -124,7 +124,7 @@ pub async fn csrf_middleware(
     State(state): State<AppState>,
     request: Request,
     next: Next,
-) -> Result<Response<Body>, Response<Body>> {
+) -> Response<Body> {
     let method = request.method().clone();
     let path = request.uri().path().to_string();
     let cookie_secure = state.config.cookie_secure;
@@ -146,13 +146,13 @@ pub async fn csrf_middleware(
                 path
             );
             let status = StatusCode::UNAUTHORIZED;
-            return Err((
+            return (
                 status,
                 axum::Json(serde_json::json!({
                     "error": "Authentication required for this operation"
                 })),
             )
-                .into_response());
+                .into_response();
         }
 
         let cookie_token = extract_cookie(&request, "csrf_token");
@@ -178,13 +178,13 @@ pub async fn csrf_middleware(
                 tracing::warn!("[CSRF] 驗證失敗 - Method: {}, Path: {}", method, path);
                 let status =
                     StatusCode::from_u16(CSRF_EXPIRED_STATUS).unwrap_or(StatusCode::FORBIDDEN);
-                return Err((
+                return (
                     status,
                     axum::Json(serde_json::json!({
                         "error": "CSRF token invalid or expired"
                     })),
                 )
-                    .into_response());
+                    .into_response();
             }
         }
     }
@@ -222,7 +222,7 @@ pub async fn csrf_middleware(
         }
     }
 
-    Ok(response)
+    response
 }
 
 #[cfg(test)]
