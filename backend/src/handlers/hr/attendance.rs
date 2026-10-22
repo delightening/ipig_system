@@ -221,7 +221,7 @@ fn resolve_attendance_query_scope(query: &mut AttendanceQuery, current_user: &Cu
 
 /// 列出出勤記錄
 /// - 預設只顯示自己的紀錄；具備 hr.attendance.view_all 且傳 view_all=true 時可查看所有人
-#[utoipa::path(get, path = "/api/v1/hr/attendance", responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/hr/attendance", responses((status = 200, description = "出勤紀錄列表")), tag = "HR 出勤", security(("bearer" = [])))]
 pub async fn list_attendance(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -234,7 +234,7 @@ pub async fn list_attendance(
 }
 
 /// 打卡上班
-#[utoipa::path(post, path = "/api/v1/hr/attendance/clock-in", request_body = ClockInRequest, responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/hr/attendance/clock-in", request_body = ClockInRequest, responses((status = 200, description = "打卡成功")), tag = "HR 出勤", security(("bearer" = [])))]
 pub async fn clock_in(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -365,7 +365,7 @@ pub async fn export_attendance(
 /// 更正出勤記錄（既有紀錄改時間）。
 ///
 /// 整天沒打卡的日子沒有 row，這條會 404——那種情況走 `POST /hr/attendance` 補登。
-#[utoipa::path(put, path = "/api/v1/hr/attendance/{id}", request_body = AttendanceCorrectionRequest, responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
+#[utoipa::path(put, path = "/api/v1/hr/attendance/{id}", request_body = AttendanceCorrectionRequest, responses((status = 200, description = "更正成功")), tag = "HR 出勤", security(("bearer" = [])))]
 pub async fn correct_attendance(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -385,7 +385,7 @@ pub async fn correct_attendance(
 ///
 /// 「不得補自己的卡」由 service 判定（`HrService::backfill_attendance`），
 /// 不放這裡：那是業務規則，且更正路徑也要用同一條，集中在 service 才不會兩邊分歧。
-#[utoipa::path(post, path = "/api/v1/hr/attendance", request_body = AttendanceBackfillRequest, responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/hr/attendance", request_body = AttendanceBackfillRequest, responses((status = 200, description = "補登成功")), tag = "HR 出勤", security(("bearer" = [])))]
 pub async fn backfill_attendance(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

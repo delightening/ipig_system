@@ -21,7 +21,7 @@ use crate::{
 };
 
 /// 列出加班記錄
-#[utoipa::path(get, path = "/api/v1/hr/overtime", responses((status = 200)), tag = "HR 加班", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/hr/overtime", responses((status = 200, description = "加班申請列表")), tag = "HR 加班", security(("bearer" = [])))]
 pub async fn list_overtime(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -65,7 +65,7 @@ pub async fn get_overtime(
 }
 
 /// 建立加班記錄
-#[utoipa::path(post, path = "/api/v1/hr/overtime", request_body = CreateOvertimeRequest, responses((status = 201)), tag = "HR 加班", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/hr/overtime", request_body = CreateOvertimeRequest, responses((status = 201, description = "建立成功")), tag = "HR 加班", security(("bearer" = [])))]
 pub async fn create_overtime(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
