@@ -216,9 +216,9 @@ impl FileService {
                 .by_index(i)
                 .map_err(|e| AppError::Validation(format!("ZIP 項目讀取失敗: {}", e)))?;
             // zip 9 起 name() 會在檔名無法解碼時回 Err；無法判讀的路徑一律拒收（fail-closed）
-            let name = entry
-                .name()
-                .map_err(|_| AppError::Validation("ZIP 內含無法解析的檔名，拒絕上傳".to_string()))?;
+            let name = entry.name().map_err(|_| {
+                AppError::Validation("ZIP 內含無法解析的檔名，拒絕上傳".to_string())
+            })?;
             if name.contains("..") || name.starts_with('/') || name.contains('\\') {
                 return Err(AppError::Validation(
                     "ZIP 內含不允許的路徑，拒絕上傳".to_string(),
