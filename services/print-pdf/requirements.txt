@@ -52,4 +52,4 @@ Pillow==13.0.0
 h11>=0.16.0   # PYSEC-2026-348 / GHSA-vqfr-h8mv-ghfj — CVSS 9.1
 idna>=3.19    # PYSEC-2026-215 / GHSA-65pc-fj4g-8rjx — CVSS 6.9
 # anyio 由 fastapi／starlette 帶進來，同上理由只設下限（2026-10-22 補）。
-anyio>=4.14.2 # PYSEC-2026-4025（CVSS 9.3，TLS 主機名編碼可致憑證偽冒）／PYSEC-2026-4024（CVSS 6.8，行程池阻塞）
+anyio>=4.15.1 # PYSEC-2026-4025（CVSS 9.3，TLS 主機名編碼可致憑證偽冒）／PYSEC-2026-4024（CVSS 6.8，行程池阻塞）
