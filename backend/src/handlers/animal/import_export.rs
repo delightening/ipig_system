@@ -36,43 +36,8 @@ pub async fn export_animal_medical_data(
     access::require_animal_access(&state.db, &current_user, animal_id).await?;
 
     let data = AnimalMedicalService::get_animal_medical_data(&state.db, animal_id).await?;
-    let _record = AnimalMedicalService::create_export_record(
-        &state.db,
-        Some(animal_id),
-        None,
-        req.export_type,
-        req.format,
-        Some("pending"),
-        current_user.id,
-    )
-    .await?;
 
-    let export_display = match AnimalService::get_by_id(&state.db, animal_id).await {
-        Ok(animal) => {
-            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
-            format!("[{}] {}", iacuc, animal.ear_tag)
-        }
-        _ => format!("匯出醫療資料 (animal: {})", animal_id),
-    };
-
-    let actor = ActorContext::User(current_user.clone());
-    if let Err(e) = AuditService::log_activity_oneshot(
-        &state.db,
-        &actor,
-        ActivityLogEntry {
-            event_category: "ANIMAL",
-            event_type: "EXPORT_MEDICAL",
-            entity: Some(AuditEntity::new("animal", animal_id, &export_display)),
-            data_diff: None,
-            request_context: None,
-        },
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (MEDICAL_EXPORT): {}", e);
-    }
-
-    match req.format {
+    let response = match req.format {
         crate::models::ExportFormat::Pdf => {
             // R32-A8a + coderabbit PR #332：source_name 已在 service 層 JOIN
             let (pdf_bytes, renderer) = state
@@ -99,7 +64,35 @@ pub async fn export_animal_medical_data(
                 .map_err(|e| AppError::Internal(format!("serialize error: {e}")))?,
             ))
             .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?),
+    }?;
+
+    // 回應產生成功才記 EXPORT_MEDICAL：渲染失敗不應在稽核留下「已匯出」
+    let export_display = match AnimalService::get_by_id(&state.db, animal_id).await {
+        Ok(animal) => {
+            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+            format!("[{}] {}", iacuc, animal.ear_tag)
+        }
+        _ => format!("匯出醫療資料 (animal: {})", animal_id),
+    };
+
+    let actor = ActorContext::User(current_user.clone());
+    if let Err(e) = AuditService::log_activity_oneshot(
+        &state.db,
+        &actor,
+        ActivityLogEntry {
+            event_category: "ANIMAL",
+            event_type: "EXPORT_MEDICAL",
+            entity: Some(AuditEntity::new("animal", animal_id, &export_display)),
+            data_diff: None,
+            request_context: None,
+        },
+    )
+    .await
+    {
+        tracing::error!("寫入 user_activity_logs 失敗 (MEDICAL_EXPORT): {}", e);
     }
+
+    Ok(response)
 }
 
 /// 匯出專案的醫療資料
@@ -111,21 +104,12 @@ pub async fn export_project_medical_data(
 ) -> Result<Response> {
     require_permission!(current_user, "animal.export.medical");
     // CSO-r2 #3: 物件層存取檢查，防止跨計畫批次 JSON 匯出 IDOR（與 export-pdf 路徑 C3 一致）
-    access::require_iacuc_protocol_access(&state.db, &current_user, &iacuc_no).await?;
+    let protocol_id =
+        access::require_iacuc_protocol_access(&state.db, &current_user, &iacuc_no).await?;
 
     let data = AnimalMedicalService::get_project_medical_data(&state.db, &iacuc_no).await?;
-    let _record = AnimalMedicalService::create_export_record(
-        &state.db,
-        None,
-        Some(&iacuc_no),
-        req.export_type,
-        req.format,
-        Some("pending"),
-        current_user.id,
-    )
-    .await?;
 
-    match req.format {
+    let response = match req.format {
         crate::models::ExportFormat::Pdf => {
             // R32-A8d + coderabbit PR #332：source_name batch JOIN 已在 service 層
             let (pdf_bytes, renderer) = state
@@ -152,7 +136,30 @@ pub async fn export_project_medical_data(
                 .map_err(|e| AppError::Internal(format!("serialize error: {e}")))?,
             ))
             .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?),
+    }?;
+
+    // 回應產生成功才記 EXPORT_MEDICAL：渲染失敗不應在稽核留下「已匯出」
+    let actor = ActorContext::User(current_user.clone());
+    if let Err(e) = AuditService::log_activity_oneshot(
+        &state.db,
+        &actor,
+        ActivityLogEntry {
+            event_category: "ANIMAL",
+            event_type: "EXPORT_MEDICAL",
+            entity: Some(AuditEntity::new("protocol", protocol_id, &iacuc_no)),
+            data_diff: None,
+            request_context: None,
+        },
+    )
+    .await
+    {
+        tracing::error!(
+            protocol_id = %protocol_id,
+            "寫入 user_activity_logs 失敗 (MEDICAL_EXPORT project): {e}"
+        );
     }
+
+    Ok(response)
 }
 
 /// 列出所有匯入批次
