@@ -42,32 +42,7 @@ pub async fn export_animal_medical_pdf(
 
     let data = AnimalMedicalService::get_animal_medical_data(&state.db, animal_id).await?;
 
-    let export_display = match AnimalService::get_by_id(&state.db, animal_id).await {
-        Ok(animal) => {
-            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
-            format!("[{}] {}", iacuc, animal.ear_tag)
-        }
-        _ => format!("匯出醫療資料 (animal: {})", animal_id),
-    };
-
-    let actor = ActorContext::User(current_user.clone());
-    if let Err(e) = AuditService::log_activity_oneshot(
-        &state.db,
-        &actor,
-        ActivityLogEntry {
-            event_category: "ANIMAL",
-            event_type: "EXPORT_MEDICAL",
-            entity: Some(AuditEntity::new("animal", animal_id, &export_display)),
-            data_diff: None,
-            request_context: None,
-        },
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (MEDICAL_EXPORT): {}", e);
-    }
-
-    match req.format {
+    let response = match req.format {
         crate::models::ExportFormat::Pdf => {
             // R32-A8a + coderabbit PR #332：source_name 已在 service 層 JOIN
             let (pdf_bytes, renderer) = state
@@ -96,7 +71,35 @@ pub async fn export_animal_medical_pdf(
                 .map_err(|e| AppError::Internal(format!("serialize error: {e}")))?,
             ))
             .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?),
+    }?;
+
+    // 回應產生成功才記 EXPORT_MEDICAL：渲染失敗不應在稽核留下「已匯出」
+    let export_display = match AnimalService::get_by_id(&state.db, animal_id).await {
+        Ok(animal) => {
+            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+            format!("[{}] {}", iacuc, animal.ear_tag)
+        }
+        _ => format!("匯出醫療資料 (animal: {})", animal_id),
+    };
+
+    let actor = ActorContext::User(current_user.clone());
+    if let Err(e) = AuditService::log_activity_oneshot(
+        &state.db,
+        &actor,
+        ActivityLogEntry {
+            event_category: "ANIMAL",
+            event_type: "EXPORT_MEDICAL",
+            entity: Some(AuditEntity::new("animal", animal_id, &export_display)),
+            data_diff: None,
+            request_context: None,
+        },
+    )
+    .await
+    {
+        tracing::error!("寫入 user_activity_logs 失敗 (MEDICAL_EXPORT): {}", e);
     }
+
+    Ok(response)
 }
 
 /// R32-A8b：匯出單一手術紀錄 PDF。
@@ -207,24 +210,7 @@ pub async fn export_project_medical_pdf(
 
     let data = AnimalMedicalService::get_project_medical_data(&state.db, &iacuc_no).await?;
 
-    let actor = ActorContext::User(current_user.clone());
-    if let Err(e) = AuditService::log_activity_oneshot(
-        &state.db,
-        &actor,
-        ActivityLogEntry {
-            event_category: "ANIMAL",
-            event_type: "EXPORT_MEDICAL",
-            entity: Some(AuditEntity::new("protocol", protocol_id, &iacuc_no)),
-            data_diff: None,
-            request_context: None,
-        },
-    )
-    .await
-    {
-        tracing::error!("寫入 user_activity_logs 失敗 (MEDICAL_EXPORT project): {e}");
-    }
-
-    match req.format {
+    let response = match req.format {
         crate::models::ExportFormat::Pdf => {
             // R32-A8d + coderabbit PR #332：source_name batch JOIN 已在 service 層
             let (pdf_bytes, renderer) = state
@@ -253,7 +239,30 @@ pub async fn export_project_medical_pdf(
                 .map_err(|e| AppError::Internal(format!("serialize error: {e}")))?,
             ))
             .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?),
+    }?;
+
+    // 回應產生成功才記 EXPORT_MEDICAL：渲染失敗不應在稽核留下「已匯出」
+    let actor = ActorContext::User(current_user.clone());
+    if let Err(e) = AuditService::log_activity_oneshot(
+        &state.db,
+        &actor,
+        ActivityLogEntry {
+            event_category: "ANIMAL",
+            event_type: "EXPORT_MEDICAL",
+            entity: Some(AuditEntity::new("protocol", protocol_id, &iacuc_no)),
+            data_diff: None,
+            request_context: None,
+        },
+    )
+    .await
+    {
+        tracing::error!(
+            protocol_id = %protocol_id,
+            "寫入 user_activity_logs 失敗 (MEDICAL_EXPORT project): {e}"
+        );
     }
+
+    Ok(response)
 }
 
 // export_pen_report handler removed — frontend has been routed to
