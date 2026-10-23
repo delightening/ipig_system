@@ -4,7 +4,6 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -29,16 +28,9 @@ type ExportType = 'single_animal' | 'batch_project'
 // 暫時只開 PDF：後端 /export（非 -pdf）目前只回 JSON、不產生 xlsx，CSV 後端則根本沒有這個格式。
 // Excel 匯出實作完成前不顯示另外兩個選項，避免下載到副檔名是 .xlsx、內容卻是 JSON 的壞檔。
 type ExportFormat = 'pdf'
-
-interface ExportOptions {
-  observations: boolean
-  surgeries: boolean
-  weights: boolean
-  vaccinations: boolean
-  sacrifice: boolean
-  pathology: boolean
-  basic_info: boolean
-}
+// 原本的 7 個「匯出內容」勾選項已移除：勾選狀態從未送到後端，後端一律匯出固定內容
+// （基本資料／觀察／手術／體重／疫苗／犧牲，見 AnimalMedicalService::get_animal_medical_data），
+// 「病理」更是後端根本沒有的區塊。保留只會讓使用者以為能挑內容。
 
 interface Props {
   open: boolean
@@ -52,15 +44,6 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
   const { t } = useTranslation()
   const [format, setFormat] = useState<ExportFormat>('pdf')
   const [selectedProject, setSelectedProject] = useState<string>('')
-  const [options, setOptions] = useState<ExportOptions>({
-    observations: true,
-    surgeries: true,
-    weights: true,
-    vaccinations: true,
-    sacrifice: true,
-    pathology: true,
-    basic_info: true,
-  })
 
   // 取得計畫列表（用於批次匯出）
   const { data: projects } = useQuery({
@@ -104,7 +87,8 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
       a.href = url
       a.style.display = 'none'
 
-      const dateStr = new Date().toISOString().split('T')[0]
+      // 檔名日期用台灣日期：toISOString() 是 UTC，台北 00:00–08:00 匯出會得到前一天
+      const dateStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' })
       const fileExt = format === 'pdf' ? 'pdf' : 'xlsx'
       const filename =
         type === 'single_animal'
@@ -131,25 +115,6 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
       })
     },
   })
-
-  const handleOptionChange = (key: keyof ExportOptions, value: boolean) => {
-    setOptions((prev) => ({ ...prev, [key]: value }))
-  }
-
-  const handleSelectAll = (selected: boolean) => {
-    setOptions({
-      observations: selected,
-      surgeries: selected,
-      weights: selected,
-      vaccinations: selected,
-      sacrifice: selected,
-      pathology: selected,
-      basic_info: selected,
-    })
-  }
-
-  const allSelected = Object.values(options).every((v) => v)
-  const someSelected = Object.values(options).some((v) => v)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -206,58 +171,6 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
               </button>
             </div>
           </div>
-
-          {/* 匯出內容選項 */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>{t('animalActions.importExport.export.content')}</Label>
-              <button
-                type="button"
-                onClick={() => handleSelectAll(!allSelected)}
-                className="text-sm text-status-purple-text hover:text-status-purple-text"
-              >
-                {allSelected ? t('animalActions.importExport.export.deselectAll') : t('animalActions.importExport.export.selectAll')}
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 p-4 bg-muted rounded-lg">
-              <Checkbox
-                label={t('animalActions.common.animalBasicInfo')}
-                checked={options.basic_info}
-                onCheckedChange={(checked) => handleOptionChange('basic_info', checked)}
-              />
-              <Checkbox
-                label={t('animalDetail.tabs.observations')}
-                checked={options.observations}
-                onCheckedChange={(checked) => handleOptionChange('observations', checked)}
-              />
-              <Checkbox
-                label={t('animalDetail.tabs.surgeries')}
-                checked={options.surgeries}
-                onCheckedChange={(checked) => handleOptionChange('surgeries', checked)}
-              />
-              <Checkbox
-                label={t('animalDetail.tabs.weights')}
-                checked={options.weights}
-                onCheckedChange={(checked) => handleOptionChange('weights', checked)}
-              />
-              <Checkbox
-                label={t('animalDetail.tabs.vaccinations')}
-                checked={options.vaccinations}
-                onCheckedChange={(checked) => handleOptionChange('vaccinations', checked)}
-              />
-              <Checkbox
-                label={t('animalDetail.tabs.sacrifice')}
-                checked={options.sacrifice}
-                onCheckedChange={(checked) => handleOptionChange('sacrifice', checked)}
-              />
-              <Checkbox
-                label={t('animalDetail.tabs.pathology')}
-                checked={options.pathology}
-                onCheckedChange={(checked) => handleOptionChange('pathology', checked)}
-              />
-            </div>
-          </div>
         </div>
 
         <DialogFooter>
@@ -268,7 +181,6 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
             onClick={() => exportMutation.mutate()}
             disabled={
               exportMutation.isPending ||
-              !someSelected ||
               (type === 'batch_project' && !selectedProject)
             }
             className="bg-status-purple-solid hover:bg-status-purple-solid/90"
