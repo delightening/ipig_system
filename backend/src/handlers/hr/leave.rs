@@ -37,7 +37,7 @@ pub struct LeaveCalendarQuery {
     get,
     path = "/api/v1/hr/leaves/calendar",
     params(LeaveCalendarQuery),
-    responses((status = 200, body = LeaveCalendarResponse)),
+    responses((status = 200, description = "請假行事曆", body = LeaveCalendarResponse)),
     tag = "HR 請假",
     security(("bearer" = []))
 )]
@@ -61,7 +61,7 @@ pub async fn get_leave_calendar(
 }
 
 /// 列出請假記錄
-#[utoipa::path(get, path = "/api/v1/hr/leaves", responses((status = 200)), tag = "HR 請假", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/hr/leaves", responses((status = 200, description = "請假申請列表")), tag = "HR 請假", security(("bearer" = [])))]
 pub async fn list_leaves(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -99,7 +99,7 @@ pub async fn get_leave(
 }
 
 /// 建立請假申請
-#[utoipa::path(post, path = "/api/v1/hr/leaves", request_body = CreateLeaveRequest, responses((status = 201)), tag = "HR 請假", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/hr/leaves", request_body = CreateLeaveRequest, responses((status = 201, description = "建立成功")), tag = "HR 請假", security(("bearer" = [])))]
 pub async fn create_leave(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

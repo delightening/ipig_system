@@ -24,7 +24,7 @@ use crate::{
 // ============================================
 
 /// 列出動物的所有體重記錄
-#[utoipa::path(get, path = "/api/v1/animals/{animal_id}/weights", params(("animal_id" = Uuid, Path, description = "動物 ID"), RecordFilterQuery), responses((status = 200, body = Vec<AnimalWeightResponse>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/animals/{animal_id}/weights", params(("animal_id" = Uuid, Path, description = "動物 ID"), RecordFilterQuery), responses((status = 200, description = "體重紀錄列表", body = Vec<AnimalWeightResponse>), (status = 401, description = "未授權")), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn list_animal_weights(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -38,7 +38,7 @@ pub async fn list_animal_weights(
 }
 
 /// 建立體重記錄
-#[utoipa::path(post, path = "/api/v1/animals/{animal_id}/weights", params(("animal_id" = Uuid, Path, description = "動物 ID")), request_body = CreateWeightRequest, responses((status = 200, body = AnimalWeight), (status = 400), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/animals/{animal_id}/weights", params(("animal_id" = Uuid, Path, description = "動物 ID")), request_body = CreateWeightRequest, responses((status = 200, description = "建立成功", body = AnimalWeight), (status = 400, description = "驗證失敗"), (status = 401, description = "未授權")), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn create_animal_weight(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -57,7 +57,7 @@ pub async fn create_animal_weight(
 }
 
 /// 更新體重記錄
-#[utoipa::path(put, path = "/api/v1/weights/{id}", params(("id" = Uuid, Path, description = "記錄 ID")), request_body = UpdateWeightRequest, responses((status = 200, body = AnimalWeight), (status = 400), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(put, path = "/api/v1/weights/{id}", params(("id" = Uuid, Path, description = "記錄 ID")), request_body = UpdateWeightRequest, responses((status = 200, description = "更新成功", body = AnimalWeight), (status = 400, description = "驗證失敗"), (status = 401, description = "未授權"), (status = 404, description = "找不到體重紀錄")), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn update_animal_weight(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -77,7 +77,7 @@ pub async fn update_animal_weight(
 }
 
 /// 刪除體重記錄（軟刪除 + 刪除原因）- GLP 合規
-#[utoipa::path(delete, path = "/api/v1/weights/{id}", params(("id" = Uuid, Path, description = "記錄 ID")), request_body = DeleteRequest, responses((status = 200), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(delete, path = "/api/v1/weights/{id}", params(("id" = Uuid, Path, description = "記錄 ID")), request_body = DeleteRequest, responses((status = 200, description = "刪除成功"), (status = 401, description = "未授權"), (status = 404, description = "找不到體重紀錄")), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn delete_animal_weight(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -104,7 +104,7 @@ pub async fn delete_animal_weight(
 // ============================================
 
 /// 列出動物的所有疫苗接種記錄
-#[utoipa::path(get, path = "/api/v1/animals/{animal_id}/vaccinations", params(("animal_id" = Uuid, Path, description = "動物 ID"), RecordFilterQuery), responses((status = 200, body = Vec<AnimalVaccination>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/animals/{animal_id}/vaccinations", params(("animal_id" = Uuid, Path, description = "動物 ID"), RecordFilterQuery), responses((status = 200, description = "疫苗紀錄列表", body = Vec<AnimalVaccination>), (status = 401, description = "未授權")), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn list_animal_vaccinations(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -119,7 +119,7 @@ pub async fn list_animal_vaccinations(
 }
 
 /// 建立疫苗接種記錄
-#[utoipa::path(post, path = "/api/v1/animals/{animal_id}/vaccinations", params(("animal_id" = Uuid, Path, description = "動物 ID")), request_body = CreateVaccinationRequest, responses((status = 200, body = AnimalVaccination), (status = 400), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/animals/{animal_id}/vaccinations", params(("animal_id" = Uuid, Path, description = "動物 ID")), request_body = CreateVaccinationRequest, responses((status = 200, description = "建立成功", body = AnimalVaccination), (status = 400, description = "驗證失敗"), (status = 401, description = "未授權")), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn create_animal_vaccination(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -142,7 +142,7 @@ pub async fn create_animal_vaccination(
 }
 
 /// 更新疫苗接種記錄
-#[utoipa::path(put, path = "/api/v1/vaccinations/{id}", params(("id" = Uuid, Path, description = "記錄 ID")), request_body = UpdateVaccinationRequest, responses((status = 200, body = AnimalVaccination), (status = 400), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(put, path = "/api/v1/vaccinations/{id}", params(("id" = Uuid, Path, description = "記錄 ID")), request_body = UpdateVaccinationRequest, responses((status = 200, description = "更新成功", body = AnimalVaccination), (status = 400, description = "驗證失敗"), (status = 401, description = "未授權"), (status = 404, description = "找不到疫苗紀錄")), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn update_animal_vaccination(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -165,7 +165,7 @@ pub async fn update_animal_vaccination(
 }
 
 /// 刪除疫苗接種記錄（軟刪除 + 刪除原因）- GLP 合規
-#[utoipa::path(delete, path = "/api/v1/vaccinations/{id}", params(("id" = Uuid, Path, description = "記錄 ID")), request_body = DeleteRequest, responses((status = 200), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
+#[utoipa::path(delete, path = "/api/v1/vaccinations/{id}", params(("id" = Uuid, Path, description = "記錄 ID")), request_body = DeleteRequest, responses((status = 200, description = "刪除成功"), (status = 401, description = "未授權"), (status = 404, description = "找不到疫苗紀錄")), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn delete_animal_vaccination(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

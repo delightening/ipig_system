@@ -88,7 +88,7 @@ pub async fn get_entity_history(
 // ============================================
 
 /// 列出活動日誌
-#[utoipa::path(get, path = "/api/v1/admin/audit/activities", responses((status = 200)), tag = "稽核管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/admin/audit/activities", responses((status = 200, description = "活動紀錄列表")), tag = "稽核管理", security(("bearer" = [])))]
 pub async fn list_activity_logs(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -423,7 +423,7 @@ pub async fn get_user_activity_timeline(
 // ============================================
 
 /// 列出登入事件
-#[utoipa::path(get, path = "/api/v1/admin/audit/logins", responses((status = 200)), tag = "稽核管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/admin/audit/logins", responses((status = 200, description = "登入事件列表")), tag = "稽核管理", security(("bearer" = [])))]
 pub async fn list_login_events(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -628,7 +628,7 @@ pub async fn clear_account_lockout(
 // ============================================
 
 /// 取得審計儀表板統計
-#[utoipa::path(get, path = "/api/v1/admin/audit/dashboard", responses((status = 200)), tag = "稽核管理", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/admin/audit/dashboard", responses((status = 200, description = "稽核儀表板統計")), tag = "稽核管理", security(("bearer" = [])))]
 pub async fn get_audit_dashboard(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

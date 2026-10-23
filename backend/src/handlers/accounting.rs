@@ -56,7 +56,7 @@ pub struct JournalEntryResponse {
 }
 
 /// 取得會計科目表
-#[utoipa::path(get, path = "/api/v1/accounting/chart-of-accounts", responses((status = 200)), tag = "會計", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/accounting/chart-of-accounts", responses((status = 200, description = "會計科目表")), tag = "會計", security(("bearer" = [])))]
 pub async fn get_chart_of_accounts(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -67,7 +67,7 @@ pub async fn get_chart_of_accounts(
 }
 
 /// 取得試算表
-#[utoipa::path(get, path = "/api/v1/accounting/trial-balance", responses((status = 200)), tag = "會計", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/accounting/trial-balance", responses((status = 200, description = "試算表")), tag = "會計", security(("bearer" = [])))]
 pub async fn get_trial_balance(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -80,7 +80,7 @@ pub async fn get_trial_balance(
 }
 
 /// 取得傳票清單
-#[utoipa::path(get, path = "/api/v1/accounting/journal-entries", responses((status = 200)), tag = "會計", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/accounting/journal-entries", responses((status = 200, description = "傳票分錄列表")), tag = "會計", security(("bearer" = [])))]
 pub async fn get_journal_entries(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -102,7 +102,7 @@ pub async fn get_journal_entries(
 }
 
 /// 取得應付帳款帳齡
-#[utoipa::path(get, path = "/api/v1/accounting/ap-aging", responses((status = 200)), tag = "會計", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/accounting/ap-aging", responses((status = 200, description = "應付帳款帳齡")), tag = "會計", security(("bearer" = [])))]
 pub async fn get_ap_aging(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -115,7 +115,7 @@ pub async fn get_ap_aging(
 }
 
 /// 取得應收帳款帳齡
-#[utoipa::path(get, path = "/api/v1/accounting/ar-aging", responses((status = 200)), tag = "會計", security(("bearer" = [])))]
+#[utoipa::path(get, path = "/api/v1/accounting/ar-aging", responses((status = 200, description = "應收帳款帳齡")), tag = "會計", security(("bearer" = [])))]
 pub async fn get_ar_aging(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -128,7 +128,7 @@ pub async fn get_ar_aging(
 }
 
 /// 建立 AP 付款
-#[utoipa::path(post, path = "/api/v1/accounting/ap-payments", request_body = CreateApPaymentRequest, responses((status = 200)), tag = "會計", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/accounting/ap-payments", request_body = CreateApPaymentRequest, responses((status = 200, description = "付款建立成功")), tag = "會計", security(("bearer" = [])))]
 pub async fn create_ap_payment(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -149,7 +149,7 @@ pub async fn create_ap_payment(
 }
 
 /// 建立 AR 收款
-#[utoipa::path(post, path = "/api/v1/accounting/ar-receipts", request_body = CreateArReceiptRequest, responses((status = 200)), tag = "會計", security(("bearer" = [])))]
+#[utoipa::path(post, path = "/api/v1/accounting/ar-receipts", request_body = CreateArReceiptRequest, responses((status = 200, description = "收款建立成功")), tag = "會計", security(("bearer" = [])))]
 pub async fn create_ar_receipt(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
