@@ -5587,9 +5587,6 @@
         "selectProject": "Select Protocol (IACUC No.) *",
         "selectProjectHint": "Select a protocol to export",
         "format": "Export Format",
-        "content": "Export Content",
-        "selectAll": "Select All",
-        "deselectAll": "Deselect All",
         "action": "Export"
       }
     },

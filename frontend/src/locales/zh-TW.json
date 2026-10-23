@@ -5587,9 +5587,6 @@
         "selectProject": "選擇計畫 (IACUC No.) *",
         "selectProjectHint": "選擇要匯出的計畫",
         "format": "匯出格式",
-        "content": "匯出內容",
-        "selectAll": "全選",
-        "deselectAll": "取消全選",
         "action": "匯出"
       }
     },
