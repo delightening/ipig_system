@@ -48,9 +48,19 @@ RUN pnpm run build
 # ============================================
 # Stage 2: Serve with nginx (Brotli 支援)
 # ============================================
-FROM georgjung/nginx-brotli:1.31.2-alpine3.23
+FROM georgjung/nginx-brotli:1.31.8-alpine3.24
 
-# 版本釘選：nginx 1.31.0 + Alpine 3.23（2026-05-13 發佈，新 mainline series）
+# 版本釘選：nginx 1.31.8 + Alpine 3.24（2026-10-21；georgjung 1.31.7 起只出 alpine3.24 tag）
+# 1.31.2 → 1.31.8 涵蓋 1.31.7（2026-10-14）的 nginx core CVE：
+# - CVE-2026-93479 (含變數的字串運算式 buffer overflow，影響 document root 計算與 request logging
+#   ——nginx-main.conf 的 log_format json_combined、nginx.conf 的 set $cspNonce 都在可觸發路徑上)
+# - CVE-2026-15176 (alias + rewrite buffer overflow — 沒用 alias/rewrite，binary 層一併修)
+# - CVE-2026-97205 (SSI + AIO use-after-free — 沒用 SSI/AIO)
+# - CVE-2026-95101 (HTTP/3 request body injection — 只 listen http2，未開 QUIC)
+# - CVE-2026-97629 (TLS session ticket key rotation session forgery — TLS 在 Cloudflare Tunnel 終結)
+# 1.31.8 本身只有 bugfix（working_directory、HTTP/3 SIGBUS、kTLS log），無 config 相容性影響。
+#
+# 前次釘選：nginx 1.31.0 + Alpine 3.23（2026-05-13 發佈，新 mainline series）
 # 升級理由：1.29.x 在 1.31.0 釋出後等於 EOL（mainline 切到新 series，未來 CVE
 # patch 只走 1.31.x）；R56 AWS migration 為 park 狀態（規劃中、未實作），不能
 # 等 3 個月才補資安。
