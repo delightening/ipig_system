@@ -135,4 +135,57 @@ mod tests {
         assert!(validate_pen_location("").is_err());
         assert!(validate_pen_location("   ").is_err()); // 空白也不行
     }
+
+    // ==========================================
+    // ExportFormat / ExportType / ExportRequest 測試
+    // 字串真值：migrations/002_schema.sql:303-318（export_format / export_type enum）、
+    // 前端 frontend/src/components/animal/ExportDialog.tsx:84-89（實際送出的 body）
+    // ==========================================
+
+    #[test]
+    fn test_export_format_serde() {
+        assert_eq!(
+            serde_json::to_string(&ExportFormat::Pdf).expect("序列化 Pdf 失敗"),
+            "\"pdf\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ExportFormat::Excel).expect("序列化 Excel 失敗"),
+            "\"excel\""
+        );
+        let format: ExportFormat = serde_json::from_str("\"excel\"").expect("反序列化 excel 失敗");
+        assert_eq!(format, ExportFormat::Excel);
+    }
+
+    #[test]
+    fn test_export_type_serde() {
+        assert_eq!(
+            serde_json::to_string(&ExportType::MedicalSummary).expect("序列化 MedicalSummary 失敗"),
+            "\"medical_summary\""
+        );
+        let export_type: ExportType = serde_json::from_str("\"experiment_records\"")
+            .expect("反序列化 experiment_records 失敗");
+        assert_eq!(export_type, ExportType::ExperimentRecords);
+    }
+
+    #[test]
+    fn test_export_request_accepts_frontend_body() {
+        // 與 ExportDialog 單隻動物匯出送出的 body 同形；iacuc_no 為空字串也要能收
+        let body = r#"{
+            "format": "pdf",
+            "export_type": "medical_summary",
+            "animal_id": "00000000-0000-0000-0000-000000000001",
+            "iacuc_no": ""
+        }"#;
+        let req: ExportRequest = serde_json::from_str(body).expect("前端 body 反序列化失敗");
+        assert_eq!(req.format, ExportFormat::Pdf);
+        assert_eq!(req.export_type, ExportType::MedicalSummary);
+        assert_eq!(req.iacuc_no.as_deref(), Some(""));
+    }
+
+    #[test]
+    fn test_export_request_rejects_pascal_case() {
+        // 修正前 serde 只認 PascalCase；確認現在與前端、DB 同一套寫法，舊寫法不再被接受
+        let body = r#"{"format": "Pdf", "export_type": "MedicalSummary"}"#;
+        assert!(serde_json::from_str::<ExportRequest>(body).is_err());
+    }
 }

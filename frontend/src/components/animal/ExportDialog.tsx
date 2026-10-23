@@ -22,11 +22,13 @@ import {
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
-import { Loader2, Download, FileSpreadsheet, FileText } from 'lucide-react'
+import { Loader2, Download, FileText } from 'lucide-react'
 
 // 匯出類型
 type ExportType = 'single_animal' | 'batch_project'
-type ExportFormat = 'pdf' | 'excel' | 'csv'
+// 暫時只開 PDF：後端 /export（非 -pdf）目前只回 JSON、不產生 xlsx，CSV 後端則根本沒有這個格式。
+// Excel 匯出實作完成前不顯示另外兩個選項，避免下載到副檔名是 .xlsx、內容卻是 JSON 的壞檔。
+type ExportFormat = 'pdf'
 
 interface ExportOptions {
   observations: boolean
@@ -201,28 +203,6 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
               >
                 <FileText className="h-5 w-5" />
                 <span className="font-medium">PDF</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormat('excel')}
-                className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${format === 'excel'
-                  ? 'border-purple-500 bg-status-purple-bg text-status-purple-text'
-                  : 'border-border hover:border-border'
-                  }`}
-              >
-                <FileSpreadsheet className="h-5 w-5" />
-                <span className="font-medium">Excel</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormat('csv')}
-                className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${format === 'csv'
-                  ? 'border-purple-500 bg-status-purple-bg text-status-purple-text'
-                  : 'border-border hover:border-border'
-                  }`}
-              >
-                <FileSpreadsheet className="h-5 w-5" />
-                <span className="font-medium">CSV</span>
               </button>
             </div>
           </div>
