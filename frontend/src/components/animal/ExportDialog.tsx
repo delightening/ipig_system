@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { taipeiDateStamp } from '@/lib/utils'
 import { Loader2, Download, FileText } from 'lucide-react'
 
 // 匯出類型
@@ -104,7 +105,8 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
       a.href = url
       a.style.display = 'none'
 
-      const dateStr = new Date().toISOString().split('T')[0]
+      // 台灣時間：toISOString() 是 UTC，00:00–07:59 匯出會標成前一天
+      const dateStr = taipeiDateStamp()
       const fileExt = format === 'pdf' ? 'pdf' : 'xlsx'
       const filename =
         type === 'single_animal'

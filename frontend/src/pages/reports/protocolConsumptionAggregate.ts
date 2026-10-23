@@ -1,5 +1,7 @@
-import { TAIWAN_TIMEZONE } from '@/lib/utils'
 import type { ProtocolConsumptionReport } from '@/types/report'
+
+// 檔名日期戳已搬到 lib/utils 共用（病歷匯出也要用）；保留轉出，既有 import 不用改。
+export { taipeiDateStamp } from '@/lib/utils'
 
 /**
  * 案件消耗報表的三種聚合軸。
@@ -47,18 +49,6 @@ export function splitTruncationSignal(raw: ProtocolConsumptionReport[]): LoadedR
   return raw.length > ROW_LIMIT
     ? { rows: raw.slice(0, ROW_LIMIT), truncated: true }
     : { rows: raw, truncated: false }
-}
-
-/**
- * 檔名用的日期戳（`YYYY-MM-DD`，台灣時間）。
- *
- * 不能用 `toISOString().split('T')[0]`——那是 UTC，台灣時間 00:00–07:59 之間
- * 匯出的檔名會標成前一天。`en-CA` 這個 locale 的短日期格式剛好就是 `YYYY-MM-DD`，
- * 是取得固定格式又能指定時區的標準做法（`formatDate` 走 `uiLocale()`，
- * 格式隨語系變動，不能拿來組檔名）。
- */
-export function taipeiDateStamp(now: Date = new Date()): string {
-  return now.toLocaleDateString('en-CA', { timeZone: TAIWAN_TIMEZONE })
 }
 
 /** `Decimal` 序列化成字串，空值當 0。 */

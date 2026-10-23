@@ -36,6 +36,18 @@ export function formatEarTag(earTag: string): string {
 /** 系統統一使用台灣時間 (Asia/Taipei) 顯示，可供元件內聯日期格式使用 */
 export const TAIWAN_TIMEZONE = 'Asia/Taipei'
 
+/**
+ * 檔名用的日期戳（`YYYY-MM-DD`，台灣時間）。
+ *
+ * 不能用 `toISOString().split('T')[0]`——那是 UTC，台灣時間 00:00–07:59 之間
+ * 匯出的檔名會標成前一天。`en-CA` 這個 locale 的短日期格式剛好就是 `YYYY-MM-DD`，
+ * 是取得固定格式又能指定時區的標準做法（`formatDate` 走 `uiLocale()`，
+ * 格式隨語系變動，不能拿來組檔名）。
+ */
+export function taipeiDateStamp(now: Date = new Date()): string {
+  return now.toLocaleDateString('en-CA', { timeZone: TAIWAN_TIMEZONE })
+}
+
 /** 日期類格式化函式在輸入無效時的預設顯示值 */
 export const INVALID_DATE_FALLBACK = '-'
 
