@@ -430,16 +430,21 @@ pub enum ImportType {
 }
 
 /// 匯出格式
+///
+/// serde 與 sqlx 都用 snake_case：前端 `ExportDialog` 送的是 `"pdf"`／`"excel"`。
+/// 少了 serde 那行時 serde 預設只認 `"Pdf"`，病歷匯出整條回 422（2026-10-23 正式站實測）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[sqlx(type_name = "export_format", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum ExportFormat {
     Pdf,
     Excel,
 }
 
-/// 匯出類型
+/// 匯出類型（前端送 `"medical_summary"`，理由同 `ExportFormat`）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[sqlx(type_name = "export_type", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum ExportType {
     MedicalSummary,
     ObservationRecords,
