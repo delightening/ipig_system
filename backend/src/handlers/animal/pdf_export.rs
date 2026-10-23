@@ -41,16 +41,6 @@ pub async fn export_animal_medical_pdf(
     access::require_animal_access(&state.db, &current_user, animal_id).await?;
 
     let data = AnimalMedicalService::get_animal_medical_data(&state.db, animal_id).await?;
-    let _record = AnimalMedicalService::create_export_record(
-        &state.db,
-        Some(animal_id),
-        None,
-        req.export_type,
-        req.format,
-        Some("pending"),
-        current_user.id,
-    )
-    .await?;
 
     let export_display = match AnimalService::get_by_id(&state.db, animal_id).await {
         Ok(animal) => {
@@ -212,19 +202,27 @@ pub async fn export_project_medical_pdf(
 ) -> Result<Response> {
     require_permission!(current_user, "animal.export.medical");
     // C3: 驗證使用者是否為該 IACUC 計畫的成員，防止跨計畫批次 PDF 匯出 IDOR
-    access::require_iacuc_protocol_access(&state.db, &current_user, &iacuc_no).await?;
+    let protocol_id =
+        access::require_iacuc_protocol_access(&state.db, &current_user, &iacuc_no).await?;
 
     let data = AnimalMedicalService::get_project_medical_data(&state.db, &iacuc_no).await?;
-    let _record = AnimalMedicalService::create_export_record(
+
+    let actor = ActorContext::User(current_user.clone());
+    if let Err(e) = AuditService::log_activity_oneshot(
         &state.db,
-        None,
-        Some(&iacuc_no),
-        req.export_type,
-        req.format,
-        Some("pending"),
-        current_user.id,
+        &actor,
+        ActivityLogEntry {
+            event_category: "ANIMAL",
+            event_type: "EXPORT_MEDICAL",
+            entity: Some(AuditEntity::new("protocol", protocol_id, &iacuc_no)),
+            data_diff: None,
+            request_context: None,
+        },
     )
-    .await?;
+    .await
+    {
+        tracing::error!("寫入 user_activity_logs 失敗 (MEDICAL_EXPORT project): {e}");
+    }
 
     match req.format {
         crate::models::ExportFormat::Pdf => {

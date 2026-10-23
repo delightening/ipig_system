@@ -6,10 +6,9 @@ use super::AnimalService;
 use crate::{
     middleware::ActorContext,
     models::{
-        audit_diff::DataDiff, Animal, AnimalExportRecord, AnimalImportBatch, AnimalSacrifice,
-        AnimalStatus, AnimalSuddenDeath, AnimalVaccination, CreateSacrificeRequest,
-        CreateSuddenDeathRequest, CreateVaccinationRequest, ExportFormat, ExportType, ImportStatus,
-        ImportType, UpdateVaccinationRequest,
+        audit_diff::DataDiff, Animal, AnimalImportBatch, AnimalSacrifice, AnimalStatus,
+        AnimalSuddenDeath, AnimalVaccination, CreateSacrificeRequest, CreateSuddenDeathRequest,
+        CreateVaccinationRequest, ImportStatus, ImportType, UpdateVaccinationRequest,
     },
     services::{
         access,
@@ -691,36 +690,8 @@ impl AnimalMedicalService {
     // ============================================
     // 匯出功能
     // ============================================
-
-    /// 建立匯出記錄
-    pub async fn create_export_record(
-        pool: &PgPool,
-        animal_id: Option<Uuid>,
-        iacuc_no: Option<&str>,
-        export_type: ExportType,
-        export_format: ExportFormat,
-        file_path: Option<&str>,
-        created_by: Uuid,
-    ) -> Result<AnimalExportRecord> {
-        let record = sqlx::query_as::<_, AnimalExportRecord>(
-            r#"
-            INSERT INTO animal_export_records (id, animal_id, iacuc_no, export_type, export_format, file_path, created_by, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-            RETURNING *
-            "#
-        )
-        .bind(Uuid::new_v4())
-        .bind(animal_id)
-        .bind(iacuc_no)
-        .bind(export_type)
-        .bind(export_format)
-        .bind(file_path)
-        .bind(created_by)
-        .fetch_one(pool)
-        .await?;
-
-        Ok(record)
-    }
+    // 匯出稽核走 user_activity_logs（handler 端 EXPORT_MEDICAL）。
+    // 原 animal_export_records 從未有 migration 建表，寫入一律失敗，已移除。
 
     /// 取得動物完整病歷資料（用於匯出）
     pub async fn get_animal_medical_data(
@@ -977,20 +948,5 @@ impl AnimalMedicalService {
         .await?;
 
         Ok(())
-    }
-
-    /// 列出匯出記錄
-    pub async fn list_export_records(
-        pool: &PgPool,
-        limit: i64,
-    ) -> Result<Vec<crate::models::AnimalExportRecord>> {
-        let records = sqlx::query_as::<_, crate::models::AnimalExportRecord>(
-            "SELECT * FROM animal_export_records ORDER BY created_at DESC LIMIT $1",
-        )
-        .bind(limit)
-        .fetch_all(pool)
-        .await?;
-
-        Ok(records)
     }
 }

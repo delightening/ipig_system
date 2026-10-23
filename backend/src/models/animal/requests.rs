@@ -468,19 +468,6 @@ pub struct AnimalImportBatch {
     pub completed_at: Option<DateTime<Utc>>,
 }
 
-/// 匯出記錄
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct AnimalExportRecord {
-    pub id: Uuid,
-    pub animal_id: Option<Uuid>,
-    pub iacuc_no: Option<String>,
-    pub export_type: ExportType,
-    pub export_format: ExportFormat,
-    pub file_path: Option<String>,
-    pub created_by: Option<Uuid>,
-    pub created_at: DateTime<Utc>,
-}
-
 /// 紀錄版本歷史
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct RecordVersion {
