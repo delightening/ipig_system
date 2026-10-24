@@ -17,11 +17,19 @@ FROM mcr.microsoft.com/playwright/python:v1.64.0-noble AS production
 # file:///app/fonts/ 自帶 kaiu(標楷體)/times/arial。
 # 但 vet_patrol_report 的頁首頁尾走 Chromium 原生 header/footer（獨立 iframe，
 # @font-face file:// 載不到）→ 標楷體/Times 必須另裝成系統字型（見下方 fc-cache 步驟）。
+#
+# 系統信任庫：emSign ECC Root CA - G3 的私鑰外洩（2026-10），Ubuntu 已在
+# ca-certificates 20260816ubuntu0.24.04.1 起移除它；base image 出貨的是舊版
+# （20260601~24.04.1，仍含 G3）。所以 build 時明確升級 ca-certificates，
+# 並在最後加守衛——G3 只要還在信任庫就讓 build 失敗，避免日後 base 退版又悄悄帶回來。
+# （只涵蓋系統信任庫；Chromium 自己的根憑證庫隨 Playwright 版本更新，不在此處理。）
 ENV TZ=Asia/Taipei
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        fonts-noto-cjk fonts-noto-core fonts-liberation tzdata \
-    && rm -rf /var/lib/apt/lists/*
+        ca-certificates fonts-noto-cjk fonts-noto-core fonts-liberation tzdata \
+    && rm -rf /var/lib/apt/lists/* \
+    && if ls /etc/ssl/certs | grep -qi 'emSign_ECC_Root_CA_-_G3'; then \
+         echo "ERROR: emSign ECC Root CA - G3 仍在系統信任庫" >&2; exit 1; fi
 
 WORKDIR /app
 
