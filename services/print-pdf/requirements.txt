@@ -32,7 +32,7 @@ openpyxl==3.1.5
 # 6.20.1：再一批同類（解析惡意 PDF 時資源耗盡，皆 CVSS 6.0，修補版 6.20.0／6.20.1）。
 # 與上面兩次相同：不是我們改了什麼，是 OSV 收錄了新 advisory；本服務輸入仍皆為自產。
 # 6.21.1：GHSA-5hx5-vpf9-5wcv（CVSS 2.3，載入 JPEG 影像資料未驗證）；同樣是新收錄、輸入仍皆為自產。
-pypdf==6.21.1
+pypdf==6.21.2
 # 13.0.0：修 12.3.0 上的多個 advisory（含 1 個 Critical），皆為影像解碼／處理類。
 # 本服務會對 backend 帶入的 base64 照片呼叫 Image.open
 # （adapters/vet_patrol_report.py 的 _compress_data_url），輸入不是本服務自產的內容，
