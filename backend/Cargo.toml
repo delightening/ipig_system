@@ -21,8 +21,14 @@ async-trait = "0.1"
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "chrono", "rust_decimal", "json", "macros", "migrate"] }
 
 # Auth
-jsonwebtoken = { version = "11", default-features = false, features = ["rust_crypto", "use_pem"] }
+# 後端用 aws_lc_rs 而非 rust_crypto：rust_crypto 經 p256/p384 → elliptic-curve 釘死 crypto-bigint 0.5
+# （RUSTSEC-2026-0387，修補版需 >=0.7.6，無法升級），並帶入 rsa（RUSTSEC-2023-0071 Marvin）。
+jsonwebtoken = { version = "11", default-features = false, features = ["aws_lc_rs", "use_pem"] }
+# prebuilt-nasm：Windows MSVC 開發機免裝 NASM；Linux（CI／Docker）不受影響
+aws-lc-rs = { version = "1", features = ["prebuilt-nasm"] }
 argon2 = "0.5"
+# password::{rand_core::OsRng} 需要 rand_core 的 getrandom；原本由 jsonwebtoken 的 rust_crypto 順帶開啟，改 aws_lc_rs 後須明確宣告
+password-hash = { version = "0.5", features = ["getrandom"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -104,7 +110,7 @@ tokio-test = "0.4"
 reqwest = { version = "0.12", features = ["json", "cookies"] }
 serial_test = "4"
 proptest = "1"
-jsonwebtoken = { version = "11", default-features = false, features = ["rust_crypto", "use_pem"] }
+jsonwebtoken = { version = "11", default-features = false, features = ["aws_lc_rs", "use_pem"] }
 chrono = { version = "0.4" }
 
 [[bin]]
