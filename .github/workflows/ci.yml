@@ -173,7 +173,7 @@ jobs:
         # dependency graph，兩者偵測範圍不同，硬要對齊反而製造 advisory-not-detected 警告。
         # 2026-08-06 以 `cargo tree --target all -e normal,build,dev -i <crate>` 反查校正：
         #   proc-macro-error 不在依賴樹（只有 proc-macro-error2）→ 移除已失效的 RUSTSEC-2024-0370
-        # RUSTSEC-2023-0071: rsa 時序攻擊（jsonwebtoken RS256，無修復版本）
+        # RUSTSEC-2023-0071（rsa 時序攻擊）已於 2026-10-26 移除：jsonwebtoken 改用 aws_lc_rs，依賴樹無 rsa
         # RUSTSEC-2026-0173: proc-macro-error2 不維護（validator_derive，純編譯期無攻擊面）
         # RUSTSEC-2026-0235: rkyv 0.7.46 越界讀。rust_decimal 的 optional dep，本專案只啟用
         #   features=["serde"]（`cargo tree -i rkyv` 反查為空），僅存在於 lockfile → 誤報
@@ -182,7 +182,6 @@ jobs:
         # 加了只會是第二條死 ignore。
         run: >-
           cargo audit
-          --ignore RUSTSEC-2023-0071
           --ignore RUSTSEC-2026-0173
           --ignore RUSTSEC-2026-0235
 
