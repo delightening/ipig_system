@@ -9,7 +9,8 @@
 # - Multiple replicas safe: claim_batch uses FOR UPDATE SKIP LOCKED
 
 # Stage 1: Chef
-FROM lukemathwalker/cargo-chef:latest-rust-1.99 AS chef
+# ⚠️ 必須釘 -bookworm，理由見 backend/Dockerfile（aws-lc-sys 需要與 runtime 同代的 glibc）
+FROM lukemathwalker/cargo-chef:latest-rust-1.99-bookworm AS chef
 WORKDIR /app
 
 # Stage 2: Planner

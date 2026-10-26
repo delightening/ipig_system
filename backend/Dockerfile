@@ -1,5 +1,8 @@
 # Stage 1: Chef — pre-built image includes cargo-chef, no install step needed
-FROM lukemathwalker/cargo-chef:latest-rust-1.99 AS chef
+# ⚠️ 必須釘 -bookworm：不帶後綴的標籤是較新的 Debian（glibc ≥2.38），aws-lc-sys 的 C 程式碼
+# 會連結 GLIBC_2.38 符號，在 runtime（debian:bookworm-slim / distroless cc-debian12，glibc 2.36）
+# 啟動即 "version `GLIBC_2.38' not found"。builder 與 runtime 要同一代 Debian。
+FROM lukemathwalker/cargo-chef:latest-rust-1.99-bookworm AS chef
 WORKDIR /app
 
 # Stage 2: Planner — cargo metadata requires src/ to resolve [[bin]] / default-run targets,
