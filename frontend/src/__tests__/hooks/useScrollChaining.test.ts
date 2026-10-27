@@ -134,9 +134,11 @@ function stubOverscrollSupport() {
     const override = el instanceof HTMLElement ? el.dataset.testOverscroll : undefined
     if (!override) return style
     return new Proxy(style, {
-      get(target, prop, receiver) {
+      get(target, prop) {
         if (prop === 'overscrollBehaviorY' || prop === 'overscrollBehavior') return override
-        const value = Reflect.get(target, prop, receiver)
+        // receiver 必須是 target 本身：jsdom 30.1 起 CSSStyleProperties 的 getter 會嚴格檢查 `this`，
+        // 傳 Proxy（receiver）會丟 "not a valid instance of CSSStyleProperties"。
+        const value = Reflect.get(target, prop, target)
         return typeof value === 'function' ? value.bind(target) : value
       },
     })
