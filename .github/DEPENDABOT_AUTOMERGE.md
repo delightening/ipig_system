@@ -26,6 +26,12 @@ Dependabot 開 PR
 **安全性的上限 = required checks 的可信度。** 本機制不做任何額外測試，只是把「人按合併鍵」
 換成「CI 全綠就自動按」。CI 沒抓到的壞更新，會直接進 main。
 
+> ⚠️ **已知缺口：Dependabot PR 不會跑 E2E。** `ci.yml` 的 `🧪 E2E: Playwright` 在
+> `github.actor == 'dependabot[bot]'` 時整個 job 被 skip（Dependabot 拿不到 repository
+> secrets，Docker 環境起不來）。該 check 列在 required checks 內，但 skip 視為通過，
+> 所以對 Dependabot PR 而言它**不提供任何保護**。上線前請決定：接受此風險，或另行補上
+> 不依賴 secrets 的 E2E 路徑（例如 Dependabot secrets 或測試用假憑證）。
+
 ## 2. 檔案清單
 
 | 檔案 | 作用 |
@@ -71,6 +77,9 @@ playwright、空 updateType、舊版未知、`v` 前綴 0.x、空陣列、全 pa
 5. **驗證 ruleset 沒有擋掉正常流程**：開一個無害的 PR（例如改一行註解），確認 required checks
    會出現且能轉綠、能合併。接著**看 main 上第一次 push 的 CI**，確認 coverage ratchet 步驟沒有被拒
    （見〈已知風險 2〉）。
+   ⚠️ 無害 PR 可能讓覆蓋率不變，此時 ratchet 步驟不會 push、也會是綠燈，**這不能證明 bypass 有效**。
+   必須用一個「會讓覆蓋率上升（觸發 baseline 更新）」的受控 PR 合併後，確認 main 上出現
+   ratchet 的 `[skip ci]` commit，才算驗證通過。
 6. **正式啟用**：
    ```bash
    bash .github/scripts/setup-branch-protection.sh --apply --enable
@@ -133,8 +142,8 @@ Go 版是另一個 repo（module `github.com/delightening/ipig-system-go`），�
 
 | 情境 | 做法 |
 |---|---|
-| 發現自動合併了不該合的東西 | Settings → Secrets and variables → Actions → Variables，把 `DEPENDABOT_AUTOMERGE` 設為 `false`（或刪除）。之後的 PR 停止排隊。 |
-| 已排隊、還沒合併的 PR | `gh pr merge --disable-auto <PR 編號>` |
+| 發現自動合併了不該合的東西 | 依序：① Settings → Secrets and variables → Actions → Variables，把 `DEPENDABOT_AUTOMERGE` 設為 `false`（或刪除）。② 取消已通過閘門、仍在跑的判定 run（變數只擋新 run，擋不住已進行中的）：`gh run list --workflow dependabot-automerge.yml --status in_progress --json databaseId --jq '.[].databaseId' \| xargs -n1 gh run cancel`（`queued` 狀態同理）。③ 再處理下一列已排隊的 PR。 |
+| 已排隊、還沒合併的 PR | 在上一列的 ② 完成後執行 `gh pr merge --disable-auto <PR 編號>`；否則進行中的 run 可能在你取消排隊後又重新啟用。 |
 | 已合併的壞更新 | 在 GitHub 上對該 squash commit 按 Revert；之後把該套件加進 workflow 的 `MANUAL_ONLY`，或在 `dependabot.yml` 加 `ignore`（寫明原因與解除條件，格式比照既有條目）。 |
 | required checks 把正常流程卡死 | Settings → Rules → Rulesets → `main-required-checks` → 將 Enforcement 改為 Disabled。修好後再改回 Active。 |
 
