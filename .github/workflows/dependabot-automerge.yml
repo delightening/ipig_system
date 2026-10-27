@@ -1,0 +1,133 @@
+name: Dependabot auto-merge
+
+# =========================
+# Dependabot PR 自動合併（2026-10-27 新增）
+#
+# 做什麼：Dependabot PR 若全部更新都落在「patch，或非 0.x 的 minor」、生態系在白名單內、
+# 套件不在人工清單，就對該 PR 啟用 auto-merge（`gh pr merge --auto`）。
+# **合併動作本身由 GitHub 在 required status checks 全綠後執行**——本 workflow 只負責
+# 「這個 PR 有沒有資格排隊」，不負責判定 CI 是否通過。所以安全性的上限 = branch
+# protection / ruleset 所列 required checks 的可信度（設定方式見 .github/DEPENDABOT_AUTOMERGE.md）。
+#
+# 預設關閉：repo variable `DEPENDABOT_AUTOMERGE` 不等於 'true' 時整個 job 不跑。
+# 這是 kill switch——出事時 Settings → Secrets and variables → Actions → Variables
+# 把它改成 false 或刪掉，之後的 PR 立刻停止排隊（已排隊的要手動 `gh pr merge --disable-auto`）。
+#
+# 為何用 pull_request_target 而不是 pull_request：
+#   Dependabot 觸發的 `pull_request` workflow，GITHUB_TOKEN 是唯讀、也拿不到一般 secrets，
+#   寫不了 auto-merge（fetch-metadata 官方文件的作法同樣是 pull_request_target）。
+# pull_request_target 的風險是「以 base 權限執行 PR 提供的程式碼」，因此本檔嚴守三條：
+#   1. 不 checkout、不執行 PR 分支的任何內容（沒有 actions/checkout，沒有 build/test）
+#   2. 只讀 fetch-metadata 的輸出（來自 commit message 的 Dependabot 中繼資料）
+#   3. 以 user.login == 'dependabot[bot]' + repository 守門；fetch-metadata 另外會驗證
+#      PR 的 commits 全為 Dependabot 簽署——人類往 Dependabot 分支補 commit 就拿不到 metadata，
+#      輸出為空 → 判定步驟走「不合格」分支（fail-closed，不會自動合併）
+# =========================
+
+on:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] 理由見上方三條守則
+    branches:
+      - main
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  automerge:
+    name: "🤖 Dependabot: auto-merge 資格判定"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.repository == 'delightening/ipig_system' &&
+      vars.DEPENDABOT_AUTOMERGE == 'true'
+    permissions:
+      contents: write # `gh pr merge --auto` 需要
+      pull-requests: write
+    steps:
+      - name: 讀取 Dependabot 中繼資料
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 判定是否有資格自動合併
+        id: decide
+        env:
+          # fetch-metadata 輸出：PR 內每個被更新套件的 JSON 陣列（group PR 也逐一列出）
+          DEPS_JSON: ${{ steps.meta.outputs.updated-dependencies-json }}
+          # ── 政策旋鈕（改這裡要走 PR，由 CODEOWNERS 把關）──────────────────────
+          # 可自動合併的生態系（Dependabot 的 package-ecosystem 名稱；pnpm 屬 npm_and_yarn）。
+          #   不含 github_actions：Actions 在 CD 裡持有 packages:write 等權限，
+          #     被 SHA pin 住正是為了「版本更新要經人眼」；月更一次，量小，人工看比較划算。
+          #   不含 docker：base image 變動 = 正式環境 runtime 變動，CI 只驗得起來、驗不了
+          #     行為（postgres 備份映像即為前例，見 dependabot.yml 的 ignore 註解）。
+          ALLOWED_ECOSYSTEMS: "cargo,npm_and_yarn,pip"
+          # 永遠人工的套件（正規表示式，比對 dependencyName）。
+          #   playwright：requirements.txt 與 Dockerfile base image tag 必須同版，
+          #     見 dependabot.yml 的 pip ignore 註解（2026-08-06 prod 事故）。
+          MANUAL_ONLY: '^(playwright|mcr\.microsoft\.com/playwright.*)$'
+        run: |
+          set -euo pipefail
+          if [ -z "$DEPS_JSON" ] || [ "$DEPS_JSON" = "[]" ]; then
+            echo "eligible=false" >> "$GITHUB_OUTPUT"
+            echo "reason=無中繼資料（非純 Dependabot commit，或格式無法解析）" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "$DEPS_JSON" | jq -r '.[] | "- \(.packageEcosystem) \(.dependencyName) \(.prevVersion) → \(.newVersion) [\(.updateType)]"'
+
+          # allowlist 判定（未知/空的 updateType 一律視為不合格 → 留給人）：
+          #   - 生態系在白名單
+          #   - 套件不在人工清單
+          #   - patch；或 minor 且「前一版已知且不是 0.x」
+          #     （0.x 的 minor 依 semver 慣例可能含破壞性變更，Cargo 生態尤其常見；
+          #       prevVersion 為空代表 Dependabot 沒給出舊版，保守視為不合格）
+          ELIGIBLE=$(echo "$DEPS_JSON" | jq -r \
+            --arg eco "$ALLOWED_ECOSYSTEMS" --arg deny "$MANUAL_ONLY" '
+            ($eco | split(",")) as $allowed
+            | (length > 0) and all(.[];
+                (.packageEcosystem as $e | $allowed | index($e) != null)
+                and ((.dependencyName | test($deny)) | not)
+                and (
+                  .updateType == "version-update:semver-patch"
+                  or (
+                    .updateType == "version-update:semver-minor"
+                    and ((.prevVersion // "") != "")
+                    and (((.prevVersion | ltrimstr("v")) | startswith("0.")) | not)
+                  )
+                )
+              )')
+
+          echo "eligible=${ELIGIBLE}" >> "$GITHUB_OUTPUT"
+          if [ "$ELIGIBLE" != "true" ]; then
+            echo "reason=含 major / 0.x minor / 白名單外生態系 / 人工清單套件 / 無法判讀的更新" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 啟用 auto-merge
+        if: steps.decide.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        # --squash：dependabot.yml 設了 commit-message prefix（chore(deps): …），squash 後 main
+        # 歷史維持一個 PR 一個 commit。repo 三種合併方式都開著，若日後只留一種，這裡要跟著改。
+        run: gh pr merge --auto --squash "$PR_URL"
+
+      - name: 摘要
+        if: always()
+        env:
+          ELIGIBLE: ${{ steps.decide.outputs.eligible }}
+          REASON: ${{ steps.decide.outputs.reason }}
+        run: |
+          {
+            echo "### Dependabot auto-merge"
+            if [ "$ELIGIBLE" = "true" ]; then
+              echo "✅ 已排入 auto-merge；待 required checks 全綠後由 GitHub 自動合併。"
+            else
+              echo "⏭ 未排隊，需人工審查。原因：${REASON:-判定步驟未完成}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

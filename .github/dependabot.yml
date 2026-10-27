@@ -13,6 +13,11 @@ updates:
       - "rust"
     commit-message:
       prefix: "chore(deps):"
+    # 冷卻期（2026-10-27，配合 dependabot-automerge.yml）：新版本發布滿 7 天才開 PR，
+    # 給供應鏈攻擊（惡意版本、帳號被盜）被發現並下架的時間。安全更新（security updates）
+    # 不受冷卻限制，照常即時送出。三個會自動合併的生態系（cargo / npm / pip）才設。
+    cooldown:
+      default-days: 7
     # L6: 安全更新優先處理
     groups:
       patch-updates:
@@ -31,6 +36,8 @@ updates:
       - "frontend"
     commit-message:
       prefix: "chore(deps):"
+    cooldown:
+      default-days: 7 # 理由同 cargo 段
     # R29-6: 高風險 major 套件單獨成 PR（避免 group bump 一紅就要拆）。
     # 規則：dependabot 由上而下匹配，先列高風險 → 群組（不互斥；patterns 命中先群組就退出）。
     groups:
@@ -165,6 +172,8 @@ updates:
       - "python"
     commit-message:
       prefix: "chore(deps):"
+    cooldown:
+      default-days: 7 # 理由同 cargo 段
     groups:
       patch-updates:
         update-types:
