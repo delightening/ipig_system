@@ -26,11 +26,14 @@ Dependabot 開 PR
 **安全性的上限 = required checks 的可信度。** 本機制不做任何額外測試，只是把「人按合併鍵」
 換成「CI 全綠就自動按」。CI 沒抓到的壞更新，會直接進 main。
 
-> ⚠️ **已知缺口：Dependabot PR 不會跑 E2E。** `ci.yml` 的 `🧪 E2E: Playwright` 在
-> `github.actor == 'dependabot[bot]'` 時整個 job 被 skip（Dependabot 拿不到 repository
-> secrets，Docker 環境起不來）。該 check 列在 required checks 內，但 skip 視為通過，
-> 所以對 Dependabot PR 而言它**不提供任何保護**。上線前請決定：接受此風險，或另行補上
-> 不依賴 secrets 的 E2E 路徑（例如 Dependabot secrets 或測試用假憑證）。
+> ℹ️ **Dependabot PR 的 E2E（2026-10-27 補上，尚未實測）。** 原本 `ci.yml` 的
+> `🧪 E2E: Playwright` 在 `github.actor == 'dependabot[bot]'` 時整個 job 被 skip，而 skip
+> 視為通過，等於 required check 對 Dependabot PR 沒有保護。原先的理由是「拿不到 secrets，
+> Docker 環境起不來」，但 `docker-compose.test.yml` 與 Playwright 步驟的密碼都有 fallback
+> （secret 為空時兩端落到同一個值），所以已移除該排除條件。
+> **上線前必須確認：** 第一個 Dependabot PR 上 `🧪 E2E: Playwright` 要真的執行並通過
+> （不是 skipped）。若失敗，先看是否為 secrets 以外的原因；無法修就把排除條件加回，
+> 並把此 check 從 required checks 移除（避免誤以為受保護）。
 
 ## 2. 檔案清單
 
