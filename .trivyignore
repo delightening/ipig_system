@@ -71,6 +71,24 @@
 #   v3.24/main 目前版本仍是 2.42.1-r0（build 2026-06-19），Alpine 尚未發布修補版；
 #   `apk upgrade` 無法安裝一個上游還沒發布的版本。該 job 是 gating，
 #   會同時擋住 main 與全部 open PR，等待時間不可控。
+# 2026-10-27 新增：openssl/libssl3 CVE-2026-84782（HIGH，DTLS handshake 重傳造成資訊洩漏）。
+#
+#   適用映像：ipig-api:ci（backend/Dockerfile 最終階段 gcr.io/distroless/cc-debian12，
+#             實際 OS 為 Debian 12.15）
+#   當時的套件版本：libssl3 3.0.20-1~deb12u2（2026-10-27 實拉 distroless:latest，
+#             `/var/lib/dpkg/status.d/libssl3` 仍是此版）
+#   修復版：Debian bookworm-security 已有 3.0.22-1~deb12u2（同日以 debian:bookworm-slim
+#             `apt-cache policy libssl3` 實查）；但 distroless 最終階段自帶 libssl3，
+#             runtime 階段的 `apt-get upgrade` 結果不會被複製過去，只有 distroless 重建才會更新。
+#   解除條件：distroless/cc-debian12 的 libssl3 ≥ 3.0.22-1~deb12u2 後移除本條
+#             （rebuild 後 `docker create` + `docker cp` 取 `/var/lib/dpkg/status.d/libssl3` 確認版本）。
+#
+#   風險評估：此漏洞只存在於 DTLS（基於 UDP 的 TLS，常見於即時音視訊）的 handshake 重傳流程。
+#   backend 不提供也不使用 DTLS：對外 TLS 只有 SMTP（lettre）與 HTTPS 用戶端（reqwest）走
+#   native-tls → openssl-sys（`cargo tree -i openssl-sys` 確認），皆為 TCP 上的 TLS，不經 DTLS 路徑。
+#   ⚠️ 不要把本條推論成「backend 完全沒用到 libssl」——它有用，只是用不到有問題的那條路徑。
+CVE-2026-84782
+
 CVE-2026-53612
 CVE-2026-53613
 CVE-2026-53614
