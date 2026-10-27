@@ -84,6 +84,9 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "user_roles",
     "user_preferences",
     "user_mcp_keys",
+    // 016（R121）外部身分綁定（FK → users）。屬業務資料：還原後使用者可直接用已綁定的
+    // Google 帳號登入，稽核也查得到「當初以哪個 email 綁上」。表內無 token 或密鑰。
+    "user_identities",
     "invitations",
     "invitation_roles",
     "ai_api_keys",

@@ -13,14 +13,26 @@ pub(crate) fn build_set_cookie(
     max_age_secs: i64,
     config: &Config,
 ) -> String {
+    build_set_cookie_with_path(name, value, max_age_secs, "/", config)
+}
+
+/// 同 [`build_set_cookie`]，但可限縮 `Path`（R121：Google 登入的 flow cookie 只送往
+/// `/api/v1/auth/google`）。`path` 只接受程式內常數，不接受使用者輸入。
+pub(crate) fn build_set_cookie_with_path(
+    name: &str,
+    value: &str,
+    max_age_secs: i64,
+    path: &str,
+    config: &Config,
+) -> String {
     // SEC: 過濾 cookie value 中可能的 CRLF 與分號（防止 header injection）
     let safe_value: String = value
         .chars()
         .filter(|c| *c != '\r' && *c != '\n' && *c != ';')
         .collect();
     let mut cookie = format!(
-        "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
-        name, safe_value, max_age_secs
+        "{}={}; Path={}; HttpOnly; SameSite=Lax; Max-Age={}",
+        name, safe_value, path, max_age_secs
     );
     if config.cookie_secure {
         cookie.push_str("; Secure");

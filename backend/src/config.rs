@@ -118,6 +118,31 @@ pub fn read_audit_hmac_key_strict() -> anyhow::Result<Option<String>> {
     Ok(raw.filter(|s| s.len() >= 44))
 }
 
+/// R121：Google 帳號登入設定（含本機模擬用的假 Google 開關），規則見子模組文件。
+mod google_oauth;
+
+pub use google_oauth::{GoogleEndpoints, GoogleOAuthConfig};
+
+/// 從環境變數讀 Google OAuth 設定（secret 支援 `_FILE`），空字串視為未設定。
+fn read_google_oauth_config(cookie_secure: bool) -> anyhow::Result<Option<GoogleOAuthConfig>> {
+    let non_empty_env = |key: &str| {
+        std::env::var(key)
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+    };
+    google_oauth::google_oauth_config_from_env(
+        google_oauth::GoogleOAuthEnv {
+            client_id: non_empty_env("GOOGLE_OAUTH_CLIENT_ID"),
+            // filter 不可省：read_secret 對「_FILE 指向空檔」會回 Some("")（見 metrics_token 註解）
+            client_secret: read_secret("GOOGLE_OAUTH_CLIENT_SECRET").filter(|s| !s.is_empty()),
+            redirect_uri: non_empty_env("GOOGLE_OAUTH_REDIRECT_URI"),
+            dev_mock_base_url: non_empty_env("GOOGLE_OAUTH_DEV_MOCK_BASE_URL"),
+        },
+        cookie_secure,
+    )
+}
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub host: String,
@@ -247,6 +272,8 @@ pub struct Config {
     pub ai_review_timeout_secs: u64,
     /// R24-3: Alertmanager webhook 共享 token（未設定 = 不啟用驗證，允許所有）
     pub alertmanager_webhook_token: Option<String>,
+    /// R121：Google 帳號登入設定；`None` = 功能關閉。
+    pub google_oauth: Option<GoogleOAuthConfig>,
 }
 
 impl Config {
@@ -476,6 +503,7 @@ impl Config {
                 .unwrap_or(30),
             // R37-7: 改走 read_secret() 支援 ALERTMANAGER_WEBHOOK_TOKEN_FILE（避免 .env 明文）
             alertmanager_webhook_token: read_secret("ALERTMANAGER_WEBHOOK_TOKEN"),
+            google_oauth: read_google_oauth_config(parse_bool_env("COOKIE_SECURE"))?,
         });
 
         // R16-11: Production 模式下禁止關閉 CSRF
@@ -682,6 +710,7 @@ mod tests {
             ai_review_enabled: true,
             ai_review_timeout_secs: 30,
             alertmanager_webhook_token: None,
+            google_oauth: None,
         }
     }
 

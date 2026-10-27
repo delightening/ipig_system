@@ -3,8 +3,14 @@ import { useToggle } from '@/hooks/useToggle'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
+import { getGoogleLoginStatus, googleLoginStartUrl } from '@/lib/api'
+import { queryKeys } from '@/lib/queryKeys'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/types/error'
+import { GoogleGIcon } from './components/GoogleGIcon'
+import { googleErrorMessageKey, isNeutralGoogleError, type GoogleErrorCode } from './googleLogin'
+import { useGoogleLoginRedirect } from './hooks/useGoogleLoginRedirect'
 
 const GUEST_EMAIL = 'guest@guest.com'
 const GUEST_PASSWORD = 'guest'
@@ -40,11 +46,56 @@ export function LoginPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { login, verify2FA, isLoading, enterGuestMode } = useAuthStore()
+  const { login, verify2FA, checkAuth, isLoading, enterGuestMode } = useAuthStore()
   const [showPassword, togglePassword] = useToggle()
   const [twoFAState, setTwoFAState] = useState<{ tempToken: string } | null>(null)
   const [totpCode, setTotpCode] = useState('')
+  const [googleFinishing, setGoogleFinishing] = useState(false)
   const totpInputRef = useRef<HTMLInputElement>(null)
+
+  // R121：查不到（未設定或請求失敗）一律不顯示 Google 按鈕——登入頁仍可用帳密登入，
+  // 按鈕消失就是這個查詢失敗時唯一需要的降級行為。
+  const { data: googleStatus } = useQuery({
+    queryKey: queryKeys.users.googleLoginStatus,
+    queryFn: getGoogleLoginStatus,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const showGoogleError = (code: GoogleErrorCode) => {
+    toast({
+      title: t('auth.login.googleFailedTitle'),
+      description: t(googleErrorMessageKey(code)),
+      ...(isNeutralGoogleError(code) ? {} : { variant: 'destructive' as const }),
+    })
+  }
+
+  // 後端已設好 cookie；以 /me 讀回使用者，與重新整理頁面時的還原路徑相同
+  const finishGoogleLogin = async () => {
+    setGoogleFinishing(true)
+    await checkAuth()
+    setGoogleFinishing(false)
+    if (!useAuthStore.getState().isAuthenticated) {
+      showGoogleError('session_missing')
+      return
+    }
+    useAuthStore.setState({ isImpersonating: false })
+    toast({ title: t('auth.login.successTitle'), description: t('auth.login.successDescription') })
+    navigate('/dashboard')
+  }
+
+  useGoogleLoginRedirect(async (result) => {
+    switch (result.kind) {
+      case 'twoFactor':
+        setTwoFAState({ tempToken: result.tempToken })
+        return
+      case 'error':
+        showGoogleError(result.code)
+        return
+      case 'success':
+        await finishGoogleLogin()
+        return
+    }
+  })
 
   const {
     register,
@@ -115,6 +166,17 @@ export function LoginPage() {
       })
       setTotpCode('')
     }
+  }
+
+  if (googleFinishing) {
+    return (
+      <Card className="w-full max-w-md animate-fade-in">
+        <CardContent className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span role="status">{t('auth.login.googleCheckingSession')}</span>
+        </CardContent>
+      </Card>
+    )
   }
 
   if (twoFAState) {
@@ -229,6 +291,26 @@ export function LoginPage() {
             )}
           </Button>
         </form>
+
+        {googleStatus?.enabled && (
+          <>
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-card px-2 text-muted-foreground">{t('auth.login.orDivider')}</span>
+              </div>
+            </div>
+            {/* 頂層導覽（不是 fetch）：後端設 flow cookie 後 302 到 Google */}
+            <Button asChild variant="outline" className="w-full">
+              <a href={googleLoginStartUrl()}>
+                <GoogleGIcon className="mr-2 h-4 w-4" />
+                {t('auth.login.googleButton')}
+              </a>
+            </Button>
+          </>
+        )}
 
         <div className="mt-4 text-center">
           <Link

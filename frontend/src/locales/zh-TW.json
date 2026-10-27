@@ -3824,7 +3824,24 @@
       "submit": "登入",
       "forgotPassword": "忘記密碼？",
       "privacyPolicy": "隱私權政策",
-      "termsOfService": "服務條款"
+      "termsOfService": "服務條款",
+      "orDivider": "或",
+      "googleButton": "使用 Google 帳號登入",
+      "googleCheckingSession": "正在完成 Google 登入...",
+      "googleFailedTitle": "Google 登入未完成",
+      "googleErrors": {
+        "not_configured": "系統尚未開放 Google 登入，請改用帳號密碼登入。",
+        "cancelled": "已取消 Google 登入。",
+        "invalid_state": "登入已逾時或頁面已過期，請再按一次「使用 Google 帳號登入」。",
+        "provider_error": "無法向 Google 確認您的身分，請稍後再試，或改用帳號密碼登入。",
+        "email_not_verified": "這個 Google 帳號的電子郵件尚未完成驗證，無法用來登入。",
+        "no_account": "找不到與這個 Google 帳號電子郵件相同的系統帳號。本系統採邀請制，請聯繫管理員。",
+        "ambiguous_account": "這個電子郵件對應到不只一個系統帳號，請聯繫管理員處理。",
+        "account_unavailable": "此帳號已停用或已到期，請聯繫管理員。",
+        "identity_conflict": "此帳號已綁定另一個 Google 帳號，請改用那個 Google 帳號，或聯繫管理員。",
+        "session_missing": "Google 登入已完成，但無法建立登入狀態，請重新整理頁面後再試。",
+        "unknown": "Google 登入失敗，請改用帳號密碼登入或稍後再試。"
+      }
     },
     "twoFactor": {
       "challengeTitle": "兩步驟驗證",
