@@ -115,9 +115,15 @@ FROM georgjung/nginx-brotli:1.31.8-alpine3.24
 #   1.8.13-r0 → 1.8.14-r0。本映像不跑 X client，libx11 是 base 內其他函式庫間接連結進來的，
 #   不在任何可觸發路徑上；binary 仍在映像內，一併補以清 Trivy HIGH。（2026-10-22，
 #   10-09 main 的 Trivy 掃描是綠的，10-21 起才出現——Alpine 安全公告即時新增，非本次改動造成）
+# - brotli-libs: CVE-2026-111497 (HIGH, Brotli decoder 越界寫入) — 1.2.0-r1 → 1.2.1-r0。
+#   nginx 的 Brotli 模組只做壓縮（編碼端），本映像不解壓不受信任的 Brotli 資料，但函式庫整體
+#   在映像內，一併補以清 Trivy HIGH。同為 1.2.x patch 升級、soname 不變；2026-10-27 實測在
+#   georgjung/nginx-brotli:1.31.8-alpine3.24 上升級後載入 brotli_filter／static 模組，
+#   `Accept-Encoding: br` 請求回 `Content-Encoding: br`，壓縮正常（Alpine v3.24/main 已有 1.2.1-r0）。
+#   （2026-10-27，Alpine 安全公告即時新增，非本次改動造成）
 # 註：openssl (libcrypto3/libssl3 3.5.6-r0) 已由 georgjung base 2026 重建涵蓋多個 CVE。
 # 其他安全更新透過升級基底映像版號處理，見 docs/security.md。
-RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils libcrypto3 libssl3 nghttp2 nghttp2-libs libxml2 c-ares curl libcurl libuuid libx11 pcre2 tiff && rm -rf /var/cache/apk/*
+RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils libcrypto3 libssl3 nghttp2 nghttp2-libs libxml2 c-ares curl libcurl libuuid libx11 pcre2 tiff brotli-libs && rm -rf /var/cache/apk/*
 
 # 主配置：載入 Brotli 模組並 include conf.d
 COPY nginx-main.conf /etc/nginx/nginx.conf
