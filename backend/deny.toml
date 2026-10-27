@@ -23,11 +23,8 @@ yanked = "allow"  # yanked 由 transitive 引入，改 allow 避免 warn（可�
 # bincode/fxhash/kuchiki/proc-macro-error 對應的 ignore（RUSTSEC-2025-0141/2025-0057/
 # 2023-0019/2024-0370）連同 lettre 已修復的 RUSTSEC-2026-0141 一併清除（2026-06-24）。
 ignore = [
-    # rsa 時序攻擊（Marvin Attack）。由 jsonwebtoken 的 RS256 引入——
-    # services/google_calendar.rs 用 RS256 簽 Google Calendar service-account JWT。
-    # 無修復版本；Marvin 需攻擊者對私鑰運算具時序 oracle + 可控輸入，此處為系統
-    # 自有金鑰簽系統自產 payload、對外呼叫，前提不成立 → 實務風險低。
-    "RUSTSEC-2023-0071",
+    # RUSTSEC-2023-0071（rsa Marvin Attack）已移除（2026-10-26）：jsonwebtoken 改用
+    # aws_lc_rs 後端，依賴樹中不再有 rsa，cargo-deny 回報 advisory-not-detected。
     # proc-macro-error2 不維護（validator_derive 0.20 transitive 引入；validator 0.20
     # 為最新、所有 0.19+ 版皆依賴它、無版本可擺脫）。build-time proc-macro、零執行期
     # 攻擊面、僅 unmaintained 標記、非漏洞。
