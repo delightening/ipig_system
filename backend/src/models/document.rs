@@ -304,7 +304,8 @@ pub struct DocumentWithLines {
     /// `document.reverses_doc_id` 只有 UUID，前端要顯示得有單號。
     pub reverses_doc_no: Option<String>,
     /// R84-5 沖銷關聯（本單被沖銷時）：沖銷本單的那張沖銷單。
-    /// 反向查詢（`WHERE reverses_doc_id = 本單`），原單身上沒有這個欄位。
+    /// 反向查詢（`WHERE reverses_doc_id = 本單 AND status <> 'cancelled'`），原單身上沒有這個欄位。
+    /// 作廢的沖銷單不算（migration 017），原單可重新發起沖銷。
     pub reversed_by_doc_id: Option<Uuid>,
     pub reversed_by_doc_no: Option<String>,
     /// 沖銷生效時間（沖銷單的 approved_at）；沖銷單尚未核准時為 None。
