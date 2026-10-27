@@ -6,9 +6,12 @@
 #
 # 前提（只有維運者能做的手動步驟）：
 #   1. 插入含 GPG 私鑰的 USB。
-#   2. 從 USB import 私鑰：  gpg --import <USB碟>/ipig_backup_private.asc
+#   2. 從 USB import 私鑰：  gpg --import <USB碟>/<私鑰檔>.asc
 #   3. 執行本腳本；解密時 pinentry 會跳出要 passphrase（存 Bitwarden）。
-#   4. 演練後移除私鑰恢復 USB-only：  gpg --delete-secret-keys 84F051E0AD2AA40F
+#   4. 演練後移除私鑰恢復 USB-only（用「主金鑰」指紋；子金鑰 ID 不保證刪得乾淨）：
+#        gpg --batch --yes --delete-secret-keys E1301B885EBC9873FFC70F8851D03ED986A32367
+#      ⚠️ 在沒有終端機的 shell（例如 Claude Code 的 `!` 前綴）不加 --batch --yes 會報
+#         "cannot open 'no tty'"，私鑰刪不掉。刪完用 `gpg --list-secret-keys` 確認輸出為空。
 #
 # 用法： ./dr_drill.sh [備份檔完整路徑]
 #        不給參數 → 自動取 db-backup 容器 /backups 內最新一份 .sql.gz.gpg
@@ -22,7 +25,8 @@ BACKUP_CONTAINER="ipig-db-backup"
 DRILL_CONTAINER="ipig_db_drill"
 DB_NAME="ipig_db"
 DRILL_PW="drill_temp_$(date +%s)"
-GPG_KEY_ID="84F051E0AD2AA40F"
+# 主金鑰指紋（84F051E0AD2AA40F 是它底下的子金鑰，舊值曾誤用）
+GPG_KEY_ID="E1301B885EBC9873FFC70F8851D03ED986A32367"
 
 # 比對用資料表（穩定表應相等；append 表 drill≤prod 為當日增量，合理）
 TABLES="animals users protocols electronic_signatures documents stock_ledger audit_logs user_activity_logs"
@@ -139,7 +143,10 @@ set -e
 echo ""
 TOTAL=$(docker exec "$DRILL_CONTAINER" psql -U postgres -d "$DB_NAME" -tAc \
   "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'" 2>/dev/null || echo "?")
-log "drill 還原後 public 表總數：$TOTAL（prod 基準 192）"
+# prod 表數即時查，不寫死（原本寫死的基準數字會隨 migration 過期，已發生過）
+PROD_TOTAL=$(docker exec "$PROD_DB_CONTAINER" psql -U postgres -d "$DB_NAME" -tAc \
+  "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'" 2>/dev/null || echo "?")
+log "drill 還原後 public 表總數：$TOTAL（prod 現況：$PROD_TOTAL）"
 echo ""
 if [ "$FAIL" = "0" ]; then
   echo "✅ 演練通過：還原成功；穩定表相符、append 表 drill≤prod（當日增量合理），無 drill>prod（無 prod 資料遺失跡象）。"
@@ -148,6 +155,6 @@ else
 fi
 echo ""
 echo "→ drill 容器與暫存檔將自動清除；請記得演練後移除私鑰恢復 USB-only："
-echo "    gpg --delete-secret-keys $GPG_KEY_ID"
+echo "    gpg --batch --yes --delete-secret-keys $GPG_KEY_ID"
 echo "→ 完成後把上表結果貼回，我幫你回填內部 DR 演練紀錄。"
 echo "========================================================"
