@@ -1160,8 +1160,11 @@ impl DocumentService {
         };
 
         let reversed_by: Option<(Uuid, String, Option<chrono::DateTime<chrono::Utc>>)> =
+            // 作廢的沖銷單不算「被沖銷」（migration 017）：否則前端會因為
+            // `reversed_by_doc_id` 有值而藏起「沖銷」按鈕，原單無法重新發起沖銷。
             sqlx::query_as(
-                "SELECT id, doc_no, approved_at FROM documents WHERE reverses_doc_id = $1",
+                "SELECT id, doc_no, approved_at FROM documents \
+                 WHERE reverses_doc_id = $1 AND status <> 'cancelled'",
             )
             .bind(id)
             .fetch_optional(pool)

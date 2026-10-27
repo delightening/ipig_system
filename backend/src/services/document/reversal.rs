@@ -64,11 +64,16 @@ impl DocumentService {
             ));
         }
 
-        let existing: Option<String> =
-            sqlx::query_scalar("SELECT doc_no FROM documents WHERE reverses_doc_id = $1 LIMIT 1")
-                .bind(original_id)
-                .fetch_optional(&mut *tx)
-                .await?;
+        // 只有「未作廢」的沖銷單才佔名額（migration 017）：已提交但被作廢的沖銷單沒有鏡射過
+        // 任何庫存或傳票，不該讓原單永遠無法再沖銷。判準與 `exclude_reversed_grn!`、
+        // `idx_documents_reverses_doc_id_unique` 的 partial 條件同源。
+        let existing: Option<String> = sqlx::query_scalar(
+            "SELECT doc_no FROM documents \
+             WHERE reverses_doc_id = $1 AND status <> 'cancelled' LIMIT 1",
+        )
+        .bind(original_id)
+        .fetch_optional(&mut *tx)
+        .await?;
         if let Some(doc_no) = existing {
             return Err(AppError::BusinessRule(format!(
                 "此單據已於沖銷單 {} 沖銷過，不可重複沖銷",

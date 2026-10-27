@@ -320,6 +320,71 @@ async fn same_document_cannot_be_reversed_twice() {
     );
 }
 
+/// migration 017：作廢的沖銷單不佔原單「唯一的沖銷名額」。
+///
+/// 回報的 bug：原單 A（已核准）→ 沖銷單 B（已提交、未核准）→ 作廢 B 之後，A 不能再沖銷、
+/// 不能作廢、也刪不掉。B 在核准前就被作廢，沒有鏡射過任何庫存或傳票，不該讓 A 永遠卡住。
+#[tokio::test]
+#[serial]
+async fn cancelled_reversal_frees_the_slot_for_a_new_reversal() {
+    let pool = setup_pool().await;
+    let wh = seed_warehouse(&pool).await;
+    let shelf = seed_shelf(&pool, wh).await;
+    let product = seed_product(&pool).await;
+
+    let grn_id = approved_grn(&pool, wh, shelf, product, 10).await;
+    let b = DocumentService::create_reversal(&pool, &wm_actor(), grn_id)
+        .await
+        .expect("沖銷單 B");
+    assert_eq!(
+        DocumentService::get_by_id(&pool, grn_id)
+            .await
+            .expect("get A")
+            .reversed_by_doc_id,
+        Some(b.document.id),
+        "B 尚有效時，A 應顯示被 B 沖銷"
+    );
+
+    // 作廢 B（已提交、未核准，可作廢）
+    DocumentService::cancel(&pool, &wm_actor(), b.document.id)
+        .await
+        .expect("作廢 B");
+    assert_eq!(
+        snapshot_qty(&pool, wh, product).await,
+        Decimal::from(10),
+        "作廢一張從未核准的沖銷單不得影響庫存"
+    );
+    assert_eq!(
+        DocumentService::get_by_id(&pool, grn_id)
+            .await
+            .expect("get A")
+            .reversed_by_doc_id,
+        None,
+        "B 已作廢，A 不應再顯示被沖銷（否則前端藏起沖銷按鈕，A 永遠卡死）"
+    );
+
+    // A 現在可以重新發起沖銷
+    let b2 = DocumentService::create_reversal(&pool, &wm_actor(), grn_id)
+        .await
+        .expect("B 作廢後 A 應可重新沖銷");
+    assert_ne!(b2.document.id, b.document.id);
+    assert_eq!(b2.document.reverses_doc_id, Some(grn_id));
+
+    // 有效（未作廢）的沖銷單仍然擋重複沖銷
+    DocumentService::create_reversal(&pool, &wm_actor(), grn_id)
+        .await
+        .expect_err("已有未作廢的沖銷單，不得再開第三張");
+
+    // 作廢的 B 仍保留在紀錄中（append-only，不刪不改）
+    let cancelled_status: DocStatus =
+        sqlx::query_scalar("SELECT status FROM documents WHERE id = $1")
+            .bind(b.document.id)
+            .fetch_one(&pool)
+            .await
+            .expect("query B status");
+    assert_eq!(cancelled_status, DocStatus::Cancelled);
+}
+
 #[tokio::test]
 #[serial]
 async fn reversal_document_itself_cannot_be_reversed() {
