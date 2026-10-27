@@ -18,17 +18,25 @@ FROM mcr.microsoft.com/playwright/python:v1.64.0-noble AS production
 # 但 vet_patrol_report 的頁首頁尾走 Chromium 原生 header/footer（獨立 iframe，
 # @font-face file:// 載不到）→ 標楷體/Times 必須另裝成系統字型（見下方 fc-cache 步驟）。
 #
-# 系統信任庫：emSign ECC Root CA - G3 的私鑰外洩（2026-10），Ubuntu 已在
-# ca-certificates 20260816ubuntu0.24.04.1 起移除它；base image 出貨的是舊版
-# （20260601~24.04.1，仍含 G3）。所以 build 時明確升級 ca-certificates，
-# 並在最後加守衛——G3 只要還在信任庫就讓 build 失敗，避免日後 base 退版又悄悄帶回來。
+# 系統信任庫：emSign ECC Root CA - G3 因其下的中繼 CA 憑證遭攻破（USN-8944-1，2026-10），
+# Ubuntu 已在 ca-certificates 20260816ubuntu0.24.04.1 起移除這張根憑證（公告並未說根憑證
+# 私鑰外洩）；base image 出貨的是舊版（20260601~24.04.1，仍含 G3）。所以 build 時明確升級
+# ca-certificates，並在最後加守衛——G3 只要還在信任庫就讓 build 失敗，避免日後 base 退版
+# 又悄悄帶回來。守衛同時檢查 /etc/ssl/certs 的檔名與「合併後的信任包」
+# （ca-certificates.crt）裡的憑證主體：只看檔名的話，憑證換個檔名留在合併包裡就會漏網。
+# 信任包讀不出內容時讓 build 失敗（fail-closed），不是默默當作「沒找到」。
 # （只涵蓋系統信任庫；Chromium 自己的根憑證庫隨 Playwright 版本更新，不在此處理。）
 ENV TZ=Asia/Taipei
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates fonts-noto-cjk fonts-noto-core fonts-liberation tzdata \
     && rm -rf /var/lib/apt/lists/* \
-    && if ls /etc/ssl/certs | grep -qi 'emSign_ECC_Root_CA_-_G3'; then \
+    && subjects="$(openssl crl2pkcs7 -nocrl -certfile /etc/ssl/certs/ca-certificates.crt \
+                   | openssl pkcs7 -print_certs -noout)" \
+    && if [ -z "$subjects" ]; then \
+         echo "ERROR: 讀不出 /etc/ssl/certs/ca-certificates.crt 的憑證主體，無法確認 G3 已移除" >&2; exit 1; fi \
+    && if ls /etc/ssl/certs | grep -qi 'emSign_ECC_Root_CA_-_G3' \
+          || printf '%s\n' "$subjects" | grep -qi 'emSign ECC Root CA - G3'; then \
          echo "ERROR: emSign ECC Root CA - G3 仍在系統信任庫" >&2; exit 1; fi
 
 WORKDIR /app
