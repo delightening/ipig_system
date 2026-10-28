@@ -785,6 +785,13 @@ impl DocumentService {
 
         // 連動處理整條下游鏈（規則＝使用者 2026-07-18 決策）：草稿後代 → 連動刪除
         // （各自寫 audit）；有任何非草稿後代 → 擋下（已影響庫存/帳，不可默默移除）。
+        //
+        // 沖銷單（reverses_doc_id 指向本單）不適用上面的「非草稿即擋下」：使用者 2026-10-28
+        // 決策——被沖銷過的單據硬刪時，沖銷單連帶刪除（各自寫 audit）。沖銷單必為非草稿，
+        // 若比照下游單據處理，被沖銷過的單據就永遠刪不掉。把關改由 `delete_document_row_tx`
+        // 的 `has_posted_effects` 負責：沖銷單若已寫入庫存異動或傳票（例如沖銷入庫單）仍擋下，
+        // 採購單的沖銷單沒有這類效果，可以連帶刪。
+        let reversals = Self::collect_reversal_docs_tx(&mut tx, id).await?;
         let descendants = Self::collect_descendants_tx(&mut tx, id).await?;
 
         let blocking: Vec<String> = descendants
@@ -798,6 +805,11 @@ impl DocumentService {
                 blocking.len(),
                 blocking.join("、")
             )));
+        }
+
+        // 沖銷單先刪：它以 FK 指向本單，晚於主單刪除會撞 documents_reverses_doc_id_fkey。
+        for reversal in &reversals {
+            Self::delete_document_row_tx(&mut tx, actor, reversal, "DOC_DELETE").await?;
         }
 
         // 後代皆草稿：由深到淺刪除（BFS 反序保證子單先於父單），最後刪主單。
@@ -816,6 +828,26 @@ impl DocumentService {
         tx.commit().await?;
 
         Ok(())
+    }
+
+    /// 收集以 reverses_doc_id 指向 `original_id` 的沖銷單，逐筆 FOR UPDATE 上鎖。
+    ///
+    /// 沖銷單只帶 `reverses_doc_id`、不帶 `source_doc_id`，所以 [`Self::collect_descendants_tx`]
+    /// 看不到它。漏收的後果：硬刪被沖銷過的單據時，最後 `DELETE FROM documents` 才撞
+    /// documents_reverses_doc_id_fkey，使用者只看到「關聯資料不存在」（`AppError` 對 23503 的
+    /// 通用訊息，對 INSERT 合理、對 DELETE 則剛好相反）。
+    /// 「沖銷單本身不可再被沖銷」，所以只有一層，不需要 BFS。
+    async fn collect_reversal_docs_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        original_id: Uuid,
+    ) -> Result<Vec<Document>> {
+        let reversals = sqlx::query_as::<_, Document>(
+            "SELECT * FROM documents WHERE reverses_doc_id = $1 ORDER BY created_at FOR UPDATE",
+        )
+        .bind(original_id)
+        .fetch_all(&mut **tx)
+        .await?;
+        Ok(reversals)
     }
 
     /// BFS 收集所有以 source_doc_id（遞移）引用 root 的後代，逐筆 FOR UPDATE 上鎖。
@@ -949,6 +981,14 @@ impl DocumentService {
                 SUM(dl.qty * dl.unit_price) as total_amount,
                 d.iacuc_no,
                 d.receipt_status,
+                -- 沖銷衍生狀態（原單 DB 狀態仍是 approved）。只看「待核准」與「已核准」的沖銷單；
+                -- 已作廢的沖銷單不佔名額（migration 017），原單回到普通狀態。
+                -- 子查詢以 d.id 關聯，d.id 已在 GROUP BY 內，不增加分組欄位、也不是 N+1。
+                (SELECT CASE r.status WHEN 'approved' THEN 'reversed' ELSE 'reversing' END
+                   FROM documents r
+                  WHERE r.reverses_doc_id = d.id AND r.status IN ('approved', 'submitted')
+                  ORDER BY (r.status = 'approved') DESC
+                  LIMIT 1) AS reversal_state,
                 EXISTS (
                     SELECT 1 FROM journal_entries je
                     WHERE je.source_entity_type = 'document' AND je.source_entity_id = d.id
@@ -1087,6 +1127,7 @@ impl DocumentService {
             reversed_by_doc_id: reversal.reversed_by_doc_id,
             reversed_by_doc_no: reversal.reversed_by_doc_no,
             reversed_at: reversal.reversed_at,
+            can_revoke: false,
             pending_owner,
         })
     }

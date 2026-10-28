@@ -9,7 +9,7 @@ use crate::{
     middleware::{ActorContext, CurrentUser},
     models::{
         AdminRejectRequest, CreateDocumentRequest, DocumentListItem, DocumentQuery,
-        DocumentWithLines, PoReceiptStatus, UpdateDocumentRequest,
+        DocumentWithLines, PoReceiptStatus, RevokeDocumentRequest, UpdateDocumentRequest,
     },
     require_permission,
     services::{DocumentService, NotificationService},
@@ -102,8 +102,11 @@ pub async fn get_document(
 ) -> Result<Json<DocumentWithLines>> {
     require_permission!(current_user, "erp.document.view");
 
-    let document = DocumentService::get_by_id(&state.db, id).await?;
+    let mut document = DocumentService::get_by_id(&state.db, id).await?;
     DocumentService::check_access(&current_user, document.document.created_by)?;
+    // 撤銷按鈕的可見性由後端判定（與 revoke_document 同一個判斷函式），前端不自行推導。
+    document.can_revoke =
+        DocumentService::can_revoke(&state.db, &current_user, &document.document).await?;
     Ok(Json(document))
 }
 
@@ -446,6 +449,38 @@ pub async fn cancel_document(
         }
     });
 
+    Ok(Json(document))
+}
+
+/// 撤銷已核准、尚無有效下游單據的採購單
+///
+/// PO 核准不寫庫存、不過帳，所以撤銷不需要二人核准的沖銷；已有有效入庫單者仍須走沖銷。
+#[utoipa::path(
+    post,
+    path = "/api/v1/documents/{id}/revoke",
+    params(("id" = Uuid, Path, description = "採購單 ID")),
+    request_body = RevokeDocumentRequest,
+    responses(
+        (status = 200, description = "撤銷成功（狀態變為 cancelled）", body = DocumentWithLines),
+        (status = 400, description = "缺少原因 / 非已核准採購單 / 已有有效入庫單 / 有未處理的下游單據"),
+        (status = 401, description = "未認證"),
+        (status = 403, description = "僅倉庫管理員或管理員可撤銷"),
+        (status = 404, description = "找不到單據"),
+    ),
+    tag = "單據管理",
+    security(("bearer" = []))
+)]
+pub async fn revoke_document(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<RevokeDocumentRequest>,
+) -> Result<Json<DocumentWithLines>> {
+    require_permission!(current_user, "erp.document.cancel");
+
+    // Audit 已收進 service 層（DOC_REVOKE_APPROVED，tx 內含原因與前後 snapshot）
+    let actor = ActorContext::User(current_user.clone());
+    let document = DocumentService::revoke_approved_po(&state.db, &actor, id, &req.reason).await?;
     Ok(Json(document))
 }
 

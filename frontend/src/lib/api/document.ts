@@ -46,6 +46,15 @@ export const reverseApproveDocument = async (id: string) => {
   return response.data
 }
 
+/**
+ * 撤銷已核准、尚無有效下游單據的採購單（倉庫管理員 / 管理員，原因必填）。
+ * PO 核准不寫庫存、不過帳，所以不需要二人核准的沖銷；已有有效入庫單者後端會拒絕並引導走沖銷。
+ */
+export const revokeDocument = async (id: string, reason: string) => {
+  const response = await api.post(`/documents/${id}/revoke`, { reason })
+  return response.data
+}
+
 export const createGrnFromPo = async (poId: string): Promise<{ id: string }> => {
   const response = await api.post(`/documents/${poId}/create-grn`)
   return response.data

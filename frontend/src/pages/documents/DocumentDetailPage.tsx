@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import api, { Document, adminApproveDocument, adminRejectDocument, createGrnFromPo, reverseDocument, reverseApproveDocument } from '@/lib/api'
+import api, { Document, adminApproveDocument, adminRejectDocument, createGrnFromPo, reverseDocument, reverseApproveDocument, revokeDocument } from '@/lib/api'
 import { useAuthHasRole, useAuthHasPermission, useAuthUser } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -36,6 +36,9 @@ import { PendingOwnerBadge, PendingOwnerInline } from '@/components/PendingOwner
 import { SortableTableHead } from '@/components/ui/sortable-table-head'
 import { documentChangeQueryKeys } from './queryInvalidation'
 import { ReversalNotice } from './components/ReversalNotice'
+import { ReversalStateBadge } from './components/ReversalStateBadge'
+import { RevokeDocumentDialog } from './components/RevokeDocumentDialog'
+import { detailReversalState, resolveReverseRevokeButtons } from './documentActionState'
 import { DOC_STATUS_NAMES, DOC_TYPE_NAMES } from './types'
 
 const statusNames = DOC_STATUS_NAMES
@@ -176,6 +179,7 @@ export function DocumentDetailPage() {
   const { dialogState, confirm } = useConfirmDialog()
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false)
 
   const { data: document, isLoading } = useQuery({
     queryKey: ['document', id],
@@ -266,6 +270,24 @@ export function DocumentDetailPage() {
       toast({
         title: t('common.error'),
         description: getApiErrorMessage(error, t('erpDocs.documents.detail.toast.adminApproveFailed')),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  // 撤銷已核准、無有效下游單據的採購單：PO 核准不寫庫存也不過帳，所以單人撤銷、不需二人核准。
+  // 原因必填；已有有效入庫單時後端會拒絕並提示改走沖銷（訊息直接顯示給使用者）。
+  const revokeMutation = useMutation({
+    mutationFn: (reason: string) => revokeDocument(id!, reason),
+    onSuccess: () => {
+      invalidateAfterDocChange(false)
+      setRevokeDialogOpen(false)
+      toast({ title: t('common.success'), description: t('erpDocs.documents.detail.toast.revoked') })
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('erpDocs.documents.detail.toast.revokeFailed')),
         variant: 'destructive',
       })
     },
@@ -457,13 +479,14 @@ export function DocumentDetailPage() {
   const showReversalApprove = isSubmitted && canReverseApprove && isReversal
     && !blockedByReversalSelfApproval
 
-  // 發起沖銷：已核准、尚未被沖銷、本身不是沖銷單，倉管或 admin 可發起
-  const showReverse =
-    document.status === 'approved' &&
-    !isReversal &&
-    !document.reversed_by_doc_id &&
-    canApproveDoc &&
-    (isWarehouseManager || isAdmin)
+  // 撤銷／沖銷分流（同一張單只顯示其一）：
+  // - 撤銷：後端判定 `can_revoke`（已核准、無有效下游單據的 PO，且角色符合），前端只讀不推導。
+  // - 沖銷：已核准、尚未被沖銷、本身不是沖銷單，倉管或 admin 可發起；可撤銷的單不再顯示。
+  // - 已被沖銷的單兩顆都不顯示（改由標題列徽章與 ReversalNotice 說明）。
+  const { showRevoke, showReverse } = resolveReverseRevokeButtons(
+    document,
+    canApproveDoc && (isWarehouseManager || isAdmin),
+  )
 
   // 作廢按鈕：submitted 且 (倉庫管理員或 admin)
   const showCancel = isSubmitted && canCancelDoc && (isWarehouseManager || isAdmin)
@@ -537,6 +560,7 @@ export function DocumentDetailPage() {
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-bold tracking-tight">{document.doc_no}</h1>
               {getStatusBadge(document.status)}
+              <ReversalStateBadge state={detailReversalState(document)} />
             </div>
             <p className="text-muted-foreground">
               {t('erpDocs.documents.detail.createdOn', {
@@ -605,6 +629,12 @@ export function DocumentDetailPage() {
             >
               <ShieldX className="mr-2 h-4 w-4" />
               {t('erpDocs.documents.detail.reject')}
+            </Button>
+          )}
+          {showRevoke && (
+            <Button variant="outline" onClick={() => setRevokeDialogOpen(true)} disabled={revokeMutation.isPending}>
+              <Undo2 className="mr-2 h-4 w-4" />
+              {t('erpDocs.documents.detail.revokeDocument')}
             </Button>
           )}
           {showReverse && (
@@ -847,6 +877,13 @@ export function DocumentDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <RevokeDocumentDialog
+        open={revokeDialogOpen}
+        onOpenChange={setRevokeDialogOpen}
+        docNo={document.doc_no}
+        isPending={revokeMutation.isPending}
+        onConfirm={(reason) => revokeMutation.mutate(reason)}
+      />
       <ConfirmDialog state={dialogState} />
     </div>
   )

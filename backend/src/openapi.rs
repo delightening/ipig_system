@@ -262,6 +262,7 @@ use utoipa::OpenApi;
         crate::handlers::submit_document,
         crate::handlers::approve_document,
         crate::handlers::cancel_document,
+        crate::handlers::revoke_document,
         // === 報表 ===
         crate::handlers::get_stock_on_hand_report,
         crate::handlers::get_stock_ledger_report,

@@ -214,6 +214,22 @@ pub struct DocumentAuditSnapshot<'a> {
 
 impl crate::models::audit_diff::AuditRedact for DocumentAuditSnapshot<'_> {}
 
+/// 撤銷已核准採購單專用的 audit snapshot：在 [`DocumentAuditSnapshot`] 之上多帶一個
+/// `revoke_reason`，讓原因進入 `DataDiff` 與 HMAC chain（`ActivityLogEntry` 沒有獨立的
+/// reason 欄位）。
+///
+/// 不直接擴充 `DocumentAuditSnapshot`：它有 20 多個建構點，加欄位會讓每一處都要補 `None`，
+/// 而且其他事件的 diff 不該出現這個欄位。before 帶 `None`、after 帶 `Some(原因)`，
+/// diff 的 `changed_fields` 因此會列出 `revoke_reason`，稽核頁查得到。
+#[derive(Debug, Serialize)]
+pub struct DocumentRevokeSnapshot<'a> {
+    pub document: &'a Document,
+    pub lines: &'a [DocumentLine],
+    pub revoke_reason: Option<&'a str>,
+}
+
+impl crate::models::audit_diff::AuditRedact for DocumentRevokeSnapshot<'_> {}
+
 /// 建立單據請求
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateDocumentRequest {
@@ -310,6 +326,12 @@ pub struct DocumentWithLines {
     pub reversed_by_doc_no: Option<String>,
     /// 沖銷生效時間（沖銷單的 approved_at）；沖銷單尚未核准時為 None。
     pub reversed_at: Option<DateTime<Utc>>,
+    /// 目前這位使用者能不能「撤銷」這張單（已核准、無有效下游單據的採購單，且角色符合）。
+    ///
+    /// 由 handler 依呼叫者補上，與 `POST /documents/{id}/revoke` 共用同一個判斷函式
+    /// （`services/document/revoke.rs`）。前端只讀這個欄位、不自行推導——自己算會讓按鈕
+    /// 與後端的前置條件漂移。`get_by_id` 本身不帶使用者，預設 `false`。
+    pub can_revoke: bool,
     /// 這張單現在卡在誰手上（僅 `submitted` 有值）。前端「待核准」徽章 hover 用。
     /// 計算來源見 `services/pending_owner.rs`。
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -375,6 +397,10 @@ pub struct DocumentListItem {
     pub iacuc_no: Option<String>,
     #[sqlx(default)]
     pub receipt_status: Option<String>,
+    /// 沖銷衍生狀態：`reversing`＝有待核准的沖銷單、`reversed`＝已被核准的沖銷單沖銷、
+    /// 其餘（含沖銷單已作廢）為 `None`。原單的 DB 狀態仍是 `approved`，不新增狀態值。
+    #[sqlx(default)]
+    pub reversal_state: Option<String>,
     /// 是否已產生會計傳票（核准後觸發過帳的類型：GRN, DO, PR）
     #[sqlx(default)]
     pub has_journal_entry: bool,
@@ -417,6 +443,13 @@ pub struct PoReceiptItem {
 /// ADMIN 駁回請求
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct AdminRejectRequest {
+    pub reason: String,
+}
+
+/// 撤銷已核准採購單請求
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct RevokeDocumentRequest {
+    /// 撤銷原因（必填；service 端 trim 後檢查長度下限）
     pub reason: String,
 }
 

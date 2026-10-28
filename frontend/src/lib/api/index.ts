@@ -34,7 +34,7 @@ export type { SystemFeatures, MutationSignaturePayload } from './system'
 export * from './qaPlan'
 export * from './glpCompliance'
 export type { AiApiKeyInfo, CreateAiApiKeyRequest, CreateAiApiKeyResponse } from './ai'
-export { getPoReceiptStatus, adminApproveDocument, adminRejectDocument, createGrnFromPo, reverseDocument, reverseApproveDocument } from './document'
+export { getPoReceiptStatus, adminApproveDocument, adminRejectDocument, createGrnFromPo, reverseDocument, reverseApproveDocument, revokeDocument } from './document'
 export type { PoReceiptItem, PoReceiptStatus } from './document'
 
 // ============================================
