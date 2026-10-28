@@ -3,7 +3,7 @@ use std::env;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use argon2::password_hash::{rand_core::OsRng, PasswordHasher, SaltString};
+use argon2::password_hash::PasswordHasher;
 use argon2::Argon2;
 
 #[tokio::main]
@@ -23,9 +23,8 @@ async fn main() -> anyhow::Result<()> {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env");
 
     let pool = PgPool::connect(&database_url).await?;
-    let salt = SaltString::generate(&mut OsRng);
     let password_hash = Argon2::default()
-        .hash_password(password.as_bytes(), &salt)
+        .hash_password(password.as_bytes())
         .expect("Failed to hash password")
         .to_string();
     let user_id = Uuid::new_v4();

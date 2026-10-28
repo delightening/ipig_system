@@ -11,6 +11,11 @@ use crate::{
 
 use super::AuthService;
 
+/// SEC-AUDIT-002：「使用者不存在」分支用的虛擬雜湊，讓該分支與「密碼錯誤」耗時一致。
+/// 參數須與 `Argon2::default()` 產生的真實雜湊一致（auth/tests.rs 有鎖定測試）。
+/// 抽成常數是為了讓測試引用同一份字串，不再維護副本。
+pub(super) const LOGIN_DUMMY_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$dGhpc2lzYWR1bW15c2FsdA$ZKhM8GZ8MJD3E5VNrp0MWuVIL+rCBjKNHdXMaGW4+A8";
+
 impl AuthService {
     /// 驗證 email + 密碼（不產生 token，供 handler 決定是否走 2FA）
     ///
@@ -107,12 +112,19 @@ impl AuthService {
             None => {
                 // SEC-AUDIT-002: 執行虛擬 Argon2 驗證，確保「使用者不存在」與「密碼錯誤」
                 // 的回應時間一致，防止透過 timing side-channel 枚舉有效 email
-                let dummy_hash = "$argon2id$v=19$m=19456,t=2,p=1$dGhpc2lzYWR1bW15c2FsdA$ZKhM8GZ8MJD3E5VNrp0MWuVIL+rCBjKNHdXMaGW4+A8";
                 use argon2::{
-                    password_hash::PasswordHash, password_hash::PasswordVerifier, Argon2,
+                    password_hash::{phc::PasswordHash, PasswordVerifier},
+                    Argon2,
                 };
-                if let Ok(parsed) = PasswordHash::new(dummy_hash) {
-                    let _ = Argon2::default().verify_password(req.password.as_bytes(), &parsed);
+                match PasswordHash::new(LOGIN_DUMMY_HASH) {
+                    Ok(parsed) => {
+                        let _ = Argon2::default().verify_password(req.password.as_bytes(), &parsed);
+                    }
+                    // 解析失敗會讓「使用者不存在」與「密碼錯誤」的耗時差異回來（使用者列舉），
+                    // 不改變回應，但必須留下紀錄。
+                    Err(e) => tracing::error!(
+                        "[SEC-AUDIT-002] login 虛擬雜湊無法解析，常數時間防護失效: {e}"
+                    ),
                 }
 
                 // CRIT-01: 原子性記錄失敗（使用者不存在），確保與 fail_count 讀取在同一事務
@@ -126,7 +138,10 @@ impl AuthService {
             }
         };
 
-        use argon2::{password_hash::PasswordHash, password_hash::PasswordVerifier, Argon2};
+        use argon2::{
+            password_hash::{phc::PasswordHash, PasswordVerifier},
+            Argon2,
+        };
 
         let parsed_hash = PasswordHash::new(&user.password_hash)
             .map_err(|_| AppError::Internal("Invalid password hash".to_string()))?;

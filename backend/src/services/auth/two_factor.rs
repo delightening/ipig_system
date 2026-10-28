@@ -91,7 +91,7 @@ impl AuthService {
         let hashed_codes: Vec<String> = backup_codes
             .iter()
             .map(|c| Self::hash_backup_code(c))
-            .collect();
+            .collect::<Result<_>>()?;
 
         // R66-B2：AEAD 加密後存入（取代原明文 base32），AAD 綁 user_id。
         let stored_secret = Self::encrypt_totp_secret(config, user_id, &secret_b32)?;
@@ -462,7 +462,7 @@ impl AuthService {
         codes.iter().position(|stored| {
             if stored.starts_with("$argon2") {
                 use argon2::{
-                    password_hash::{PasswordHash, PasswordVerifier},
+                    password_hash::{phc::PasswordHash, PasswordVerifier},
                     Argon2,
                 };
                 PasswordHash::new(stored)
@@ -518,22 +518,17 @@ impl AuthService {
     }
 
     /// M5: 使用 Argon2id 加鹽雜湊備用碼（防止預算彩虹表）
-    fn hash_backup_code(code: &str) -> String {
-        use argon2::{
-            password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
-            Argon2,
-        };
-        let salt = SaltString::generate(&mut OsRng);
+    ///
+    /// 失敗就回錯、中止 2FA 設定，**不退回無鹽 SHA-256**：備援碼只有 8 位數，無鹽雜湊
+    /// 拿到資料庫副本即可低成本還原。argon2 0.6 的 `hash_password` 在內部產生 salt，
+    /// 亂數失敗（`Error::RngFailure`）也走這條錯誤路徑。驗證端對既有 SHA-256 舊格式
+    /// 的支援（`find_matching_backup_code`）不受影響。
+    fn hash_backup_code(code: &str) -> Result<String> {
+        use argon2::{password_hash::PasswordHasher, Argon2};
         Argon2::default()
-            .hash_password(code.as_bytes(), &salt)
+            .hash_password(code.as_bytes())
             .map(|h| h.to_string())
-            .unwrap_or_else(|_| {
-                // 極端情況 fallback（不應發生）：使用 SHA-256
-                use sha2::{Digest, Sha256};
-                let mut hasher = Sha256::new();
-                hasher.update(code.as_bytes());
-                hex::encode(hasher.finalize())
-            })
+            .map_err(|e| AppError::Internal(format!("Failed to hash backup code: {e}")))
     }
 }
 
@@ -661,10 +656,10 @@ mod tests {
 
     #[test]
     fn hash_backup_code_produces_argon2_not_sha256_fallback() {
-        // hash_backup_code 在 hash 失敗時會「無聲」退回 SHA-256。
-        // 升版後若 hash 呼叫出錯，備援碼會被悄悄降級，而驗證端的 legacy 分支
-        // 仍能驗過它，所有其他測試都不會紅；只有這個斷言能抓到。
-        let hashed = AuthService::hash_backup_code("12345678");
+        // 鎖住「備援碼雜湊一定是 Argon2id」。hash_backup_code 失敗時回錯而非退回 SHA-256；
+        // 這個斷言同時防止日後有人重新加回無聲降級（驗證端的 legacy 分支會讓它驗得過、
+        // 其他測試都不會紅）。
+        let hashed = AuthService::hash_backup_code("12345678").expect("備援碼雜湊應成功");
         assert!(
             hashed.starts_with("$argon2id$v=19$m=19456,t=2,p=1$"),
             "備援碼未產生 Argon2id（可能退回 SHA-256 或預設參數改變）：{hashed}"
