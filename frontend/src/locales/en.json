@@ -447,7 +447,8 @@
           "SO": "Sales Order",
           "TR": "Transfer",
           "STK": "Stock Count",
-          "ADJ": "Adjustment"
+          "ADJ": "Adjustment",
+          "REV": "Reversal"
         },
         "docNo": "Doc No.",
         "docType": "Type",
@@ -7642,6 +7643,7 @@
         "TR": "Transfer",
         "STK": "Stocktake",
         "ADJ": "Adjustment",
+        "REV": "Reversal",
         "SR": "Sales Return",
         "RTN": "Return Order"
       },

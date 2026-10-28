@@ -90,6 +90,9 @@ export const DOC_TYPE_NAMES: Record<DocType, string> = {
   get ADJ() {
     return i18n.t('erpDocs.documents.docType.ADJ')
   },
+  get REV() {
+    return i18n.t('erpDocs.documents.docType.REV')
+  },
 }
 
 /** 單據狀態顯示名稱（同 `DOC_TYPE_NAMES`，getter 於讀取當下翻譯）。 */

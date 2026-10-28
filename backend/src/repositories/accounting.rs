@@ -153,7 +153,10 @@ pub async fn list_ap_aging(pool: &PgPool, as_of_date: NaiveDate) -> Result<Vec<A
             JOIN journal_entry_lines jel ON jel.journal_entry_id = je.id
             JOIN chart_of_accounts coa ON coa.id = jel.account_id AND coa.code = '2100'
             JOIN documents doc ON doc.id = je.source_entity_id AND je.source_entity_type = 'document'
-            WHERE je.entry_date <= $1 AND doc.doc_type IN ('GRN', 'PR')
+            -- REV（沖銷單）：入庫單／採購退貨的沖銷傳票（借貸互換）掛在沖銷單上，必須算進來，
+            -- 否則已沖銷的入庫單仍會把應付餘額留在帳上。2100 只會出現在 GRN/PR 的過帳與其沖銷，
+            -- 其他單據的沖銷不會碰到這個科目，所以不需要再依原單類型細分。
+            WHERE je.entry_date <= $1 AND doc.doc_type IN ('GRN', 'PR', 'REV')
             GROUP BY doc.partner_id
         ),
         ap_debits AS (

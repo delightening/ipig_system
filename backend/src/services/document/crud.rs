@@ -20,6 +20,27 @@ use crate::{
 
 use super::DocumentService;
 
+/// 列表的單據類型過濾：`d.doc_type IN (types)`，另外讓**沖銷單（REV）跟著原單的類型走**。
+///
+/// 沖銷單有自己的 `doc_type = REV`（migration 018/019），但使用者是從分類頁（採購／銷貨／倉儲）
+/// 找單據的：入庫單的沖銷單應該還在「採購」頁，而不是從所有分類頁消失。所以除了類型直接命中，
+/// 沖銷單只要它**指向的原單**類型在清單內也算命中。明確篩 `REV` 時，`IN` 本身就會列出全部沖銷單。
+///
+/// 呼叫端需保證 `d` 是 documents 的別名、`types` 非空。
+fn push_doc_type_filter(qb: &mut sqlx::QueryBuilder<sqlx::Postgres>, types: &[DocType]) {
+    qb.push(" AND (d.doc_type IN (");
+    let mut sep = qb.separated(", ");
+    for t in types {
+        sep.push_bind(*t);
+    }
+    qb.push(") OR (d.doc_type = 'REV' AND EXISTS (SELECT 1 FROM documents orig WHERE orig.id = d.reverses_doc_id AND orig.doc_type IN (");
+    let mut sep = qb.separated(", ");
+    for t in types {
+        sep.push_bind(*t);
+    }
+    qb.push("))))");
+}
+
 /// 業務錯誤碼：line 缺 storage_location_id（GRN/DO/SO/ADJ/STK）。
 /// 前端可用此 code 對應 i18n key 或 telemetry。
 const ERR_DOC_LINE_SHELF_REQUIRED: &str = "doc.line.shelf_required";
@@ -1011,20 +1032,14 @@ impl DocumentService {
         }
 
         if let Some(doc_type) = query.doc_type {
-            qb.push(" AND d.doc_type = ");
-            qb.push_bind(doc_type);
+            push_doc_type_filter(&mut qb, &[doc_type]);
         } else if let Some(ref doc_types_str) = query.doc_types {
             let parsed: Vec<DocType> = doc_types_str
                 .split(',')
                 .filter_map(|s| serde_json::from_str::<DocType>(&format!("\"{}\"", s.trim())).ok())
                 .collect();
             if !parsed.is_empty() {
-                qb.push(" AND d.doc_type IN (");
-                let mut sep = qb.separated(", ");
-                for t in parsed {
-                    sep.push_bind(t);
-                }
-                qb.push(")");
+                push_doc_type_filter(&mut qb, &parsed);
             }
         }
 

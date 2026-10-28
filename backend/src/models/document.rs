@@ -46,6 +46,13 @@ pub enum DocType {
     STK,
     /// 調整單 Stock Adjustment
     ADJ,
+    /// 沖銷單 Reversal（migration 018/019）。
+    ///
+    /// 只有 `create_reversal` 會建立；與 `reverses_doc_id` 同進退（DB 約束
+    /// `documents_rev_type_consistent`）。它**不**經一般的核准路徑，也不直接寫庫存或過帳——
+    /// 鏡射寫入由 `approve_reversal` 依「原單」的類型與紀錄完成，所以下面各個依類型分派的
+    /// 判斷（影響庫存、批號、儲位…）對 REV 一律為否。
+    REV,
 }
 
 impl DocType {
@@ -58,6 +65,7 @@ impl DocType {
             DocType::TR => "TR",
             DocType::STK => "STK",
             DocType::ADJ => "ADJ",
+            DocType::REV => "REV",
         }
     }
 

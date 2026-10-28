@@ -219,7 +219,7 @@ async fn hard_delete_cascades_reversal_documents_of_every_status() {
         sqlx::query(
             "INSERT INTO documents \
              (id, doc_type, doc_no, status, warehouse_id, doc_date, created_by, reverses_doc_id) \
-             SELECT $1, 'PO', $2, $3::doc_status, warehouse_id, CURRENT_DATE, $4, id \
+             SELECT $1, 'REV', $2, $3::doc_status, warehouse_id, CURRENT_DATE, $4, id \
              FROM documents WHERE id = $5",
         )
         .bind(rev_id)
@@ -275,7 +275,7 @@ async fn hard_delete_cascades_a_cancelled_then_approved_reversal_chain() {
         sqlx::query(
             "INSERT INTO documents \
              (id, doc_type, doc_no, status, warehouse_id, doc_date, created_by, reverses_doc_id) \
-             SELECT $1, 'PO', $2, $3::doc_status, warehouse_id, CURRENT_DATE, $4, id \
+             SELECT $1, 'REV', $2, $3::doc_status, warehouse_id, CURRENT_DATE, $4, id \
              FROM documents WHERE id = $5",
         )
         .bind(rev_id)

@@ -1140,7 +1140,10 @@ impl StockService {
             .bind(Uuid::new_v4())
             .bind(row.warehouse_id)
             .bind(row.product_id)
-            .bind(reversal.doc_type)
+            // 流水的 doc_type 沿用**原單**那一筆的類型，不是沖銷單的 REV：報表與庫存帳都是依
+            // `doc_type` + `direction` 加總（例如 GRN in 加、GRN out 減），鏡射的反向流水必須落在
+            // 同一個類型下才會與原流水互抵。doc_id / doc_no 仍指向沖銷單，追溯得到。
+            .bind(row.doc_type)
             .bind(reversal.id)
             .bind(&reversal.doc_no)
             .bind(row.line_id)

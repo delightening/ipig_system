@@ -43,14 +43,16 @@ fn has_revoke_role(user: &CurrentUser) -> bool {
 
 /// 只看單據本身就能判定的前置條件（不查 DB）。
 fn revoke_state_blocker(po: &Document) -> Option<String> {
+    // 沖銷單的檢查排在最前面：沖銷單有自己的類型 REV（migration 018/019），若先檢查
+    // 「是不是採購單」，使用者會得到「僅採購單可撤銷」，看不出真正的原因是它本身就是沖銷單。
+    if po.reverses_doc_id.is_some() {
+        return Some("沖銷單不可撤銷".to_string());
+    }
     if po.doc_type != DocType::PO {
         return Some("僅採購單可撤銷".to_string());
     }
     if po.status != DocStatus::Approved {
         return Some("僅已核准的採購單可撤銷".to_string());
-    }
-    if po.reverses_doc_id.is_some() {
-        return Some("沖銷單不可撤銷".to_string());
     }
     None
 }
