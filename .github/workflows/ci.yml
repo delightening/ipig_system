@@ -627,7 +627,7 @@ jobs:
   # 解法＝matrix 把測試 round-robin 拆 4 組，每組各自 runner 只建自己那批 binary
   # （塞得進磁碟）+ 輸出 lcov；下方 ratchet job 用 lcov 合併成總覆蓋率、比對 baseline
   # （只升不降）。group 1 額外含 --lib（單元測試只算一次；lib 於各組皆為依賴、覆蓋合併取聯集）。
-  #   - main push 且現值 > 門檻：ratchet job 自動上調門檻並 commit + push（[skip ci]）
+  #   - main push 且現值 > 門檻：ratchet job 只在摘要提示新門檻，由人手動更新（2026-10-28 起不再自動 push）
   # 硬門檻（blocking，2026-07-12 啟用）：分組覆蓋率合併值 < baseline - 容許誤差
   # → CI 失敗（擋 PR 覆蓋率退步）。量測引擎更換當輪：llvm-cov 與 tarpaulin 的行計數
   # 定義略異，baseline 於換引擎 PR 依首輪實測值重校（見 coverage-baseline.txt）。
@@ -747,7 +747,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: write # ratchet 上調門檻需 commit + push
+      contents: write # 已不再 push（2026-10-28 起 ratchet 改手動）；降為 read 前須先驗證 gh run download 不受影響
     defaults:
       run:
         working-directory: ./backend
@@ -796,22 +796,21 @@ jobs:
           echo "✅ 覆蓋率達標"
           echo "COVERAGE=${COVERAGE}" >> "$GITHUB_ENV"
 
-      - name: Coverage ratchet 自動上調門檻（僅 main push）
+      # 2026-10-28：不再自動 commit + push 回 main。main 套用 required-checks ruleset 後，
+      # 個人帳號 repo 無法把 github-actions 設為 bypass（API 422），直接 push 會被擋；
+      # 改用 GITHUB_TOKEN 開 PR 也無法全自動（不會自動跑 CI，需有寫入權限者手動核准或重新觸發，required checks 才等得到）。
+      # 改為只提示：覆蓋率提升時在摘要寫出建議的新門檻，由人手動更新 coverage-baseline.txt。
+      - name: Coverage ratchet 提示新門檻（僅 main push；不自動 push）
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
           BASELINE=$(cat coverage-baseline.txt)
           NEW=$(awk -v cur="$COVERAGE" -v base="$BASELINE" 'BEGIN { print (cur+0 > base+0) ? cur : base }')
           if [ "$NEW" != "$BASELINE" ]; then
-            echo "$NEW" > coverage-baseline.txt
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add coverage-baseline.txt
-            git commit -m "chore(ci): ratchet 後端覆蓋率門檻 ${BASELINE}% → ${NEW}% [skip ci]"
-            # persist-credentials: false 後 origin 無憑證 → 用 GITHUB_TOKEN 顯式推（GitHub 於 log 遮蔽）
-            git remote set-url origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
-            git pull --rebase origin main
-            git push
+            MSG="覆蓋率 ${COVERAGE}% 高於門檻 ${BASELINE}%：建議把 backend/coverage-baseline.txt 手動調為 ${NEW}"
+            echo "::notice::${MSG}"
+            echo "### 後端覆蓋率 ratchet（手動）" >> "$GITHUB_STEP_SUMMARY"
+            echo "${MSG}" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "覆蓋率未提升（門檻維持 ${BASELINE}%），不更新"
           fi
@@ -830,7 +829,7 @@ jobs:
     # Playwright 瀏覽器下載變慢的情形，同時讓 runner 網路卡死在半小時內就見紅。
     timeout-minutes: 30
     permissions:
-      contents: write # R82-4 ratchet 上調 vitest.config.ts thresholds 需 commit + push
+      contents: write # 已不再 push（2026-10-28 起 ratchet 改手動）；日後可降為 read
     defaults:
       run:
         working-directory: ./frontend
@@ -860,22 +859,23 @@ jobs:
         # 現值低於門檻時 vitest 直接 fail，autoUpdate 不會補救。
         run: pnpm exec vitest run --coverage
 
-      - name: Coverage ratchet 門檻變更偵測（僅 main push 才 commit）
+      # 2026-10-28：不再自動 commit + push 回 main，原因同後端 ratchet（見上方說明）。
+      # vitest 的 autoUpdate 仍會在 runner 工作區改寫 vitest.config.ts；這裡只把差異印出來，
+      # 由人手動套用到 frontend/vitest.config.ts。
+      - name: Coverage ratchet 門檻變更提示（僅 main push；不自動 push）
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
           if git diff --quiet -- vitest.config.ts; then
-            echo "門檻未變更，不需 commit"
+            echo "門檻未變更，不需調整"
           else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add vitest.config.ts
-            git commit -m "chore(ci): ratchet 前端覆蓋率門檻上調 [skip ci]"
-            # backend-coverage job 可能同時在 main push ratchet 後端門檻，避免 non-fast-forward 被拒
-            # persist-credentials: false 後 origin 無憑證 → 用 GITHUB_TOKEN 顯式推（GitHub 於 log 遮蔽）
-            git remote set-url origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
-            git pull --rebase origin main
-            git push
+            echo "::notice::前端覆蓋率提升，建議手動套用下列 vitest.config.ts 門檻變更"
+            {
+              echo "### 前端覆蓋率 ratchet（手動）"
+              echo '```diff'
+              git diff -- vitest.config.ts
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
   # =========================
