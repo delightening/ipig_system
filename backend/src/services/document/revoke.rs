@@ -8,8 +8,9 @@
 //!
 //! 已有有效入庫單的 PO 仍只能走沖銷——入庫單有庫存與會計副作用，撤銷 PO 不會回沖它們。
 //!
-//! 前置條件的判斷集中在 [`revoke_blocker`]，`POST /documents/{id}/revoke` 與詳情回應的
-//! `can_revoke` 共用同一個函式，兩邊不會漂移。
+//! 前置條件的判斷集中在 [`evaluate_revoke`]，`POST /documents/{id}/revoke`、詳情回應的
+//! `can_revoke` / `revoke_blocked_by` / `has_effective_downstream`，以及 `create_reversal`
+//! 對採購單的守衛都出自它（或它底下的 [`load_downstream`]），兩邊不會漂移。
 
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
@@ -18,7 +19,7 @@ use crate::{
     middleware::{ActorContext, CurrentUser},
     models::{
         audit_diff::DataDiff, DocStatus, DocType, Document, DocumentLine, DocumentRevokeSnapshot,
-        DocumentWithLines,
+        DocumentWithLines, RevokeBlockedBy,
     },
     services::{
         audit::{ActivityLogEntry, AuditEntity},
@@ -54,20 +55,68 @@ fn revoke_state_blocker(po: &Document) -> Option<String> {
     None
 }
 
-/// 撤銷的資料面前置條件：回傳第一個擋下的理由（繁中，可直接給使用者），`None` 表示可撤銷。
+/// 引用此 PO 的下游單據（`source_doc_id` 指向 PO）：非作廢、非沖銷單、未被已核准沖銷單沖銷者，
+/// 依建立時間排序。
 ///
-/// 「有效下游單據」的判準與入庫進度、未入庫提醒同源，沿用
-/// [`crate::exclude_reversed_grn!`]——不自己抄一份述詞，否則兩邊對「這張入庫單還算不算數」
-/// 會給出不同答案。再加上：已作廢者不算；草稿／待核准的單據照樣擋，因為它們核准後就會
-/// 變成指向已作廢 PO 的有效單據。
+/// 「還算不算數」的判準與入庫進度、未入庫提醒同源，沿用 [`crate::exclude_reversed_grn!`]——
+/// 不自己抄一份述詞，否則兩邊對「這張入庫單還算不算數」會給出不同答案。
+/// 撤銷的擋下理由、詳情回應的 `has_effective_downstream`、以及 `create_reversal` 對採購單的
+/// 守衛，全部從這個函式的結果推導。
+pub(crate) async fn load_downstream(
+    conn: &mut PgConnection,
+    po_id: Uuid,
+) -> Result<Vec<RevokeBlockedBy>> {
+    let rows = sqlx::query_as(concat!(
+        r#"
+        SELECT g.doc_no, g.doc_type, g.status
+        FROM documents g
+        WHERE g.source_doc_id = $1
+          AND g.status <> 'cancelled'
+          AND g.reverses_doc_id IS NULL
+        "#,
+        crate::exclude_reversed_grn!(),
+        r#"
+        ORDER BY g.created_at
+        "#
+    ))
+    .bind(po_id)
+    .fetch_all(&mut *conn)
+    .await?;
+    Ok(rows)
+}
+
+/// 一次評估的完整結果：端點用 `blocker`，詳情回應用其餘欄位，彼此不會漂移。
+pub(crate) struct RevokeEvaluation {
+    /// 第一個擋下的理由（繁中，可直接給使用者）；`None` 表示資料面可撤銷。
+    pub blocker: Option<String>,
+    /// 擋住撤銷、尚未處理完（草稿／待核准）的下游單據；有多張時取最早建立的。
+    pub unfinished: Option<RevokeBlockedBy>,
+    /// 是否有有效下游單據（已核准且未被沖銷）。
+    pub has_effective_downstream: bool,
+}
+
+impl RevokeEvaluation {
+    fn blocked(reason: String) -> Self {
+        Self {
+            blocker: Some(reason),
+            unfinished: None,
+            has_effective_downstream: false,
+        }
+    }
+}
+
+/// 撤銷的資料面前置條件。
+///
+/// 草稿／待核准的下游單據一律擋下（不連帶作廢）：它們核准後就會變成指向已作廢 PO 的有效單據。
+/// 它們排在已核准者之前——使用者要先處理它們，才輪得到「已有有效入庫單」那條路。
 ///
 /// 呼叫者必須已在同一個 tx 內對 PO 做過 `FOR UPDATE`，否則檢查與後續更新之間有空窗。
-pub(crate) async fn revoke_blocker(
+pub(crate) async fn evaluate_revoke(
     conn: &mut PgConnection,
     po: &Document,
-) -> Result<Option<String>> {
+) -> Result<RevokeEvaluation> {
     if let Some(reason) = revoke_state_blocker(po) {
-        return Ok(Some(reason));
+        return Ok(RevokeEvaluation::blocked(reason));
     }
 
     // 這張 PO 本身已被沖銷（或沖銷單待核准）：沖銷單以 `reverses_doc_id` 指向原單，
@@ -83,57 +132,86 @@ pub(crate) async fn revoke_blocker(
     .fetch_optional(&mut *conn)
     .await?;
     if let Some(doc_no) = reversal_doc_no {
-        return Ok(Some(format!("此採購單已有沖銷單 {}，不可撤銷", doc_no)));
+        return Ok(RevokeEvaluation::blocked(format!(
+            "此採購單已有沖銷單 {}，不可撤銷",
+            doc_no
+        )));
     }
 
-    // 未處理完的單據（草稿／待核准）排在已核准者之前：使用者要先處理它們，
-    // 才輪得到「已有有效入庫單」那條路。
-    let blocking: Option<(String, DocType, DocStatus)> = sqlx::query_as(concat!(
-        r#"
-        SELECT g.doc_no, g.doc_type, g.status
-        FROM documents g
-        WHERE g.source_doc_id = $1
-          AND g.status <> 'cancelled'
-          AND g.reverses_doc_id IS NULL
-        "#,
-        crate::exclude_reversed_grn!(),
-        r#"
-        ORDER BY (g.status = 'approved') ASC, g.created_at
-        LIMIT 1
-        "#
-    ))
-    .bind(po.id)
-    .fetch_optional(&mut *conn)
-    .await?;
+    let downstream = load_downstream(conn, po.id).await?;
+    let unfinished = downstream
+        .iter()
+        .find(|d| d.status != DocStatus::Approved)
+        .cloned();
+    let effective = downstream.iter().find(|d| d.status == DocStatus::Approved);
 
-    Ok(blocking.map(|(doc_no, doc_type, status)| match status {
-        DocStatus::Approved if doc_type == DocType::GRN => {
-            format!(
-                "此採購單已有入庫單 {}，請先沖銷該入庫單（沖銷核准後即可撤銷採購單）",
-                doc_no
-            )
-        }
-        DocStatus::Approved => {
-            format!(
-                "此採購單已有已核准的單據 {}，請先沖銷該單據（沖銷核准後即可撤銷採購單）",
-                doc_no
-            )
-        }
-        _ => format!("請先處理單據 {}", doc_no),
-    }))
+    let blocker = match (&unfinished, effective) {
+        (Some(d), _) => Some(format!("請先處理單據 {}", d.doc_no)),
+        (None, Some(d)) if d.doc_type == DocType::GRN => Some(format!(
+            "此採購單已有入庫單 {}，請先沖銷該入庫單（沖銷核准後即可撤銷採購單）",
+            d.doc_no
+        )),
+        (None, Some(d)) => Some(format!(
+            "此採購單已有已核准的單據 {}，請先沖銷該單據（沖銷核准後即可撤銷採購單）",
+            d.doc_no
+        )),
+        (None, None) => None,
+    };
+
+    Ok(RevokeEvaluation {
+        blocker,
+        unfinished,
+        has_effective_downstream: effective.is_some(),
+    })
+}
+
+/// 詳情回應裡和撤銷／沖銷按鈕分流有關的三個欄位，由 [`DocumentService::revoke_view`] 一次算出。
+#[derive(Debug, Default)]
+pub struct RevokeView {
+    pub can_revoke: bool,
+    pub revoke_blocked_by: Option<RevokeBlockedBy>,
+    pub has_effective_downstream: bool,
 }
 
 impl DocumentService {
-    /// 這位使用者現在能不能撤銷這張單；詳情回應的 `can_revoke` 來源。
+    /// 詳情回應的 `can_revoke` / `revoke_blocked_by` / `has_effective_downstream` 來源。
     ///
-    /// 與 [`DocumentService::revoke_approved_po`] 共用 [`revoke_blocker`]。角色不符或單據
-    /// 本身就不符時不查 DB。
-    pub async fn can_revoke(pool: &PgPool, user: &CurrentUser, po: &Document) -> Result<bool> {
-        if !has_revoke_role(user) || revoke_state_blocker(po).is_some() {
-            return Ok(false);
+    /// 與 [`DocumentService::revoke_approved_po`] 共用 [`evaluate_revoke`]。單據本身就不符
+    /// （非 PO、非 Approved、沖銷單）時不查 DB，三個欄位維持預設值。
+    pub async fn revoke_view(
+        pool: &PgPool,
+        user: &CurrentUser,
+        po: &Document,
+    ) -> Result<RevokeView> {
+        if revoke_state_blocker(po).is_some() {
+            return Ok(RevokeView::default());
         }
         let mut conn = pool.acquire().await?;
-        Ok(revoke_blocker(&mut conn, po).await?.is_none())
+        let evaluation = evaluate_revoke(&mut conn, po).await?;
+        Ok(RevokeView {
+            can_revoke: has_revoke_role(user) && evaluation.blocker.is_none(),
+            revoke_blocked_by: evaluation.unfinished,
+            has_effective_downstream: evaluation.has_effective_downstream,
+        })
+    }
+
+    /// 這位使用者現在能不能撤銷這張單；`revoke_view().can_revoke` 的簡寫。
+    pub async fn can_revoke(pool: &PgPool, user: &CurrentUser, po: &Document) -> Result<bool> {
+        Ok(Self::revoke_view(pool, user, po).await?.can_revoke)
+    }
+
+    /// 這張採購單有沒有有效下游單據（已核准且未被沖銷）。`create_reversal` 用它擋掉
+    /// 「沒有東西可沖銷」的採購單，與撤銷是互補的兩條路。
+    ///
+    /// 呼叫者必須已在同一個 tx 內對 PO 做過 `FOR UPDATE`。
+    pub(crate) async fn po_has_effective_downstream(
+        conn: &mut PgConnection,
+        po_id: Uuid,
+    ) -> Result<bool> {
+        Ok(load_downstream(conn, po_id)
+            .await?
+            .iter()
+            .any(|d| d.status == DocStatus::Approved))
     }
 
     /// 撤銷已核准、尚無有效下游單據的採購單（status → `cancelled`）。
@@ -169,7 +247,7 @@ impl DocumentService {
             .await?
             .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
-        if let Some(blocker) = revoke_blocker(&mut tx, &po).await? {
+        if let Some(blocker) = evaluate_revoke(&mut tx, &po).await?.blocker {
             return Err(AppError::BusinessRule(blocker));
         }
 

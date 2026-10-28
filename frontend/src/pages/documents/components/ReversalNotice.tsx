@@ -29,13 +29,21 @@ export function ReversalNotice({
   if (!isReversal && !reversedBy) return null
 
   if (isReversal) {
+    // 文案依沖銷單自己的狀態：「核准後將反向沖銷」只對尚未生效的沖銷單成立，
+    // 已核准的沖銷單已經反向、已作廢的沖銷單從未生效（不佔名額，原單回到普通狀態）。
+    const isReversalKey =
+      document.status === 'approved'
+        ? 'erpDocs.documents.reversal.isReversalDone'
+        : document.status === 'cancelled'
+          ? 'erpDocs.documents.reversal.isReversalCancelled'
+          : 'erpDocs.documents.reversal.isReversal'
     return (
       <Card className="border-status-warning-border">
         <CardContent className="flex items-center gap-3 py-4">
           <Undo2 className="h-4 w-4 shrink-0 text-status-warning-text" />
           <p className="text-sm">
             <Trans
-              i18nKey="erpDocs.documents.reversal.isReversal"
+              i18nKey={isReversalKey}
               values={{
                 docNo: document.reverses_doc_id
                   ? (document.reverses_doc_no ?? document.reverses_doc_id)

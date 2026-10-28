@@ -81,6 +81,20 @@ impl DocumentService {
             )));
         }
 
+        // 採購單核准不寫庫存、不過帳，沒有有效下游單據（已核准且未被沖銷的入庫單等）可沖銷時，
+        // 沖銷只會留下一張指向它的二人核准沖銷單、核准後把 PO 標成「已沖銷」，而期間仍可從 PO
+        // 開出入庫草稿。該走單人「撤銷」（`revoke.rs`）。UI 雖會藏起沖銷按鈕，API 仍可直呼，
+        // 所以守衛放在後端；PO 已在上面被 `FOR UPDATE` 鎖住，與開入庫單／撤銷互斥。
+        // 判準與撤銷、按鈕分流同源（`load_downstream`）。
+        if original.doc_type == DocType::PO
+            && !Self::po_has_effective_downstream(&mut tx, original_id).await?
+        {
+            return Err(AppError::BusinessRule(
+                "此採購單沒有有效的入庫單可沖銷，請改用「撤銷」（若有草稿或待核准的入庫單，請先處理）"
+                    .to_string(),
+            ));
+        }
+
         let original_lines = sqlx::query_as::<_, DocumentLine>(
             "SELECT * FROM document_lines WHERE document_id = $1 ORDER BY line_no",
         )

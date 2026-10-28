@@ -104,9 +104,12 @@ pub async fn get_document(
 
     let mut document = DocumentService::get_by_id(&state.db, id).await?;
     DocumentService::check_access(&current_user, document.document.created_by)?;
-    // 撤銷按鈕的可見性由後端判定（與 revoke_document 同一個判斷函式），前端不自行推導。
-    document.can_revoke =
-        DocumentService::can_revoke(&state.db, &current_user, &document.document).await?;
+    // 撤銷／沖銷按鈕的分流由後端判定（與 revoke_document、create_reversal 同一個判斷函式），
+    // 前端不自行推導。
+    let view = DocumentService::revoke_view(&state.db, &current_user, &document.document).await?;
+    document.can_revoke = view.can_revoke;
+    document.revoke_blocked_by = view.revoke_blocked_by;
+    document.has_effective_downstream = view.has_effective_downstream;
     Ok(Json(document))
 }
 

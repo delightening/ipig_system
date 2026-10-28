@@ -7748,7 +7748,7 @@
           "adminApproveDescription": "Once finally approved, this document takes effect and the approval process is complete. Approve?",
           "adminApproveLabel": "Confirm Approval",
           "reverseTitle": "Confirm Reversal Initiation",
-          "reverseDescription": "A reversal document will be created for {{docNo}}. Inventory is not affected at this stage; stock and accounting entries are reversed only after final administrator approval. A document can be reversed only once.",
+          "reverseDescription": "A reversal document will be created for {{docNo}}. Inventory is not affected at this stage; stock and accounting entries are reversed only after final administrator approval. A document can have only one active reversal document at a time (cancelled reversal documents do not count).",
           "reverseLabel": "Create Reversal Document",
           "reverseApproveTitle": "Confirm Reversal Approval",
           "reverseApproveDescription": "Once approved, the original document's inventory and accounting entries are reversed immediately and this cannot be undone. Approve?",
@@ -7767,6 +7767,7 @@
         "approveReversal": "Approve Reversal",
         "voidDocument": "Void",
         "revokeDocument": "Revoke",
+        "revokeBlocked": "Handle {{type}} {{docNo}} ({{status}}) first",
         "revokeDialog": {
           "title": "Revoke Purchase Order",
           "description": "{{docNo}} will be voided. Approving a purchase order does not write inventory or accounting entries, so revoking it does not affect them. The reason is kept in the audit log.",
@@ -7868,6 +7869,8 @@
       },
       "reversal": {
         "isReversal": "<bold>This is a reversal document</bold>: it reverses <docref>{{docNo}}</docref>. Once approved, the original document's inventory and accounting entries will be reversed.",
+        "isReversalDone": "<bold>This is a reversal document</bold>: it has reversed <docref>{{docNo}}</docref>; inventory and accounting entries have been reversed.",
+        "isReversalCancelled": "<bold>This is a reversal document (cancelled)</bold>: it was meant to reverse <docref>{{docNo}}</docref> but never took effect; the original document is unchanged.",
         "done": "<bold>This document has been reversed</bold>: reversed on {{date}} by reversal document <docref>{{docNo}}</docref>; inventory and accounting entries have been reversed.",
         "pending": "<bold>Reversal in progress</bold>: reversal document <docref>{{docNo}}</docref> has been created; inventory and accounting entries will be reversed only after administrator approval.",
         "badgeReversed": "Reversed",
