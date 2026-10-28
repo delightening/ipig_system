@@ -197,6 +197,49 @@ async fn delete_po_blocked_by_approved_grn() {
     assert!(doc_exists(&pool, po_id).await, "被擋下時 PO 不應被刪除");
 }
 
+/// 沖銷單以 `reverses_doc_id`（FK `documents_reverses_doc_id_fkey` = NO ACTION）指向原單，
+/// 不帶 `source_doc_id`。下游收集若只沿 `source_doc_id` 走，被沖銷過的單據會被誤判成
+/// 「沒有下游」而放行，最後 `DELETE FROM documents` 才撞 FK 違反：使用者只看到通用的
+/// 「關聯資料不存在」，而不是列出單號的「無法刪除」。
+///
+/// 沖銷單的任何狀態（待核准／已核准／已作廢）都是非草稿，都必須擋下並點名。
+#[tokio::test]
+async fn delete_po_blocked_by_reversal_document_with_clear_message() {
+    let pool = setup_pool().await;
+
+    for status in ["submitted", "approved", "cancelled"] {
+        let (po_id, _) = seed_po_with_grns(&pool, "draft", 0).await;
+        let rev_no = format!("PO-REV-{}", &Uuid::new_v4().simple().to_string()[..10]);
+        sqlx::query(
+            "INSERT INTO documents \
+             (id, doc_type, doc_no, status, warehouse_id, doc_date, created_by, reverses_doc_id) \
+             SELECT $1, 'PO', $2, $3::doc_status, warehouse_id, CURRENT_DATE, $4, id \
+             FROM documents WHERE id = $5",
+        )
+        .bind(Uuid::new_v4())
+        .bind(&rev_no)
+        .bind(status)
+        .bind(SYSTEM_USER_ID)
+        .bind(po_id)
+        .execute(&pool)
+        .await
+        .expect("seed reversal document");
+
+        let err = DocumentService::delete(&pool, &actor(), po_id, true)
+            .await
+            .expect_err("已被沖銷（含沖銷單已作廢）的單據應擋下刪除");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("無法刪除") && msg.contains(&rev_no),
+            "沖銷單狀態 {status}：應回點名沖銷單的 BusinessRule，而不是 DB 外鍵錯誤，實際：{msg}"
+        );
+        assert!(
+            doc_exists(&pool, po_id).await,
+            "沖銷單狀態 {status}：被擋下時原單不應被刪除"
+        );
+    }
+}
+
 // ── 以下為串鏈 / 庫存 guard 情境（共用可組合 helper）──────────────────
 
 /// 共用 seed 情境：一個倉庫 + 一個品項。

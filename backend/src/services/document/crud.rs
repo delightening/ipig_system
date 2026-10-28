@@ -785,6 +785,7 @@ impl DocumentService {
 
         // 連動處理整條下游鏈（規則＝使用者 2026-07-18 決策）：草稿後代 → 連動刪除
         // （各自寫 audit）；有任何非草稿後代 → 擋下（已影響庫存/帳，不可默默移除）。
+        // 下游含沖銷單（reverses_doc_id）：沖銷單必為非草稿，被沖銷過的單據因此一律擋下。
         let descendants = Self::collect_descendants_tx(&mut tx, id).await?;
 
         let blocking: Vec<String> = descendants
@@ -818,9 +819,17 @@ impl DocumentService {
         Ok(())
     }
 
-    /// BFS 收集所有以 source_doc_id（遞移）引用 root 的後代，逐筆 FOR UPDATE 上鎖。
-    /// FK documents_source_doc_id_fkey 為 NO ACTION，只處理直接子單無法涵蓋
-    /// A→草稿B→C 這種孫代（刪 B 仍會撞 C 的 FK）。回傳依 BFS 淺→深順序。
+    /// BFS 收集所有以 source_doc_id 或 reverses_doc_id（遞移）引用 root 的後代，
+    /// 逐筆 FOR UPDATE 上鎖。
+    /// 兩條 FK（documents_source_doc_id_fkey、documents_reverses_doc_id_fkey）都是 NO ACTION，
+    /// 只處理直接子單無法涵蓋 A→草稿B→C 這種孫代（刪 B 仍會撞 C 的 FK）。
+    ///
+    /// ⚠️ 兩條邊都要走：沖銷單只帶 `reverses_doc_id`、不帶 `source_doc_id`。只看
+    /// `source_doc_id` 的話，被沖銷過的單據在這裡「看起來沒有下游」而通過攔截，最後
+    /// `DELETE FROM documents` 才撞 reverses_doc_id 的 FK 違反——使用者只看到
+    /// 「關聯資料不存在」（`AppError` 對 23503 的通用訊息，對 INSERT 合理、對 DELETE 則剛好
+    /// 相反），而不是下面那句列出單號的「無法刪除」。沖銷單永遠不是草稿，所以一律進攔截清單。
+    /// 回傳依 BFS 淺→深順序。
     async fn collect_descendants_tx(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         root_id: Uuid,
@@ -831,7 +840,8 @@ impl DocumentService {
         let mut frontier: Vec<Uuid> = vec![root_id];
         while !frontier.is_empty() {
             let children = sqlx::query_as::<_, Document>(
-                "SELECT * FROM documents WHERE source_doc_id = ANY($1) \
+                "SELECT * FROM documents \
+                 WHERE source_doc_id = ANY($1) OR reverses_doc_id = ANY($1) \
                  ORDER BY created_at FOR UPDATE",
             )
             .bind(&frontier)
