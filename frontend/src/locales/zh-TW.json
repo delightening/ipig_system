@@ -7698,7 +7698,8 @@
         "receipt": {
           "pending": "未入庫",
           "partial": "部分入庫",
-          "complete": "已入庫"
+          "complete": "已入庫",
+          "revoked": "已撤銷"
         },
         "empty": "尚無單據資料",
         "partnerLine": "對象：{{name}}",
@@ -7726,6 +7727,8 @@
           "approveFailed": "核准失敗",
           "cancelled": "單據已作廢",
           "cancelFailed": "作廢失敗",
+          "revoked": "採購單已撤銷",
+          "revokeFailed": "撤銷失敗",
           "grnCreated": "已建立採購入庫單，請選擇倉庫並送審",
           "createGrnFailed": "建立採購入庫失敗",
           "adminApproved": "管理員已完成最終核准",
@@ -7763,6 +7766,14 @@
         "initiateReversal": "發起沖銷",
         "approveReversal": "核准沖銷",
         "voidDocument": "作廢",
+        "revokeDocument": "撤銷",
+        "revokeDialog": {
+          "title": "撤銷採購單",
+          "description": "撤銷後 {{docNo}} 將作廢。採購單核准時並未寫入庫存或會計帳，所以撤銷不會影響它們。撤銷原因會留存於稽核紀錄。",
+          "reasonLabel": "撤銷原因",
+          "placeholder": "請說明撤銷原因（至少 {{min}} 個字）...",
+          "confirm": "確認撤銷"
+        },
         "processingInfo": "處理資訊",
         "createdAt": "建立時間",
         "approvedBy": "核准人",
@@ -7858,7 +7869,9 @@
       "reversal": {
         "isReversal": "<bold>本單是沖銷單</bold>：沖銷原單 <docref>{{docNo}}</docref>。核准後將反向沖銷原單的庫存與會計帳。",
         "done": "<bold>此單已被沖銷</bold>：於 {{date}} 由沖銷單 <docref>{{docNo}}</docref> 沖銷，庫存與會計帳已反向。",
-        "pending": "<bold>沖銷處理中</bold>：已建立沖銷單 <docref>{{docNo}}</docref>，待管理員核准後才會反向沖銷庫存與會計帳。"
+        "pending": "<bold>沖銷處理中</bold>：已建立沖銷單 <docref>{{docNo}}</docref>，待管理員核准後才會反向沖銷庫存與會計帳。",
+        "badgeReversed": "已沖銷",
+        "badgeReversing": "沖銷中"
       },
       "productSearch": {
         "titlePending": "選擇待入庫品項",

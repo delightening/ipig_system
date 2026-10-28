@@ -949,6 +949,14 @@ impl DocumentService {
                 SUM(dl.qty * dl.unit_price) as total_amount,
                 d.iacuc_no,
                 d.receipt_status,
+                -- 沖銷衍生狀態（原單 DB 狀態仍是 approved）。只看「待核准」與「已核准」的沖銷單；
+                -- 已作廢的沖銷單不佔名額（migration 017），原單回到普通狀態。
+                -- 子查詢以 d.id 關聯，d.id 已在 GROUP BY 內，不增加分組欄位、也不是 N+1。
+                (SELECT CASE r.status WHEN 'approved' THEN 'reversed' ELSE 'reversing' END
+                   FROM documents r
+                  WHERE r.reverses_doc_id = d.id AND r.status IN ('approved', 'submitted')
+                  ORDER BY (r.status = 'approved') DESC
+                  LIMIT 1) AS reversal_state,
                 EXISTS (
                     SELECT 1 FROM journal_entries je
                     WHERE je.source_entity_type = 'document' AND je.source_entity_id = d.id
@@ -1087,6 +1095,7 @@ impl DocumentService {
             reversed_by_doc_id: reversal.reversed_by_doc_id,
             reversed_by_doc_no: reversal.reversed_by_doc_no,
             reversed_at: reversal.reversed_at,
+            can_revoke: false,
             pending_owner,
         })
     }

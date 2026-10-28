@@ -284,6 +284,11 @@ export interface Document {
     reversed_by_doc_no?: string
     /** 沖銷生效時間（沖銷單的 approved_at）；沖銷單尚未核准時為 undefined。 */
     reversed_at?: string
+    /**
+     * 目前這位使用者能不能撤銷這張單（已核准、無有效下游單據的採購單，且角色符合）。
+     * 後端與 `POST /documents/{id}/revoke` 共用同一個判斷函式；前端只讀、不自行推導。
+     */
+    can_revoke?: boolean
     /** 大金額 ADJ 兩級審批欄位 */
     requires_manager_approval?: boolean
     scrap_total_amount?: string
@@ -311,6 +316,11 @@ export interface DocumentListItem {
     line_count: number
     total_amount?: string
     receipt_status?: string
+    /**
+     * 沖銷衍生狀態：`reversing`＝有待核准的沖銷單、`reversed`＝已被核准的沖銷單沖銷。
+     * 原單的 DB 狀態仍是 approved，這不是新的狀態值。
+     */
+    reversal_state?: 'reversing' | 'reversed' | null
     has_journal_entry: boolean
     /** 這張單現在卡在誰手上；僅 status='submitted' 有值（後端 services/pending_owner.rs） */
     pending_owner?: PendingOwner
