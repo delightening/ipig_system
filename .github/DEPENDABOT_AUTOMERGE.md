@@ -78,11 +78,8 @@ playwright、空 updateType、舊版未知、`v` 前綴 0.x、空陣列、全 pa
    bash .github/scripts/setup-branch-protection.sh --apply
    ```
 5. **驗證 ruleset 沒有擋掉正常流程**：開一個無害的 PR（例如改一行註解），確認 required checks
-   會出現且能轉綠、能合併。接著**看 main 上第一次 push 的 CI**，確認 coverage ratchet 步驟沒有被拒
-   （見〈已知風險 2〉）。
-   ⚠️ 無害 PR 可能讓覆蓋率不變，此時 ratchet 步驟不會 push、也會是綠燈，**這不能證明 bypass 有效**。
-   必須用一個「會讓覆蓋率上升（觸發 baseline 更新）」的受控 PR 合併後，確認 main 上出現
-   ratchet 的 `[skip ci]` commit，才算驗證通過。
+   會出現且能轉綠、能合併。接著**看 main 上第一次 push 的 CI**，確認 CI 能正常跑完、
+   ratchet 步驟只印出提示、沒有嘗試 push（見〈已知風險 2〉）。
 6. **正式啟用**：
    ```bash
    bash .github/scripts/setup-branch-protection.sh --apply --enable
@@ -99,13 +96,14 @@ playwright、空 updateType、舊版未知、`v` 前綴 0.x、空陣列、全 pa
    - 目前正式環境是手動部署，影響偏小；但 main 上沒有完整 CI 紀錄，要意識到這件事。
    - 若實測成立且不能接受：改用 GitHub App token 或 fine-grained PAT 來啟用 auto-merge
      （存成 Dependabot secret，workflow 的 `GH_TOKEN` 改讀它）。
-2. **coverage ratchet 會直接 push 回 main**（`ci.yml`：後端與前端各一處，`[skip ci]` commit）。
-   一旦 main 有 required checks，這種直接 push 預設會被擋。腳本把 `github-actions`
-   （Integration 15368）加入 ruleset 的 bypass 名單來處理，**但這個 bypass 對 `GITHUB_TOKEN`
-   是否生效尚未實測。**
-   - 症狀：main 上 CI 的 ratchet 步驟出現 `GH013` / "protected branch" 之類的拒絕訊息。
-   - 對策：改成 ratchet 開 PR 而非直接 push；或改用具 bypass 資格的 App token；
-     或暫時把 `backend-coverage-ratchet` 的 push 步驟關掉，改為手動調整 baseline。
+2. **coverage ratchet 已改為手動（2026-10-28）。** 原本 `ci.yml` 的後端與前端各有一處在 main
+   push 後用 `GITHUB_TOKEN` 直接 `git push` 回 main（`[skip ci]` commit）。main 套用 required
+   checks ruleset 後這會被擋，而個人帳號 repo 無法把 `github-actions` 設為 bypass（建立 ruleset
+   時 API 回 422），改開 PR 也不行（`GITHUB_TOKEN` 開的 PR 不觸發 CI，required checks 等不到）。
+   所以兩處都改成只在 Actions 摘要提示，**覆蓋率提升時要人工更新** `backend/coverage-baseline.txt`
+   與 `frontend/vitest.config.ts` 的門檻。不更新的後果：門檻不會自動上調，覆蓋率可能緩慢退步而不被
+   發現（維護期後端凍結，影響小）。
+   - 日後若 repo 移到組織底下，可重新評估把 github-actions 加回 bypass、恢復自動 ratchet。
 3. **required check 名稱綁死 `ci.yml` 的 job `name:`。** 改 job 名稱 = required check 永遠等不到
    = 所有 PR 卡死。改名時同步改腳本的 `CHECKS` 陣列並重跑 `--apply`。
 4. **被 skip 的 job 視為通過。** 前端 only 的 PR 會 skip 後端 job，這是預期；但也代表
@@ -137,7 +135,7 @@ Go 版是另一個 repo（module `github.com/delightening/ipig-system-go`），�
 | `dependabot-automerge.yml` | `github.repository == '...'` 守門字串改成新 repo；`ALLOWED_ECOSYSTEMS` 把 `cargo` 換成 `gomod`。 |
 | Go 的 major | Go modules 的 major 版本是 import path 的一部分（`/v2`），Dependabot 會怎麼標記 `updateType` 要用第一個實際 PR 驗證，不要假設。 |
 | required checks | 新 repo 的 CI job 名稱不同，重寫腳本的 `CHECKS` 陣列；建議納入 `govulncheck`。 |
-| coverage ratchet | 若新 CI 也有「直接 push 回 main」的步驟，重新評估〈已知風險 2〉。 |
+| coverage ratchet | 若新 CI 也有「直接 push 回 main」的步驟，會被 ruleset 擋下（個人帳號 repo 無法設 github-actions bypass），見〈已知風險 2〉。 |
 | Dependabot secrets | 新 repo 的 Dependabot secrets 要重新建立。 |
 | kill switch | 新 repo 自己的 `DEPENDABOT_AUTOMERGE` variable，預設關，驗證完再開。 |
 

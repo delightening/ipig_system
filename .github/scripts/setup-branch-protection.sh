@@ -70,19 +70,17 @@ CHECKS_JSON=$(printf '%s\n' "${CHECKS[@]}" | jq -R . | jq -s .)
 # ── bypass 設定 ───────────────────────────────────────────────────────────────
 # 1. RepositoryRole 5 = Admin，bypass_mode=pull_request：擁有者可在 PR 上強制合併
 #    （緊急修復用），但不能繞過 PR 直接 push。
-# 2. Integration 15368 = github-actions：ci.yml 的 coverage ratchet 兩步會在 main push 後
-#    用 GITHUB_TOKEN 直接 `git push` 回 main（[skip ci] commit）。沒有這個 bypass，
-#    required checks 會擋掉那次 push，main 的 CI 會在 ratchet 步驟變紅。
-#    ⚠️ 此 bypass 是否對 GITHUB_TOKEN 生效**尚未實測**；上線後第一個 main push 要看
-#    ratchet 步驟有沒有被拒（見 DEPENDABOT_AUTOMERGE.md「已知風險 2」）。
+# 不設 github-actions（Integration 15368）bypass：實測 2026-10-28 個人帳號 repo 建立時
+#    回 422「Actor GitHub Actions integration must be part of the ruleset source or owner
+#    organization」，只有組織 repo 才能這樣設。因此 ci.yml 的 coverage ratchet 不再自動
+#    push 回 main，改為在摘要提示、由人手動更新（見 DEPENDABOT_AUTOMERGE.md「已知風險 2」）。
 RULESET_BODY=$(jq -n --arg name "$RULESET_NAME" --argjson checks "$CHECKS_JSON" '{
   name: $name,
   target: "branch",
   enforcement: "active",
   conditions: { ref_name: { include: ["~DEFAULT_BRANCH"], exclude: [] } },
   bypass_actors: [
-    { actor_id: 5,     actor_type: "RepositoryRole", bypass_mode: "pull_request" },
-    { actor_id: 15368, actor_type: "Integration",    bypass_mode: "always" }
+    { actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "pull_request" }
   ],
   rules: [
     {
