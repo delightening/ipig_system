@@ -108,10 +108,16 @@ pub(crate) async fn revoke_blocker(
 
     Ok(blocking.map(|(doc_no, doc_type, status)| match status {
         DocStatus::Approved if doc_type == DocType::GRN => {
-            format!("此採購單已有入庫單 {}，請改走沖銷流程", doc_no)
+            format!(
+                "此採購單已有入庫單 {}，請先沖銷該入庫單（沖銷核准後即可撤銷採購單）",
+                doc_no
+            )
         }
         DocStatus::Approved => {
-            format!("此採購單已有已核准的單據 {}，請改走沖銷流程", doc_no)
+            format!(
+                "此採購單已有已核准的單據 {}，請先沖銷該單據（沖銷核准後即可撤銷採購單）",
+                doc_no
+            )
         }
         _ => format!("請先處理單據 {}", doc_no),
     }))

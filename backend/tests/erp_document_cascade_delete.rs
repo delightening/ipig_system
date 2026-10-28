@@ -197,18 +197,24 @@ async fn delete_po_blocked_by_approved_grn() {
     assert!(doc_exists(&pool, po_id).await, "被擋下時 PO 不應被刪除");
 }
 
-/// 沖銷單以 `reverses_doc_id`（FK `documents_reverses_doc_id_fkey` = NO ACTION）指向原單，
-/// 不帶 `source_doc_id`。下游收集若只沿 `source_doc_id` 走，被沖銷過的單據會被誤判成
-/// 「沒有下游」而放行，最後 `DELETE FROM documents` 才撞 FK 違反：使用者只看到通用的
-/// 「關聯資料不存在」，而不是列出單號的「無法刪除」。
+/// 被沖銷過的單據硬刪時，沖銷單連帶刪除（使用者 2026-10-28 決策）。
 ///
-/// 沖銷單的任何狀態（待核准／已核准／已作廢）都是非草稿，都必須擋下並點名。
+/// 沖銷單以 `reverses_doc_id`（FK `documents_reverses_doc_id_fkey` = NO ACTION）指向原單，
+/// 不帶 `source_doc_id`。收集下游若只沿 `source_doc_id` 走，沖銷單會被漏掉，最後
+/// `DELETE FROM documents` 才撞 FK 違反：使用者只看到通用的「關聯資料不存在」，
+/// 原單既刪不掉、也不知道為什麼。
+///
+/// 沖銷單任何狀態（待核准／已核准／已作廢）都連帶刪，且每張各寫一筆 `DOC_DELETE`、
+/// 主單寫 `DOC_HARD_DELETE`。採購單的沖銷單沒有庫存／傳票效果，所以通過 `has_posted_effects`。
+///
+/// 這個基底沒有 017（同一張原單只能有一張沖銷單），所以每個狀態各用一張 PO。
 #[tokio::test]
-async fn delete_po_blocked_by_reversal_document_with_clear_message() {
+async fn hard_delete_cascades_reversal_documents_of_every_status() {
     let pool = setup_pool().await;
 
     for status in ["submitted", "approved", "cancelled"] {
         let (po_id, _) = seed_po_with_grns(&pool, "draft", 0).await;
+        let rev_id = Uuid::new_v4();
         let rev_no = format!("PO-REV-{}", &Uuid::new_v4().simple().to_string()[..10]);
         sqlx::query(
             "INSERT INTO documents \
@@ -216,7 +222,7 @@ async fn delete_po_blocked_by_reversal_document_with_clear_message() {
              SELECT $1, 'PO', $2, $3::doc_status, warehouse_id, CURRENT_DATE, $4, id \
              FROM documents WHERE id = $5",
         )
-        .bind(Uuid::new_v4())
+        .bind(rev_id)
         .bind(&rev_no)
         .bind(status)
         .bind(SYSTEM_USER_ID)
@@ -225,18 +231,31 @@ async fn delete_po_blocked_by_reversal_document_with_clear_message() {
         .await
         .expect("seed reversal document");
 
-        let err = DocumentService::delete(&pool, &actor(), po_id, true)
+        DocumentService::delete(&pool, &actor(), po_id, true)
             .await
-            .expect_err("已被沖銷（含沖銷單已作廢）的單據應擋下刪除");
-        let msg = err.to_string();
+            .unwrap_or_else(|e| panic!("沖銷單狀態 {status}：硬刪應連帶刪除沖銷單，實際：{e}"));
+
         assert!(
-            msg.contains("無法刪除") && msg.contains(&rev_no),
-            "沖銷單狀態 {status}：應回點名沖銷單的 BusinessRule，而不是 DB 外鍵錯誤，實際：{msg}"
+            !doc_exists(&pool, po_id).await,
+            "沖銷單狀態 {status}：原單應已刪除"
         );
         assert!(
-            doc_exists(&pool, po_id).await,
-            "沖銷單狀態 {status}：被擋下時原單不應被刪除"
+            !doc_exists(&pool, rev_id).await,
+            "沖銷單狀態 {status}：沖銷單應連帶刪除"
         );
+
+        for (entity, event) in [(po_id, "DOC_HARD_DELETE"), (rev_id, "DOC_DELETE")] {
+            let n: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM user_activity_logs \
+                 WHERE entity_id::text = $1::text AND event_type = $2",
+            )
+            .bind(entity)
+            .bind(event)
+            .fetch_one(&pool)
+            .await
+            .expect("count audit");
+            assert_eq!(n, 1, "沖銷單狀態 {status}：{event} 應各寫入 1 筆 audit");
+        }
     }
 }
 
