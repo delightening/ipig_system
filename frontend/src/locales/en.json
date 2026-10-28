@@ -7698,7 +7698,8 @@
         "receipt": {
           "pending": "Not Received",
           "partial": "Partially Received",
-          "complete": "Received"
+          "complete": "Received",
+          "revoked": "Revoked"
         },
         "empty": "No documents found",
         "partnerLine": "Counterparty: {{name}}",
@@ -7726,6 +7727,8 @@
           "approveFailed": "Failed to approve",
           "cancelled": "Document voided",
           "cancelFailed": "Failed to void",
+          "revoked": "Purchase order revoked",
+          "revokeFailed": "Failed to revoke",
           "grnCreated": "Goods receipt created. Please select a warehouse and submit it for approval.",
           "createGrnFailed": "Failed to create goods receipt",
           "adminApproved": "Administrator has completed final approval",
@@ -7763,6 +7766,14 @@
         "initiateReversal": "Initiate Reversal",
         "approveReversal": "Approve Reversal",
         "voidDocument": "Void",
+        "revokeDocument": "Revoke",
+        "revokeDialog": {
+          "title": "Revoke Purchase Order",
+          "description": "{{docNo}} will be voided. Approving a purchase order does not write inventory or accounting entries, so revoking it does not affect them. The reason is kept in the audit log.",
+          "reasonLabel": "Revoke reason",
+          "placeholder": "Explain why you are revoking this order (at least {{min}} characters)...",
+          "confirm": "Confirm Revoke"
+        },
         "processingInfo": "Processing Information",
         "createdAt": "Created At",
         "approvedBy": "Approved By",
@@ -7858,7 +7869,9 @@
       "reversal": {
         "isReversal": "<bold>This is a reversal document</bold>: it reverses <docref>{{docNo}}</docref>. Once approved, the original document's inventory and accounting entries will be reversed.",
         "done": "<bold>This document has been reversed</bold>: reversed on {{date}} by reversal document <docref>{{docNo}}</docref>; inventory and accounting entries have been reversed.",
-        "pending": "<bold>Reversal in progress</bold>: reversal document <docref>{{docNo}}</docref> has been created; inventory and accounting entries will be reversed only after administrator approval."
+        "pending": "<bold>Reversal in progress</bold>: reversal document <docref>{{docNo}}</docref> has been created; inventory and accounting entries will be reversed only after administrator approval.",
+        "badgeReversed": "Reversed",
+        "badgeReversing": "Reversing"
       },
       "productSearch": {
         "titlePending": "Select Items Pending Receipt",

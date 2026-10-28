@@ -99,12 +99,16 @@ impl DocumentService {
         po_id: Uuid,
         created_by: Uuid,
     ) -> Result<DocumentWithLines> {
-        // 檢查採購單狀態
+        let mut tx = pool.begin().await?;
+
+        // 檢查採購單狀態。必須 FOR UPDATE 並讀到寫入都在同一個 tx：
+        // 與 `revoke_approved_po`（同樣先鎖 PO）互斥——否則「撤銷 PO」與「開入庫單」並發時，
+        // 兩邊都看到 PO 是 approved，會留下指向已作廢 PO 的入庫單。
         let po = sqlx::query_as::<_, Document>(
-            "SELECT * FROM documents WHERE id = $1 AND doc_type = 'PO'",
+            "SELECT * FROM documents WHERE id = $1 AND doc_type = 'PO' FOR UPDATE",
         )
         .bind(po_id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| AppError::NotFound("Purchase order not found".to_string()))?;
 
@@ -119,7 +123,7 @@ impl DocumentService {
             "SELECT * FROM document_lines WHERE document_id = $1 ORDER BY line_no",
         )
         .bind(po_id)
-        .fetch_all(pool)
+        .fetch_all(&mut *tx)
         .await?;
 
         // 取得已入庫數量。兩件事疊在同一個算式上：
@@ -154,7 +158,7 @@ impl DocumentService {
             "#
         ))
         .bind(po_id)
-        .fetch_all(pool)
+        .fetch_all(&mut *tx)
         .await?;
 
         let received_map: std::collections::HashMap<Uuid, Decimal> =
@@ -174,7 +178,7 @@ impl DocumentService {
             "#,
         )
         .bind(po_id)
-        .fetch_all(pool)
+        .fetch_all(&mut *tx)
         .await?;
         let po_factor_map: std::collections::HashMap<Uuid, Decimal> =
             po_factors.into_iter().collect();
@@ -202,8 +206,6 @@ impl DocumentService {
                 "All items have been received".to_string(),
             ));
         }
-
-        let mut tx = pool.begin().await?;
 
         // 產生入庫單編號 (統一格式：YYMMDD-{02})
         let doc_no = Self::generate_doc_no(&mut tx, DocType::GRN).await?;

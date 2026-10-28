@@ -214,6 +214,8 @@ fn document_routes() -> Router<AppState> {
             post(handlers::reverse_approve_document),
         )
         .route("/documents/{id}/cancel", post(handlers::cancel_document))
+        // 已核准、無有效下游單據的 PO 單人撤銷（不寫庫存、不過帳；有入庫單者仍走沖銷）
+        .route("/documents/{id}/revoke", post(handlers::revoke_document))
         .route(
             "/documents/{id}/receipt-status",
             get(handlers::get_po_receipt_status),

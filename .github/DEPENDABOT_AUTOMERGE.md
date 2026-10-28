@@ -64,9 +64,12 @@ playwright、空 updateType、舊版未知、`v` 前綴 0.x、空陣列、全 pa
 前提：`gh` 要以 repo 擁有者 **delightening** 登入。本機 `gh` 預設可能是別的帳號，腳本會先驗身分，
 不符就拒絕執行。
 
-1. **確認 Dependabot secrets**：Settings → Secrets and variables → **Dependabot** 必須有
-   `CI_ADMIN_PASSWORD`（`ci.yml` 的 cargo test 與 coverage 會讀）。Dependabot PR 讀不到 Actions
-   那一側的 secrets；缺的話 Dependabot PR 的後端測試會在沒有管理員密碼的情況下跑，結果不可信。
+1. **確認 Actions 與 Dependabot 的 secrets 一致**：Dependabot PR 讀不到 Actions 那一側的
+   secrets，兩邊各自獨立。2026-10-28 實查（`gh api repos/<repo>/actions/secrets` 與
+   `.../dependabot/secrets`）兩邊都是 0 個，`ci.yml` 與 `docker-compose.test.yml` 一直靠
+   fallback 密碼（`ci_test_admin_password_for_local` 等）在跑，一般 PR 與 Dependabot PR
+   行為一致，**維持即可，不需建立**。日後若只在其中一邊建了 `CI_ADMIN_PASSWORD` /
+   `CI_DEV_PASSWORD`，必須兩邊同值，否則 Dependabot 的測試環境會與一般 PR 不一致。
 2. **合併本 PR**（人工）。此時機制仍是**關閉**的（variable 未設）。
 3. **dry-run 看腳本會做什麼**：
    ```bash
@@ -99,7 +102,7 @@ playwright、空 updateType、舊版未知、`v` 前綴 0.x、空陣列、全 pa
 2. **coverage ratchet 已改為手動（2026-10-28）。** 原本 `ci.yml` 的後端與前端各有一處在 main
    push 後用 `GITHUB_TOKEN` 直接 `git push` 回 main（`[skip ci]` commit）。main 套用 required
    checks ruleset 後這會被擋，而個人帳號 repo 無法把 `github-actions` 設為 bypass（建立 ruleset
-   時 API 回 422），改開 PR 也不行（`GITHUB_TOKEN` 開的 PR 不觸發 CI，required checks 等不到）。
+   時 API 回 422），改開 PR 也無法全自動（`GITHUB_TOKEN` 開的 PR 不會自動觸發 CI，需有寫入權限者手動核准或重新觸發才會跑，required checks 才等得到）。
    所以兩處都改成只在 Actions 摘要提示，**覆蓋率提升時要人工更新** `backend/coverage-baseline.txt`
    與 `frontend/vitest.config.ts` 的門檻。不更新的後果：門檻不會自動上調，覆蓋率可能緩慢退步而不被
    發現（維護期後端凍結，影響小）。
@@ -136,7 +139,7 @@ Go 版是另一個 repo（module `github.com/delightening/ipig-system-go`），�
 | Go 的 major | Go modules 的 major 版本是 import path 的一部分（`/v2`），Dependabot 會怎麼標記 `updateType` 要用第一個實際 PR 驗證，不要假設。 |
 | required checks | 新 repo 的 CI job 名稱不同，重寫腳本的 `CHECKS` 陣列；建議納入 `govulncheck`。 |
 | coverage ratchet | 若新 CI 也有「直接 push 回 main」的步驟，會被 ruleset 擋下（個人帳號 repo 無法設 github-actions bypass），見〈已知風險 2〉。 |
-| Dependabot secrets | 新 repo 的 Dependabot secrets 要重新建立。 |
+| Dependabot secrets | 新 repo 的 Dependabot secrets 是獨立的。本 repo 目前兩邊皆空（靠 fallback），若 Go 版 CI 開始使用 secrets，Actions 與 Dependabot 兩邊都要建，且同值。 |
 | kill switch | 新 repo 自己的 `DEPENDABOT_AUTOMERGE` variable，預設關，驗證完再開。 |
 
 ## 8. 緊急停止

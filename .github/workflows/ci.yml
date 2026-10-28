@@ -798,7 +798,7 @@ jobs:
 
       # 2026-10-28：不再自動 commit + push 回 main。main 套用 required-checks ruleset 後，
       # 個人帳號 repo 無法把 github-actions 設為 bypass（API 422），直接 push 會被擋；
-      # 改用 GITHUB_TOKEN 開 PR 也不行（其觸發的事件不會跑 CI，required checks 永遠等不到）。
+      # 改用 GITHUB_TOKEN 開 PR 也無法全自動（不會自動跑 CI，需有寫入權限者手動核准或重新觸發，required checks 才等得到）。
       # 改為只提示：覆蓋率提升時在摘要寫出建議的新門檻，由人手動更新 coverage-baseline.txt。
       - name: Coverage ratchet 提示新門檻（僅 main push；不自動 push）
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

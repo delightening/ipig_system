@@ -23,16 +23,11 @@ import { PendingOwnerBadge, PendingOwnerInline } from '@/components/PendingOwner
 import type { TFunction } from 'i18next'
 import type { DocumentListItem, DocType } from '@/lib/api'
 import { DOC_STATUS_NAMES, DOC_TYPE_NAMES } from '../types'
+import { listReversalState, receiptProgress } from '../documentActionState'
+import { ReversalStateBadge } from './ReversalStateBadge'
 
 const docTypeNames = DOC_TYPE_NAMES
 const statusNames = DOC_STATUS_NAMES
-
-// label 存 i18n 鍵，渲染時才 t()（語言切換才會即時更新）
-const receiptStatusConfig: Record<string, { labelKey: string; variant: 'warning' | 'info' | 'success' }> = {
-  pending: { labelKey: 'erpDocs.documents.table.receipt.pending', variant: 'warning' },
-  partial: { labelKey: 'erpDocs.documents.table.receipt.partial', variant: 'info' },
-  complete: { labelKey: 'erpDocs.documents.table.receipt.complete', variant: 'success' },
-}
 
 // SO 一段式（#1004）核准即過帳 → 併入「已過帳」badge 判斷
 const ACCOUNTING_DOC_TYPES: DocType[] = ['GRN', 'PR', 'SO']
@@ -76,15 +71,26 @@ function getStatusBadge(doc: DocumentListItem, t: TFunction) {
     )
   }
 
+  // 已沖銷／沖銷中：原單 DB 狀態仍是 approved，這是衍生顯示（後端 reversal_state）。
+  const reversal = listReversalState(doc)
+  if (reversal) {
+    badges.push(<ReversalStateBadge key="reversal" state={reversal} className="ml-1 text-xs" />)
+  }
+
   return <div className="flex flex-wrap items-center gap-1">{badges}</div>
 }
 
 function getReceiptStatusBadge(doc: DocumentListItem, t: TFunction) {
-  if (doc.doc_type !== 'PO') return <span className="text-muted-foreground">-</span>
-  if (doc.status !== 'approved') return <span className="text-muted-foreground">-</span>
-  const cfg = doc.receipt_status ? receiptStatusConfig[doc.receipt_status] : null
-  if (!cfg) return <span className="text-muted-foreground">-</span>
-  return <StatusBadge variant={cfg.variant} dot>{t(cfg.labelKey)}</StatusBadge>
+  const progress = receiptProgress(doc)
+  if (!progress) return <span className="text-muted-foreground">-</span>
+  return <StatusBadge variant={progress.variant} dot>{t(progress.labelKey)}</StatusBadge>
+}
+
+/** 手機卡片的入庫進度行；沒有可顯示的進度時不渲染。 */
+function getReceiptLine(doc: DocumentListItem, t: TFunction) {
+  const progress = receiptProgress(doc)
+  if (!progress) return null
+  return <div>{t('erpDocs.documents.table.receiptLine', { status: t(progress.labelKey) })}</div>
 }
 
 export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentTableProps) {
@@ -202,15 +208,7 @@ export function DocumentTable({ documents, isLoading, onDeleteClick }: DocumentT
                 {doc.warehouse_name && <div>{t('erpDocs.documents.table.warehouseLine', { name: doc.warehouse_name })}</div>}
                 {doc.total_amount && <div>{t('erpDocs.documents.table.amountLine', { amount: formatCurrency(doc.total_amount) })}</div>}
                 {doc.created_by_name && <div>{t('erpDocs.documents.table.createdByLine', { name: doc.created_by_name })}</div>}
-                {doc.doc_type === 'PO' && doc.status === 'approved' && doc.receipt_status && (
-                  <div>
-                    {t('erpDocs.documents.table.receiptLine', {
-                      status: receiptStatusConfig[doc.receipt_status]
-                        ? t(receiptStatusConfig[doc.receipt_status].labelKey)
-                        : doc.receipt_status,
-                    })}
-                  </div>
-                )}
+                {getReceiptLine(doc, t)}
               </div>
               <div className="flex justify-end gap-1 pt-1 border-t">
                 {renderActions(doc)}
