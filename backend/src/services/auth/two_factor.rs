@@ -597,4 +597,83 @@ mod tests {
         let replay_rejected = last_totp_step.is_some_and(|last| (s2 as i64) <= last);
         assert!(replay_rejected, "step <= last 應觸發重放拒絕");
     }
+
+    // ==========================================
+    // 備援碼 fixture：跨版本相容（R113-1）
+    //
+    // 備援碼在 DB 內有兩種並存的格式：Argon2id PHC 字串，以及舊版的 SHA-256 hex。
+    // PHC 字串由 argon2 0.5.3 以 Argon2::default() 產生（測試專用字串，非真實資料）。
+    // 升版時不得修改這些常數來求綠。
+    // ==========================================
+
+    const FIXTURE_BACKUP_CODE_PHC: &str = "48271936";
+    const FIXTURE_BACKUP_HASH_PHC: &str = "$argon2id$v=19$m=19456,t=2,p=1$ZCQLtWZjx5x/kmh6jyfY+w$DnQYdaYr0acpALOyOhCkwPArfvvv+QqaGsLiMmDrZo8";
+
+    const FIXTURE_BACKUP_CODE_LEGACY: &str = "73920415";
+    const FIXTURE_BACKUP_HASH_LEGACY: &str =
+        "d4a6418934daeb19250753906c1d43772b005bed46c7862bf9b0a286242f7261";
+
+    #[test]
+    fn backup_code_phc_fixture_matches_correct_code() {
+        let stored = Some(vec![FIXTURE_BACKUP_HASH_PHC.to_string()]);
+        assert_eq!(
+            AuthService::find_matching_backup_code(&stored, FIXTURE_BACKUP_CODE_PHC),
+            Some(0),
+            "舊版 PHC 備援碼雜湊必須能驗證通過"
+        );
+    }
+
+    #[test]
+    fn backup_code_phc_fixture_rejects_wrong_code() {
+        let stored = Some(vec![FIXTURE_BACKUP_HASH_PHC.to_string()]);
+        assert_eq!(
+            AuthService::find_matching_backup_code(&stored, "00000000"),
+            None,
+            "錯誤備援碼不得通過"
+        );
+    }
+
+    #[test]
+    fn backup_code_legacy_sha256_fixture_still_matches() {
+        let stored = Some(vec![FIXTURE_BACKUP_HASH_LEGACY.to_string()]);
+        assert_eq!(
+            AuthService::find_matching_backup_code(&stored, FIXTURE_BACKUP_CODE_LEGACY),
+            Some(0),
+            "舊版 SHA-256 備援碼必須仍可驗證"
+        );
+    }
+
+    #[test]
+    fn backup_code_mixed_formats_return_correct_index() {
+        let stored = Some(vec![
+            FIXTURE_BACKUP_HASH_LEGACY.to_string(),
+            FIXTURE_BACKUP_HASH_PHC.to_string(),
+        ]);
+        assert_eq!(
+            AuthService::find_matching_backup_code(&stored, FIXTURE_BACKUP_CODE_PHC),
+            Some(1)
+        );
+        assert_eq!(
+            AuthService::find_matching_backup_code(&stored, FIXTURE_BACKUP_CODE_LEGACY),
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn hash_backup_code_produces_argon2_not_sha256_fallback() {
+        // hash_backup_code 在 hash 失敗時會「無聲」退回 SHA-256。
+        // 升版後若 hash 呼叫出錯，備援碼會被悄悄降級，而驗證端的 legacy 分支
+        // 仍能驗過它，所有其他測試都不會紅；只有這個斷言能抓到。
+        let hashed = AuthService::hash_backup_code("12345678");
+        assert!(
+            hashed.starts_with("$argon2id$v=19$m=19456,t=2,p=1$"),
+            "備援碼未產生 Argon2id（可能退回 SHA-256 或預設參數改變）：{hashed}"
+        );
+        let stored = Some(vec![hashed]);
+        assert_eq!(
+            AuthService::find_matching_backup_code(&stored, "12345678"),
+            Some(0),
+            "新產生的備援碼雜湊必須能被自己驗證"
+        );
+    }
 }
