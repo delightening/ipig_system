@@ -675,10 +675,11 @@ async fn revoke_view_names_draft_and_submitted_grn_as_blocker() {
             false
         )
     );
-    // 角色不符者 can_revoke 為假，但擋下者照常回報（前端靠角色決定要不要顯示按鈕）
+    // 角色不符者：can_revoke 為假，而且**不得**讀到擋下者——那是別人建立的下游單據的單號與
+    // 狀態，詳情的存取檢查只看建單者（CodeRabbit #186）
     let (can, blocked, _) = view_of(&pool, &plain_user(), draft_po).await;
     assert!(!can);
-    assert!(blocked.is_some());
+    assert!(blocked.is_none());
 
     // 同一張入庫單提交後（待核准）：仍是擋下者，狀態跟著變
     DocumentService::submit(&pool, &wm_actor(), draft_id)
@@ -771,4 +772,49 @@ async fn reversal_of_po_requires_an_effective_grn() {
         .await
         .expect("有有效入庫單的 PO 可以發起沖銷");
     assert_eq!(reversal_count(received_po).await, 1);
+}
+
+/// CodeRabbit #186：已核准的**非入庫單**下游單據仍擋撤銷（撤銷不會回沖它），但不算「有效入庫單」——
+/// 不能因此放行 PO 的沖銷（否則沒有入庫單的 PO 也能走二人核准的沖銷）。
+#[tokio::test]
+#[serial]
+async fn approved_non_grn_downstream_blocks_revoke_but_does_not_allow_po_reversal() {
+    let pool = setup_pool().await;
+    let wh = seed_warehouse(&pool).await;
+    let product = seed_product(&pool).await;
+    let po_id = approved_po(&pool, wh, product, 10).await;
+
+    // 直接插一張已核准、指向該 PO 的採購退貨（業務流程不一定能走到，這裡只驗判準）
+    let pr_no = format!("PR-T-{}", &Uuid::new_v4().simple().to_string()[..10]);
+    sqlx::query(
+        "INSERT INTO documents (id, doc_type, doc_no, status, warehouse_id, doc_date, created_by, source_doc_id) \
+         VALUES ($1, 'PR', $2, 'approved', $3, CURRENT_DATE, $4, $5)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(&pr_no)
+    .bind(wh)
+    .bind(SYSTEM_USER_ID)
+    .bind(po_id)
+    .execute(&pool)
+    .await
+    .expect("seed approved PR");
+
+    // 撤銷：被擋，訊息點名該單據
+    let msg = business_rule_message(
+        DocumentService::revoke_approved_po(&pool, &wm_actor(), po_id, REASON)
+            .await
+            .expect_err("已核准的下游單據擋撤銷"),
+    );
+    assert!(msg.contains(&pr_no), "{}", msg);
+
+    // 但不算有效入庫單：沖銷按鈕不放行，直接呼叫沖銷也被拒
+    assert_eq!(
+        view_of(&pool, &wm_user(), po_id).await,
+        (false, None, false)
+    );
+    business_rule_message(
+        DocumentService::create_reversal(&pool, &wm_actor(), po_id)
+            .await
+            .expect_err("沒有有效入庫單，不得沖銷"),
+    );
 }

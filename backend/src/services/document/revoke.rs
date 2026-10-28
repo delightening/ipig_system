@@ -143,7 +143,11 @@ pub(crate) async fn evaluate_revoke(
         .iter()
         .find(|d| d.status != DocStatus::Approved)
         .cloned();
+    // 撤銷的擋下理由維持寬鬆：任何已核准且未被沖銷的下游單據都擋（撤銷不會回沖它們）。
     let effective = downstream.iter().find(|d| d.status == DocStatus::Approved);
+    // 但「可以沖銷這張 PO」只認有效的入庫單：非入庫單的已核准單據不能讓 PO 沖銷放行，
+    // 否則沒有入庫單的 PO 也能走二人核准的沖銷（按鈕分流與 `create_reversal` 守衛共用此判準）。
+    let has_effective_grn = downstream.iter().any(is_effective_grn);
 
     let blocker = match (&unfinished, effective) {
         (Some(d), _) => Some(format!("請先處理單據 {}", d.doc_no)),
@@ -161,8 +165,13 @@ pub(crate) async fn evaluate_revoke(
     Ok(RevokeEvaluation {
         blocker,
         unfinished,
-        has_effective_downstream: effective.is_some(),
+        has_effective_downstream: has_effective_grn,
     })
+}
+
+/// 有效入庫單：已核准的入庫單（`load_downstream` 已排除作廢與已被沖銷者）。
+fn is_effective_grn(d: &RevokeBlockedBy) -> bool {
+    d.doc_type == DocType::GRN && d.status == DocStatus::Approved
 }
 
 /// 詳情回應裡和撤銷／沖銷按鈕分流有關的三個欄位，由 [`DocumentService::revoke_view`] 一次算出。
@@ -188,9 +197,16 @@ impl DocumentService {
         }
         let mut conn = pool.acquire().await?;
         let evaluation = evaluate_revoke(&mut conn, po).await?;
+        let privileged = has_revoke_role(user);
         Ok(RevokeView {
-            can_revoke: has_revoke_role(user) && evaluation.blocker.is_none(),
-            revoke_blocked_by: evaluation.unfinished,
+            can_revoke: privileged && evaluation.blocker.is_none(),
+            // 擋下者的單號與狀態是別人建立的單據資訊；詳情的存取檢查只看「建單者」，
+            // 所以沒有撤銷角色的建單者不該讀到。前端本來就只在有角色時才用這個欄位。
+            revoke_blocked_by: if privileged {
+                evaluation.unfinished
+            } else {
+                None
+            },
             has_effective_downstream: evaluation.has_effective_downstream,
         })
     }
@@ -200,7 +216,7 @@ impl DocumentService {
         Ok(Self::revoke_view(pool, user, po).await?.can_revoke)
     }
 
-    /// 這張採購單有沒有有效下游單據（已核准且未被沖銷）。`create_reversal` 用它擋掉
+    /// 這張採購單有沒有有效入庫單（已核准且未被沖銷的 GRN）。`create_reversal` 用它擋掉
     /// 「沒有東西可沖銷」的採購單，與撤銷是互補的兩條路。
     ///
     /// 呼叫者必須已在同一個 tx 內對 PO 做過 `FOR UPDATE`。
@@ -211,7 +227,7 @@ impl DocumentService {
         Ok(load_downstream(conn, po_id)
             .await?
             .iter()
-            .any(|d| d.status == DocStatus::Approved))
+            .any(is_effective_grn))
     }
 
     /// 撤銷已核准、尚無有效下游單據的採購單（status → `cancelled`）。
