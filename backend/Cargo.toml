@@ -26,9 +26,9 @@ sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio",
 jsonwebtoken = { version = "11", default-features = false, features = ["aws_lc_rs", "use_pem"] }
 # prebuilt-nasm：Windows MSVC 開發機免裝 NASM；Linux（CI／Docker）不受影響
 aws-lc-rs = { version = "1", features = ["prebuilt-nasm"] }
-argon2 = "0.5"
-# password::{rand_core::OsRng} 需要 rand_core 的 getrandom；原本由 jsonwebtoken 的 rust_crypto 順帶開啟，改 aws_lc_rs 後須明確宣告
-password-hash = { version = "0.5", features = ["getrandom"] }
+# 0.6：salt 由 argon2 內部以 getrandom 產生（預設 feature），呼叫端不再需要 OsRng／SaltString，
+# 故不再直接宣告 password-hash。PHC 型別改走 argon2::password_hash::phc。
+argon2 = "0.6"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

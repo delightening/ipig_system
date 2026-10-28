@@ -462,7 +462,7 @@ impl AuthService {
         codes.iter().position(|stored| {
             if stored.starts_with("$argon2") {
                 use argon2::{
-                    password_hash::{PasswordHash, PasswordVerifier},
+                    password_hash::{phc::PasswordHash, PasswordVerifier},
                     Argon2,
                 };
                 PasswordHash::new(stored)
@@ -519,16 +519,14 @@ impl AuthService {
 
     /// M5: 使用 Argon2id 加鹽雜湊備用碼（防止預算彩虹表）
     fn hash_backup_code(code: &str) -> String {
-        use argon2::{
-            password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
-            Argon2,
-        };
-        let salt = SaltString::generate(&mut OsRng);
+        use argon2::{password_hash::PasswordHasher, Argon2};
         Argon2::default()
-            .hash_password(code.as_bytes(), &salt)
+            .hash_password(code.as_bytes())
             .map(|h| h.to_string())
-            .unwrap_or_else(|_| {
-                // 極端情況 fallback（不應發生）：使用 SHA-256
+            .unwrap_or_else(|e| {
+                // 極端情況 fallback（不應發生）：使用 SHA-256。
+                // 這是無聲降級：驗證端的 legacy 分支仍能驗過，其他測試不會紅，所以必須留下紀錄。
+                tracing::error!("[2FA] 備援碼 Argon2 雜湊失敗，退回 SHA-256: {e}");
                 use sha2::{Digest, Sha256};
                 let mut hasher = Sha256::new();
                 hasher.update(code.as_bytes());

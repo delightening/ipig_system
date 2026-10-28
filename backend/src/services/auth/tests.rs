@@ -138,9 +138,8 @@ const FIXTURE_HASH_ASCII: &str = "$argon2id$v=19$m=19456,t=2,p=1$TZy1aCNo0Jh1hxe
 const FIXTURE_PASSWORD_UNICODE: &str = "密碼Fixture測試9a";
 const FIXTURE_HASH_UNICODE: &str = "$argon2id$v=19$m=19456,t=2,p=1$S/5w0keO/ZCZHAH//+Fahg$nKZhGErkwM2x+22BaaBpO7Mc1hP1dwIe3MGz0R0TI0k";
 
-/// login.rs「使用者不存在」分支用的虛擬雜湊（SEC-AUDIT-002）。
-/// ⚠️ 這是 login.rs 內寫死字串的副本；兩處必須同步。
-const LOGIN_DUMMY_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$dGhpc2lzYWR1bW15c2FsdA$ZKhM8GZ8MJD3E5VNrp0MWuVIL+rCBjKNHdXMaGW4+A8";
+/// login.rs「使用者不存在」分支用的虛擬雜湊（SEC-AUDIT-002），直接引用正式碼的常數。
+use super::login::LOGIN_DUMMY_HASH;
 
 #[test]
 fn test_fixture_hashes_verify_with_correct_password() {
