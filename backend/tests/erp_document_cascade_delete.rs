@@ -207,7 +207,7 @@ async fn delete_po_blocked_by_approved_grn() {
 /// 沖銷單任何狀態（待核准／已核准／已作廢）都連帶刪，且每張各寫一筆 `DOC_DELETE`、
 /// 主單寫 `DOC_HARD_DELETE`。採購單的沖銷單沒有庫存／傳票效果，所以通過 `has_posted_effects`。
 ///
-/// 這個基底沒有 017（同一張原單只能有一張沖銷單），所以每個狀態各用一張 PO。
+/// 這個案例每個狀態各用一張 PO；同一張 PO 掛兩張沖銷單的鏈見下一個案例。
 #[tokio::test]
 async fn hard_delete_cascades_reversal_documents_of_every_status() {
     let pool = setup_pool().await;
@@ -256,6 +256,49 @@ async fn hard_delete_cascades_reversal_documents_of_every_status() {
             .expect("count audit");
             assert_eq!(n, 1, "沖銷單狀態 {status}：{event} 應各寫入 1 筆 audit");
         }
+    }
+}
+
+/// 沖銷鏈：同一張原單先後被兩張沖銷單指向，第一張已作廢、第二張已核准。
+///
+/// migration 017 起只有未作廢的沖銷單佔名額，所以這種鏈是合法的真實形狀（沖銷發起後被作廢、
+/// 重新發起再核准）。硬刪原單必須把兩張一起帶走，否則任何一張殘留都會撞
+/// `documents_reverses_doc_id_fkey`。
+#[tokio::test]
+async fn hard_delete_cascades_a_cancelled_then_approved_reversal_chain() {
+    let pool = setup_pool().await;
+    let (po_id, _) = seed_po_with_grns(&pool, "draft", 0).await;
+
+    let mut reversal_ids = Vec::new();
+    for status in ["cancelled", "approved"] {
+        let rev_id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO documents \
+             (id, doc_type, doc_no, status, warehouse_id, doc_date, created_by, reverses_doc_id) \
+             SELECT $1, 'PO', $2, $3::doc_status, warehouse_id, CURRENT_DATE, $4, id \
+             FROM documents WHERE id = $5",
+        )
+        .bind(rev_id)
+        .bind(format!(
+            "PO-REV-{}",
+            &Uuid::new_v4().simple().to_string()[..10]
+        ))
+        .bind(status)
+        .bind(SYSTEM_USER_ID)
+        .bind(po_id)
+        .execute(&pool)
+        .await
+        .expect("seed reversal document");
+        reversal_ids.push(rev_id);
+    }
+
+    DocumentService::delete(&pool, &actor(), po_id, true)
+        .await
+        .unwrap_or_else(|e| panic!("沖銷鏈（已作廢＋已核准）硬刪應整條帶走，實際：{e}"));
+
+    assert!(!doc_exists(&pool, po_id).await, "原單應已刪除");
+    for rev_id in reversal_ids {
+        assert!(!doc_exists(&pool, rev_id).await, "兩張沖銷單都應連帶刪除");
     }
 }
 
