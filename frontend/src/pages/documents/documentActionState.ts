@@ -1,4 +1,4 @@
-import type { Document, DocumentListItem } from '@/lib/api'
+import type { Document, DocumentListItem, RevokeBlockedBy } from '@/lib/api'
 
 /** 沖銷衍生狀態：原單 DB 狀態仍是 approved，「已沖銷」「沖銷中」只是顯示。 */
 export type ReversalDisplayState = 'reversed' | 'reversing' | null
@@ -70,25 +70,55 @@ export function receiptProgress(
   return doc.receipt_status ? (RECEIPT_STATUS_CONFIG[doc.receipt_status] ?? null) : null
 }
 
+export interface ReverseRevokeButtons {
+  showRevoke: boolean
+  showReverse: boolean
+  /**
+   * 「撤銷」顯示但停用時，擋下它的下游單據（單號與狀態）；`null` 表示不需要顯示停用的撤銷。
+   * 與 `showRevoke` 互斥：能撤銷就不會有擋下者。
+   */
+  revokeBlockedBy: RevokeBlockedBy | null
+}
+
 /**
- * 「撤銷」與「沖銷」按鈕的分流：同一張單只會出現其中一顆。
+ * 「撤銷」與「沖銷」按鈕的分流。
  *
- * - `can_revoke` 由後端判定（與 `POST /documents/{id}/revoke` 同一個判斷函式，已含角色與
- *   「有沒有有效下游單據」），前端**只讀、不自行推導**——自己算會讓按鈕與後端前置條件漂移。
- * - 沖銷維持既有條件，另加一條：可撤銷的單不顯示沖銷（走哪條路由後端決定）。
- * - 已被沖銷的單兩顆都不顯示。
+ * 後端判定的欄位**只讀、不自行推導**——自己算會讓按鈕與後端前置條件漂移：
+ * - `can_revoke`：與 `POST /documents/{id}/revoke` 同一個判斷函式，已含角色與「有沒有下游單據」。
+ * - `has_effective_downstream`：採購單有沒有有效下游單據（已核准且未被沖銷）。
+ * - `revoke_blocked_by`：擋住撤銷的草稿／待核准下游單據。
+ *
+ * 採購單的四種情況（皆為已核准、非沖銷單、尚未被沖銷）：
+ * 1. 沒有任何下游單據 → 只顯示「撤銷」
+ * 2. 有有效下游單據（入庫單）→ 只顯示「沖銷」（撤銷會被後端擋、也不顯示）
+ * 3. 只有草稿／待核准的下游單據 → 「撤銷」顯示但停用並點名單號；**不顯示沖銷**
+ *    （沖銷在沒有有效入庫單時不適用，後端 `create_reversal` 也會拒絕）
+ * 4. 已被沖銷 → 兩顆都不顯示
+ *
+ * 其他單據類型沒有「撤銷」，沖銷維持既有條件（已核准、非沖銷單、尚未被沖銷、角色允許）。
  */
 export function resolveReverseRevokeButtons(
-  doc: Pick<Document, 'status' | 'can_revoke' | 'reverses_doc_id' | 'reversed_by_doc_id'>,
+  doc: Pick<
+    Document,
+    | 'status'
+    | 'doc_type'
+    | 'can_revoke'
+    | 'revoke_blocked_by'
+    | 'has_effective_downstream'
+    | 'reverses_doc_id'
+    | 'reversed_by_doc_id'
+  >,
   canReverseByRole: boolean,
-): { showRevoke: boolean; showReverse: boolean } {
-  const approved = doc.status === 'approved'
-  const showRevoke = approved && doc.can_revoke === true
-  const showReverse =
-    approved &&
-    !doc.reverses_doc_id &&
-    !doc.reversed_by_doc_id &&
-    canReverseByRole &&
-    !showRevoke
-  return { showRevoke, showReverse }
+): ReverseRevokeButtons {
+  const none: ReverseRevokeButtons = { showRevoke: false, showReverse: false, revokeBlockedBy: null }
+  const eligible = doc.status === 'approved' && !doc.reverses_doc_id && !doc.reversed_by_doc_id
+  if (!eligible) return none
+
+  if (doc.can_revoke === true) return { ...none, showRevoke: true }
+  if (!canReverseByRole) return none
+
+  if (doc.doc_type !== 'PO') return { ...none, showReverse: true }
+
+  if (doc.has_effective_downstream === true) return { ...none, showReverse: true }
+  return { ...none, revokeBlockedBy: doc.revoke_blocked_by ?? null }
 }

@@ -243,6 +243,13 @@ export interface DocumentLine {
     remark?: string
 }
 
+/** 擋住撤銷的下游單據簡述（後端 `RevokeBlockedBy`）。 */
+export interface RevokeBlockedBy {
+    doc_no: string
+    doc_type: DocType
+    status: DocStatus
+}
+
 export interface Document {
     id: string
     doc_type: DocType
@@ -289,6 +296,16 @@ export interface Document {
      * 後端與 `POST /documents/{id}/revoke` 共用同一個判斷函式；前端只讀、不自行推導。
      */
     can_revoke?: boolean
+    /**
+     * 擋住「撤銷」的下游單據（引用此採購單、尚未處理完的草稿／待核准單據）。
+     * 與 `can_revoke` 由後端同一個判斷函式產生；前端只拿來點名單號與狀態，不自行查詢。
+     */
+    revoke_blocked_by?: RevokeBlockedBy
+    /**
+     * 此採購單是否有有效下游單據（已核准且未被沖銷）。有 → 只能沖銷；沒有 → 沖銷不適用。
+     * 只對已核准的採購單有意義，其餘為 false。
+     */
+    has_effective_downstream?: boolean
     /** 大金額 ADJ 兩級審批欄位 */
     requires_manager_approval?: boolean
     scrap_total_amount?: string

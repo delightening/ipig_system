@@ -479,11 +479,11 @@ export function DocumentDetailPage() {
   const showReversalApprove = isSubmitted && canReverseApprove && isReversal
     && !blockedByReversalSelfApproval
 
-  // 撤銷／沖銷分流（同一張單只顯示其一）：
-  // - 撤銷：後端判定 `can_revoke`（已核准、無有效下游單據的 PO，且角色符合），前端只讀不推導。
-  // - 沖銷：已核准、尚未被沖銷、本身不是沖銷單，倉管或 admin 可發起；可撤銷的單不再顯示。
+  // 撤銷／沖銷分流（規則與四種情況見 resolveReverseRevokeButtons，全部讀後端欄位、不自行推導）：
+  // - 可撤銷 → 撤銷；有有效入庫單 → 沖銷；
+  // - 只有草稿／待核准的下游單據 → 撤銷顯示但停用並點名單號，沖銷不出現；
   // - 已被沖銷的單兩顆都不顯示（改由標題列徽章與 ReversalNotice 說明）。
-  const { showRevoke, showReverse } = resolveReverseRevokeButtons(
+  const { showRevoke, showReverse, revokeBlockedBy } = resolveReverseRevokeButtons(
     document,
     canApproveDoc && (isWarehouseManager || isAdmin),
   )
@@ -636,6 +636,23 @@ export function DocumentDetailPage() {
               <Undo2 className="mr-2 h-4 w-4" />
               {t('erpDocs.documents.detail.revokeDocument')}
             </Button>
+          )}
+          {revokeBlockedBy && (
+            // 停用的「撤銷」旁直接寫出擋下的單號與狀態（不靠 hover：停用的按鈕收不到指標事件，
+            // 觸控裝置也沒有 hover）。這裡只讀後端的 revoke_blocked_by，不自己查下游單據。
+            <div className="flex items-center gap-2">
+              <Button variant="outline" disabled aria-describedby="revoke-blocked-hint">
+                <Undo2 className="mr-2 h-4 w-4" />
+                {t('erpDocs.documents.detail.revokeDocument')}
+              </Button>
+              <span id="revoke-blocked-hint" className="text-sm text-muted-foreground">
+                {t('erpDocs.documents.detail.revokeBlocked', {
+                  type: docTypeLabel(t, revokeBlockedBy.doc_type) ?? revokeBlockedBy.doc_type,
+                  docNo: revokeBlockedBy.doc_no,
+                  status: statusNames[revokeBlockedBy.status] ?? revokeBlockedBy.status,
+                })}
+              </span>
+            </div>
           )}
           {showReverse && (
             <Button variant="outline" onClick={handleReverse} disabled={reverseMutation.isPending}>

@@ -332,6 +332,19 @@ pub struct DocumentWithLines {
     /// （`services/document/revoke.rs`）。前端只讀這個欄位、不自行推導——自己算會讓按鈕
     /// 與後端的前置條件漂移。`get_by_id` 本身不帶使用者，預設 `false`。
     pub can_revoke: bool,
+    /// 撤銷被擋下的原因單據：引用此採購單、尚未處理完（草稿／待核准）的下游單據。
+    ///
+    /// 與 `can_revoke`、`POST /documents/{id}/revoke` 同一個判斷函式產生（`revoke.rs`），
+    /// 前端用它把停用的「撤銷」點名到單號與狀態，不自己查、不自己判斷。
+    /// 沒有未處理的下游單據（含「有有效入庫單，只能沖銷」）時省略。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoke_blocked_by: Option<RevokeBlockedBy>,
+    /// 此採購單是否有「有效」的下游單據（已核准且未被沖銷）。
+    ///
+    /// 只在已核准、非沖銷單的採購單上有意義，其餘一律 `false`。有 → 只能走沖銷、不能撤銷；
+    /// 沒有 → 沖銷不適用（後端 `create_reversal` 也會拒絕），應改走撤銷。
+    /// 判準與撤銷、入庫進度、未入庫提醒同源（`exclude_reversed_grn!`）。
+    pub has_effective_downstream: bool,
     /// 這張單現在卡在誰手上（僅 `submitted` 有值）。前端「待核准」徽章 hover 用。
     /// 計算來源見 `services/pending_owner.rs`。
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -444,6 +457,14 @@ pub struct PoReceiptItem {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct AdminRejectRequest {
     pub reason: String,
+}
+
+/// 擋住「撤銷」的下游單據簡述（引用該採購單、尚未處理完的單據）。
+#[derive(Debug, Clone, Serialize, FromRow, ToSchema)]
+pub struct RevokeBlockedBy {
+    pub doc_no: String,
+    pub doc_type: DocType,
+    pub status: DocStatus,
 }
 
 /// 撤銷已核准採購單請求

@@ -10,66 +10,118 @@ import {
 /**
  * 撤銷／沖銷按鈕分流與「已沖銷」衍生顯示。
  *
- * 規格的四種詳情頁狀況各一條；`can_revoke` 由後端判定，前端只讀、不自行推導，
- * 所以這裡的測試只餵 `can_revoke`，不模擬「有沒有有效入庫單」。
+ * 後端判定的欄位（`can_revoke`、`has_effective_downstream`、`revoke_blocked_by`）前端只讀、
+ * 不自行推導，所以這裡的測試直接餵這三個欄位，不模擬「有沒有有效入庫單」。
  */
 describe('resolveReverseRevokeButtons', () => {
+  const NONE = { showRevoke: false, showReverse: false, revokeBlockedBy: null }
+
+  /** 已核准、非沖銷單、尚未被沖銷的採購單；各情境在此之上覆寫後端欄位。 */
   const approvedPo = {
     status: 'approved' as const,
+    doc_type: 'PO' as const,
     can_revoke: false,
+    revoke_blocked_by: undefined,
+    has_effective_downstream: false,
     reverses_doc_id: undefined,
     reversed_by_doc_id: undefined,
   }
+  const draftGrn = { doc_no: 'GRN-261028-01', doc_type: 'GRN' as const, status: 'draft' as const }
 
-  it('已核准、無有效下游單據（can_revoke）→ 只顯示撤銷', () => {
+  it('沒有任何下游單據（can_revoke）→ 只顯示撤銷', () => {
     expect(resolveReverseRevokeButtons({ ...approvedPo, can_revoke: true }, true)).toEqual({
+      ...NONE,
       showRevoke: true,
-      showReverse: false,
     })
   })
 
-  it('已核准、有有效入庫單（can_revoke 為假）→ 只顯示沖銷', () => {
-    expect(resolveReverseRevokeButtons(approvedPo, true)).toEqual({
-      showRevoke: false,
-      showReverse: true,
-    })
+  it('有有效入庫單 → 只顯示沖銷', () => {
+    expect(
+      resolveReverseRevokeButtons({ ...approvedPo, has_effective_downstream: true }, true),
+    ).toEqual({ ...NONE, showReverse: true })
   })
 
   it('已被沖銷 → 兩顆都不顯示', () => {
     expect(
-      resolveReverseRevokeButtons({ ...approvedPo, reversed_by_doc_id: 'rev-1' }, true),
-    ).toEqual({ showRevoke: false, showReverse: false })
+      resolveReverseRevokeButtons(
+        { ...approvedPo, reversed_by_doc_id: 'rev-1', has_effective_downstream: true },
+        true,
+      ),
+    ).toEqual(NONE)
+  })
+
+  it('QA 退件(a)：只有草稿入庫單 → 撤銷停用並點名單號，沖銷不出現', () => {
+    expect(
+      resolveReverseRevokeButtons({ ...approvedPo, revoke_blocked_by: draftGrn }, true),
+    ).toEqual({ ...NONE, revokeBlockedBy: draftGrn })
+  })
+
+  it('QA 退件(b)：只有待核准入庫單 → 同上，狀態跟著帶出', () => {
+    const submittedGrn = { ...draftGrn, status: 'submitted' as const }
+    const result = resolveReverseRevokeButtons({ ...approvedPo, revoke_blocked_by: submittedGrn }, true)
+    expect(result).toEqual({ ...NONE, revokeBlockedBy: submittedGrn })
+    expect(result.showReverse).toBe(false)
+  })
+
+  it('有有效入庫單、同時還有草稿入庫單 → 走沖銷，不顯示停用的撤銷', () => {
+    expect(
+      resolveReverseRevokeButtons(
+        { ...approvedPo, has_effective_downstream: true, revoke_blocked_by: draftGrn },
+        true,
+      ),
+    ).toEqual({ ...NONE, showReverse: true })
+  })
+
+  it('沒有擋下者、也沒有有效入庫單，且不可撤銷（例如 PO 有待核准的沖銷單）→ 什麼都不顯示', () => {
+    expect(resolveReverseRevokeButtons(approvedPo, true)).toEqual(NONE)
   })
 
   it('草稿／待核准 → 兩顆都不顯示（維持既有「作廢」）', () => {
     for (const status of ['draft', 'submitted'] as const) {
-      expect(resolveReverseRevokeButtons({ ...approvedPo, status }, true)).toEqual({
-        showRevoke: false,
-        showReverse: false,
-      })
+      expect(
+        resolveReverseRevokeButtons({ ...approvedPo, status, has_effective_downstream: true }, true),
+      ).toEqual(NONE)
     }
   })
 
   it('沖銷單本身不可再沖銷', () => {
     expect(
-      resolveReverseRevokeButtons({ ...approvedPo, reverses_doc_id: 'orig-1' }, true).showReverse,
+      resolveReverseRevokeButtons(
+        { ...approvedPo, reverses_doc_id: 'orig-1', has_effective_downstream: true },
+        true,
+      ).showReverse,
     ).toBe(false)
   })
 
-  it('沒有沖銷角色 → 不顯示沖銷；撤銷的角色判斷在後端 can_revoke', () => {
-    expect(resolveReverseRevokeButtons(approvedPo, false).showReverse).toBe(false)
+  it('沒有沖銷角色 → 不顯示沖銷、也不顯示停用的撤銷；撤銷的角色判斷在後端 can_revoke', () => {
+    expect(
+      resolveReverseRevokeButtons({ ...approvedPo, has_effective_downstream: true }, false),
+    ).toEqual(NONE)
+    expect(
+      resolveReverseRevokeButtons({ ...approvedPo, revoke_blocked_by: draftGrn }, false),
+    ).toEqual(NONE)
     expect(resolveReverseRevokeButtons({ ...approvedPo, can_revoke: true }, false).showRevoke).toBe(
       true,
     )
   })
 
-  it('can_revoke 缺欄位（舊後端）→ 視為假，不顯示撤銷', () => {
+  it('後端欄位缺（舊後端）→ 視為假：不顯示撤銷，採購單也不顯示沖銷', () => {
     const legacy = {
       status: 'approved' as const,
+      doc_type: 'PO' as const,
       reverses_doc_id: undefined,
       reversed_by_doc_id: undefined,
     }
-    expect(resolveReverseRevokeButtons(legacy, true).showRevoke).toBe(false)
+    expect(resolveReverseRevokeButtons(legacy, true)).toEqual(NONE)
+  })
+
+  it('非採購單：沒有「撤銷」，沖銷維持既有條件（已核准、非沖銷單、未被沖銷、角色允許）', () => {
+    const approvedGrn = { ...approvedPo, doc_type: 'GRN' as const }
+    expect(resolveReverseRevokeButtons(approvedGrn, true)).toEqual({ ...NONE, showReverse: true })
+    expect(resolveReverseRevokeButtons(approvedGrn, false)).toEqual(NONE)
+    expect(
+      resolveReverseRevokeButtons({ ...approvedGrn, reversed_by_doc_id: 'rev-1' }, true),
+    ).toEqual(NONE)
   })
 })
 

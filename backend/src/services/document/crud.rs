@@ -1128,6 +1128,8 @@ impl DocumentService {
             reversed_by_doc_no: reversal.reversed_by_doc_no,
             reversed_at: reversal.reversed_at,
             can_revoke: false,
+            revoke_blocked_by: None,
+            has_effective_downstream: false,
             pending_owner,
         })
     }
