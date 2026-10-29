@@ -300,6 +300,16 @@ impl DocumentService {
         let user = actor.require_user()?;
         let created_by = user.id;
 
+        // 沖銷單（REV）只能由「發起沖銷」（`create_reversal`）建立，它需要 `reverses_doc_id`
+        // 指向原單並走兩階段核准。請求若直接帶 `doc_type: "REV"`，INSERT 不會有 reverses_doc_id，
+        // 會被 DB 約束 `documents_rev_type_consistent` 擋下，使用者只看到泛用的「資料不符合欄位
+        // 限制條件」——在這裡先擋，給明確的訊息。
+        if req.doc_type == DocType::REV {
+            return Err(AppError::Validation(
+                "沖銷單只能由「發起沖銷」建立，不可直接新增".to_string(),
+            ));
+        }
+
         // R84-9（2026-07-23）：原本此處有「DO 已棄用 → 封鎖新建」的特例檢查。
         // `DocType::DO` 已從 Rust enum 移除，反序列化階段就無法產生該值，
         // 此特例成為不可能路徑，故一併清除（DB enum 值仍保留，見 `DocType` 說明）。

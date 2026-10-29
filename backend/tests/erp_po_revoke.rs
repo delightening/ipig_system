@@ -935,6 +935,35 @@ async fn list_keeps_reversal_under_original_category_and_filters_by_rev() {
     );
 }
 
+/// 直接新增 REV 單據要得到明確的驗證錯誤，而不是被 DB 約束擋成泛用的「資料不符合欄位限制條件」
+/// （CodeRabbit #188）。沖銷單只能由「發起沖銷」建立。
+#[tokio::test]
+#[serial]
+async fn create_rejects_rev_doc_type_with_a_clear_message() {
+    let pool = setup_pool().await;
+    let wh = seed_warehouse(&pool).await;
+    let product = seed_product(&pool).await;
+
+    let err = DocumentService::create(
+        &pool,
+        &wm_actor(),
+        &doc_req(DocType::REV, wh, None, vec![po_line(product, 5)]),
+    )
+    .await
+    .expect_err("不可直接新增沖銷單");
+    match err {
+        AppError::Validation(msg) => assert!(msg.contains("發起沖銷"), "{}", msg),
+        other => panic!("預期 Validation，實得 {:?}", other),
+    }
+
+    let created: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM documents WHERE warehouse_id = $1")
+        .bind(wh)
+        .fetch_one(&pool)
+        .await
+        .expect("count documents");
+    assert_eq!(created, 0, "被擋下就不得留下任何單據");
+}
+
 /// DB 約束 `documents_rev_type_consistent`：doc_type = REV 與 reverses_doc_id 同進退，
 /// 任何一邊漏改都被資料庫擋下。
 #[tokio::test]
