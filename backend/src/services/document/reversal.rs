@@ -102,9 +102,11 @@ impl DocumentService {
         .fetch_all(&mut *tx)
         .await?;
 
-        // 沖銷單沿用原單型別（不新增 DB enum 值，與 R84-9 選項 B 精神一致）；
-        // 靠 reverses_doc_id 辨識其為沖銷單。
-        let doc_no = Self::generate_doc_no(&mut tx, original.doc_type).await?;
+        // 沖銷單有自己的類型 REV 與單號前綴 `REV-`（migration 018/019；此前沿用原單型別、
+        // 只靠 reverses_doc_id 辨識，列表上看不出它是沖銷單）。DB 約束
+        // `documents_rev_type_consistent` 保證 doc_type = REV 與 reverses_doc_id 同進退。
+        // 原單的型別仍由 `reverses_doc_id` 指向的原單決定，鏡射寫入都依原單，不看這張單的型別。
+        let doc_no = Self::generate_doc_no(&mut tx, DocType::REV).await?;
         let reversal_id = Uuid::new_v4();
 
         sqlx::query(
@@ -124,7 +126,7 @@ impl DocumentService {
             "#,
         )
         .bind(reversal_id)
-        .bind(original.doc_type)
+        .bind(DocType::REV)
         .bind(&doc_no)
         .bind(DocStatus::Submitted)
         .bind(original.warehouse_id)

@@ -324,20 +324,23 @@ impl ReportService {
                 w.name as warehouse_name,
                 p.sku as product_sku,
                 p.name as product_name,
-                dl.qty,
+                -- 沖銷互抵：沖銷單（REV）的明細數量與金額取負值，與原單加總即為 0。
+                -- 沖銷單依其原單的類型歸入本報表（沖銷入庫單的沖銷單算採購）。
+                dl.qty * (CASE WHEN d.doc_type = 'REV' THEN -1 ELSE 1 END) as qty,
                 dl.uom,
                 dl.unit_price,
-                dl.qty * COALESCE(dl.unit_price, 0) as line_total,
+                dl.qty * COALESCE(dl.unit_price, 0) * (CASE WHEN d.doc_type = 'REV' THEN -1 ELSE 1 END) as line_total,
                 u1.display_name as created_by_name,
                 u2.display_name as approved_by_name
             FROM documents d
+            LEFT JOIN documents od ON od.id = d.reverses_doc_id
             INNER JOIN document_lines dl ON d.id = dl.document_id
             INNER JOIN products p ON dl.product_id = p.id
             LEFT JOIN warehouses w ON d.warehouse_id = w.id
             LEFT JOIN partners pa ON d.partner_id = pa.id
             INNER JOIN users u1 ON d.created_by = u1.id
             LEFT JOIN users u2 ON d.approved_by = u2.id
-            WHERE d.doc_type IN ('PO', 'GRN', 'PR')
+            WHERE COALESCE(od.doc_type, d.doc_type) IN ('PO', 'GRN', 'PR')
             "#,
         );
 
@@ -382,7 +385,8 @@ impl ReportService {
                 w.name as warehouse_name,
                 p.sku as product_sku,
                 p.name as product_name,
-                dl.qty,
+                -- 沖銷互抵：沖銷單（REV）取負值，沖銷領用單的沖銷單算領用（同採購明細）。
+                dl.qty * (CASE WHEN d.doc_type = 'REV' THEN -1 ELSE 1 END) as qty,
                 dl.uom,
                 COALESCE(dl.unit_price,
                     (SELECT AVG(sl.unit_cost) FROM stock_ledger sl
@@ -391,17 +395,18 @@ impl ReportService {
                 dl.qty * COALESCE(dl.unit_price,
                     (SELECT AVG(sl.unit_cost) FROM stock_ledger sl
                      WHERE sl.product_id = dl.product_id AND sl.unit_cost IS NOT NULL),
-                    0) as line_total,
+                    0) * (CASE WHEN d.doc_type = 'REV' THEN -1 ELSE 1 END) as line_total,
                 u1.display_name as created_by_name,
                 u2.display_name as approved_by_name
             FROM documents d
+            LEFT JOIN documents od ON od.id = d.reverses_doc_id
             INNER JOIN document_lines dl ON d.id = dl.document_id
             INNER JOIN products p ON dl.product_id = p.id
             LEFT JOIN warehouses w ON d.warehouse_id = w.id
             LEFT JOIN partners pa ON d.partner_id = pa.id
             INNER JOIN users u1 ON d.created_by = u1.id
             LEFT JOIN users u2 ON d.approved_by = u2.id
-            WHERE d.doc_type = 'SO'
+            WHERE COALESCE(od.doc_type, d.doc_type) = 'SO'
             "#,
         );
 
@@ -742,14 +747,17 @@ impl ReportService {
         let mut qb = sqlx::QueryBuilder::new(
             r#"
             WITH doc_totals AS (
+                -- 沖銷互抵：已核准的沖銷單（REV）依其原單的類型、以負值計入「沖銷單的單據日期」
+                -- 所在月份（期間歸屬正確，不回頭改寫原單那個月）。
                 SELECT
-                    d.doc_type,
+                    COALESCE(od.doc_type, d.doc_type) as doc_type,
                     TO_CHAR(d.doc_date, 'YYYY-MM') as year_month,
-                    COALESCE(SUM(dl.qty * COALESCE(dl.unit_price, 0)), 0) as total_amount
+                    COALESCE(SUM(dl.qty * COALESCE(dl.unit_price, 0) * (CASE WHEN d.doc_type = 'REV' THEN -1 ELSE 1 END)), 0) as total_amount
                 FROM documents d
+                LEFT JOIN documents od ON od.id = d.reverses_doc_id
                 INNER JOIN document_lines dl ON d.id = dl.document_id
                 WHERE d.status = 'approved'
-                  AND d.doc_type IN ('GRN', 'PR', 'SO')
+                  AND COALESCE(od.doc_type, d.doc_type) IN ('GRN', 'PR', 'SO')
             "#,
         );
         if let Some(df) = query.date_from {
@@ -762,12 +770,13 @@ impl ReportService {
         }
         qb.push(
             r#"
-                GROUP BY d.doc_type, TO_CHAR(d.doc_date, 'YYYY-MM')
+                GROUP BY COALESCE(od.doc_type, d.doc_type), TO_CHAR(d.doc_date, 'YYYY-MM')
             ),
             cogs_monthly AS (
                 SELECT
                     TO_CHAR(je.entry_date, 'YYYY-MM') as year_month,
-                    COALESCE(SUM(jel.debit_amount), 0) as cogs
+                    -- 借減貸：一般單據的 5200 只有借方，結果不變；沖銷傳票借貸互換，貸方會抵掉原成本。
+                    COALESCE(SUM(jel.debit_amount - jel.credit_amount), 0) as cogs
                 FROM journal_entry_lines jel
                 INNER JOIN journal_entries je ON je.id = jel.journal_entry_id
                 INNER JOIN chart_of_accounts coa ON coa.id = jel.account_id AND coa.code = '5200'
@@ -830,17 +839,20 @@ impl ReportService {
                 pa.code as partner_code,
                 pa.name as partner_name,
                 pa.partner_type::text as partner_type,
-                COALESCE(SUM(CASE WHEN d.doc_type IN ('GRN', 'SO') THEN dl.qty * COALESCE(dl.unit_price, 0) ELSE 0 END), 0) as total_amount,
+                -- 沖銷互抵：已核准的沖銷單（REV）依原單類型、以負值計入（見 purchase_sales_monthly）。
+                COALESCE(SUM(CASE WHEN COALESCE(od.doc_type, d.doc_type) IN ('GRN', 'SO') THEN dl.qty * COALESCE(dl.unit_price, 0) * (CASE WHEN d.doc_type = 'REV' THEN -1 ELSE 1 END) ELSE 0 END), 0) as total_amount,
                 -- R84-13：SR/RTN 已封鎖新建，退貨只剩 PR（採購退貨）。
-                COALESCE(SUM(CASE WHEN d.doc_type = 'PR' THEN dl.qty * COALESCE(dl.unit_price, 0) ELSE 0 END), 0) as return_amount,
-                COALESCE(SUM(CASE WHEN d.doc_type IN ('GRN', 'SO') THEN dl.qty * COALESCE(dl.unit_price, 0) ELSE 0 END), 0)
-                    - COALESCE(SUM(CASE WHEN d.doc_type = 'PR' THEN dl.qty * COALESCE(dl.unit_price, 0) ELSE 0 END), 0) as net_amount,
-                COUNT(DISTINCT d.id) as doc_count
+                COALESCE(SUM(CASE WHEN COALESCE(od.doc_type, d.doc_type) = 'PR' THEN dl.qty * COALESCE(dl.unit_price, 0) * (CASE WHEN d.doc_type = 'REV' THEN -1 ELSE 1 END) ELSE 0 END), 0) as return_amount,
+                COALESCE(SUM(CASE WHEN COALESCE(od.doc_type, d.doc_type) IN ('GRN', 'SO') THEN dl.qty * COALESCE(dl.unit_price, 0) * (CASE WHEN d.doc_type = 'REV' THEN -1 ELSE 1 END) ELSE 0 END), 0)
+                    - COALESCE(SUM(CASE WHEN COALESCE(od.doc_type, d.doc_type) = 'PR' THEN dl.qty * COALESCE(dl.unit_price, 0) * (CASE WHEN d.doc_type = 'REV' THEN -1 ELSE 1 END) ELSE 0 END), 0) as net_amount,
+                -- 單據筆數只算原始單據；沖銷單是對既有單據的更正，不是新增的一筆往來。
+                COUNT(DISTINCT CASE WHEN d.doc_type <> 'REV' THEN d.id END) as doc_count
             FROM documents d
+            LEFT JOIN documents od ON od.id = d.reverses_doc_id
             INNER JOIN document_lines dl ON d.id = dl.document_id
             INNER JOIN partners pa ON d.partner_id = pa.id
             WHERE d.status = 'approved'
-              AND d.doc_type IN ('GRN', 'PR', 'SO')
+              AND COALESCE(od.doc_type, d.doc_type) IN ('GRN', 'PR', 'SO')
             "#,
         );
 
@@ -873,17 +885,19 @@ impl ReportService {
             r#"
             SELECT
                 COALESCE(pc.name, '未分類') as category_name,
-                COALESCE(SUM(CASE WHEN d.doc_type = 'GRN' THEN dl.qty * COALESCE(dl.unit_price, 0) WHEN d.doc_type = 'PR' THEN -(dl.qty * COALESCE(dl.unit_price, 0)) ELSE 0 END), 0) as purchase_amount,
+                -- 沖銷互抵：已核准的沖銷單（REV）依原單類型、以負值計入（見 purchase_sales_monthly）。
+                COALESCE(SUM((CASE WHEN COALESCE(od.doc_type, d.doc_type) = 'GRN' THEN dl.qty * COALESCE(dl.unit_price, 0) WHEN COALESCE(od.doc_type, d.doc_type) = 'PR' THEN -(dl.qty * COALESCE(dl.unit_price, 0)) ELSE 0 END) * (CASE WHEN d.doc_type = 'REV' THEN -1 ELSE 1 END)), 0) as purchase_amount,
                 -- R84-13：SR/RTN 已封鎖新建（業務上不存在銷貨退貨），sales_amount 不再需要扣減分支。
-                COALESCE(SUM(CASE WHEN d.doc_type = 'SO' THEN dl.qty * COALESCE(dl.unit_price, 0) ELSE 0 END), 0) as sales_amount,
+                COALESCE(SUM(CASE WHEN COALESCE(od.doc_type, d.doc_type) = 'SO' THEN dl.qty * COALESCE(dl.unit_price, 0) * (CASE WHEN d.doc_type = 'REV' THEN -1 ELSE 1 END) ELSE 0 END), 0) as sales_amount,
                 0::NUMERIC(18,4) as cogs_amount,
-                COALESCE(SUM(CASE WHEN d.doc_type = 'SO' THEN dl.qty * COALESCE(dl.unit_price, 0) ELSE 0 END), 0) as gross_profit
+                COALESCE(SUM(CASE WHEN COALESCE(od.doc_type, d.doc_type) = 'SO' THEN dl.qty * COALESCE(dl.unit_price, 0) * (CASE WHEN d.doc_type = 'REV' THEN -1 ELSE 1 END) ELSE 0 END), 0) as gross_profit
             FROM documents d
+            LEFT JOIN documents od ON od.id = d.reverses_doc_id
             INNER JOIN document_lines dl ON d.id = dl.document_id
             INNER JOIN products p ON dl.product_id = p.id
             LEFT JOIN product_categories pc ON p.category_id = pc.id
             WHERE d.status = 'approved'
-              AND d.doc_type IN ('GRN', 'PR', 'SO')
+              AND COALESCE(od.doc_type, d.doc_type) IN ('GRN', 'PR', 'SO')
             "#,
         );
 

@@ -216,7 +216,8 @@ export interface Partner {
 // 單據
 // R84-13：'SR'（銷貨退貨）/ 'RTN'（退貨單）已從型別移除——業務上不存在銷貨退貨，
 // 後端 DocType 已封鎖建立這兩種單據（見 backend/src/models/document.rs）。
-export type DocType = 'PO' | 'GRN' | 'PR' | 'SO' | 'TR' | 'STK' | 'ADJ'
+/** `REV`＝沖銷單（migration 018/019）；與 `reverses_doc_id` 同進退，只由「發起沖銷」建立。 */
+export type DocType = 'PO' | 'GRN' | 'PR' | 'SO' | 'TR' | 'STK' | 'ADJ' | 'REV'
 export type DocStatus = 'draft' | 'submitted' | 'approved' | 'cancelled'
 
 export interface DocumentLine {

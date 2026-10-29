@@ -818,3 +818,180 @@ async fn approved_non_grn_downstream_blocks_revoke_but_does_not_allow_po_reversa
             .expect_err("沒有有效入庫單，不得沖銷"),
     );
 }
+
+/// 沖銷單有自己的類型 REV 與單號前綴；庫存流水卻要沿用原單類型，反向流水才與原流水互抵
+/// （報表與庫存帳是依 `doc_type` + `direction` 加總）。
+#[tokio::test]
+#[serial]
+async fn reversal_is_rev_type_but_mirrored_ledger_keeps_original_type() {
+    let pool = setup_pool().await;
+    let wh = seed_warehouse(&pool).await;
+    let shelf = seed_shelf(&pool, wh).await;
+    let product = seed_product(&pool).await;
+    let admin = admin_actor(&pool).await;
+    let po_id = approved_po(&pool, wh, product, 30).await;
+    let (grn_id, _) = approved_grn_for_po(&pool, wh, shelf, product, po_id, 30).await;
+
+    let reversal = DocumentService::create_reversal(&pool, &wm_actor(), grn_id)
+        .await
+        .expect("建立沖銷單");
+    assert_eq!(reversal.document.doc_type, DocType::REV);
+    assert!(
+        reversal.document.doc_no.starts_with("REV-"),
+        "沖銷單單號應為 REV- 前綴：{}",
+        reversal.document.doc_no
+    );
+    assert_eq!(reversal.document.reverses_doc_id, Some(grn_id));
+
+    DocumentService::approve_reversal(&pool, &admin, reversal.document.id)
+        .await
+        .expect("核准沖銷單");
+
+    // 鏡射的流水落在原單類型（GRN）之下，方向相反
+    let mirrored: Vec<(String, String)> = sqlx::query_as(
+        "SELECT doc_type::text, direction::text FROM stock_ledger WHERE doc_id = $1",
+    )
+    .bind(reversal.document.id)
+    .fetch_all(&pool)
+    .await
+    .expect("query mirrored ledger");
+    assert!(!mirrored.is_empty(), "核准沖銷後應有鏡射流水");
+    assert!(
+        mirrored.iter().all(|(t, d)| t == "GRN" && d == "out"),
+        "鏡射流水應為 GRN/out：{:?}",
+        mirrored
+    );
+
+    // 依 doc_type + direction 加總（報表的算法）：原單與沖銷單合計為 0
+    let net: Decimal = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(CASE WHEN doc_type = 'GRN' AND direction = 'in' THEN qty_base \
+                                  WHEN doc_type = 'GRN' AND direction = 'out' THEN -qty_base \
+                                  ELSE 0 END), 0) \
+         FROM stock_ledger WHERE doc_id = ANY($1)",
+    )
+    .bind(vec![grn_id, reversal.document.id])
+    .fetch_one(&pool)
+    .await
+    .expect("sum net");
+    assert_eq!(net, Decimal::ZERO);
+}
+
+/// 列表：沖銷單跟著原單的分類出現（入庫單的沖銷單仍在「採購」分類），
+/// 不會出現在不相干的分類；明確篩 REV 時列出全部沖銷單。
+#[tokio::test]
+#[serial]
+async fn list_keeps_reversal_under_original_category_and_filters_by_rev() {
+    let pool = setup_pool().await;
+    let wh = seed_warehouse(&pool).await;
+    let shelf = seed_shelf(&pool, wh).await;
+    let product = seed_product(&pool).await;
+    let po_id = approved_po(&pool, wh, product, 5).await;
+    let (grn_id, _) = approved_grn_for_po(&pool, wh, shelf, product, po_id, 5).await;
+    let reversal_id = DocumentService::create_reversal(&pool, &wm_actor(), grn_id)
+        .await
+        .expect("建立沖銷單")
+        .document
+        .id;
+
+    let ids_for = |doc_types: &'static str| {
+        let pool = pool.clone();
+        async move {
+            let query = DocumentQuery {
+                doc_type: None,
+                doc_types: Some(doc_types.to_string()),
+                status: None,
+                warehouse_id: None,
+                partner_id: None,
+                date_from: None,
+                date_to: None,
+                keyword: None,
+                iacuc_no: None,
+                product_id: None,
+            };
+            DocumentService::list(&pool, &query, None)
+                .await
+                .expect("list")
+                .into_iter()
+                .map(|d| d.id)
+                .collect::<Vec<_>>()
+        }
+    };
+
+    assert!(
+        ids_for("PO,GRN,PR").await.contains(&reversal_id),
+        "採購分類應含入庫單的沖銷單"
+    );
+    assert!(
+        !ids_for("SO").await.contains(&reversal_id),
+        "銷貨分類不應含它"
+    );
+    assert!(
+        !ids_for("TR,STK,ADJ").await.contains(&reversal_id),
+        "倉儲分類不應含它"
+    );
+    assert!(
+        ids_for("REV").await.contains(&reversal_id),
+        "明確篩 REV 應列出沖銷單"
+    );
+}
+
+/// 直接新增 REV 單據要得到明確的驗證錯誤，而不是被 DB 約束擋成泛用的「資料不符合欄位限制條件」
+/// （CodeRabbit #188）。沖銷單只能由「發起沖銷」建立。
+#[tokio::test]
+#[serial]
+async fn create_rejects_rev_doc_type_with_a_clear_message() {
+    let pool = setup_pool().await;
+    let wh = seed_warehouse(&pool).await;
+    let product = seed_product(&pool).await;
+
+    let err = DocumentService::create(
+        &pool,
+        &wm_actor(),
+        &doc_req(DocType::REV, wh, None, vec![po_line(product, 5)]),
+    )
+    .await
+    .expect_err("不可直接新增沖銷單");
+    match err {
+        AppError::Validation(msg) => assert!(msg.contains("發起沖銷"), "{}", msg),
+        other => panic!("預期 Validation，實得 {:?}", other),
+    }
+
+    let created: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM documents WHERE warehouse_id = $1")
+        .bind(wh)
+        .fetch_one(&pool)
+        .await
+        .expect("count documents");
+    assert_eq!(created, 0, "被擋下就不得留下任何單據");
+}
+
+/// DB 約束 `documents_rev_type_consistent`：doc_type = REV 與 reverses_doc_id 同進退，
+/// 任何一邊漏改都被資料庫擋下。
+#[tokio::test]
+#[serial]
+async fn db_constraint_keeps_rev_type_and_reverses_pointer_in_sync() {
+    let pool = setup_pool().await;
+    let wh = seed_warehouse(&pool).await;
+    let shelf = seed_shelf(&pool, wh).await;
+    let product = seed_product(&pool).await;
+    let po_id = approved_po(&pool, wh, product, 5).await;
+    let (grn_id, _) = approved_grn_for_po(&pool, wh, shelf, product, po_id, 5).await;
+    let reversal_id = DocumentService::create_reversal(&pool, &wm_actor(), grn_id)
+        .await
+        .expect("建立沖銷單")
+        .document
+        .id;
+
+    // 沖銷單被改回非 REV：擋
+    sqlx::query("UPDATE documents SET doc_type = 'GRN' WHERE id = $1")
+        .bind(reversal_id)
+        .execute(&pool)
+        .await
+        .expect_err("有 reverses_doc_id 的單據不可不是 REV");
+
+    // 一般單據被標成 REV 卻沒有指向原單：擋
+    sqlx::query("UPDATE documents SET doc_type = 'REV' WHERE id = $1")
+        .bind(po_id)
+        .execute(&pool)
+        .await
+        .expect_err("REV 必須有 reverses_doc_id");
+}

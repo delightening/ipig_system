@@ -576,7 +576,8 @@ export function DocumentDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          {canCreateDoc && (
+          {/* 沖銷單只能由「發起沖銷」產生，新建單據表單沒有 REV 類型，複製過去只會開出壞表單 */}
+          {canCreateDoc && document.doc_type !== 'REV' && (
             <Button variant="outline" onClick={handleCopyDocument}>
               <Copy className="mr-2 h-4 w-4" />
               {t('erpDocs.documents.detail.copyDocument')}

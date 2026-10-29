@@ -169,7 +169,10 @@ export function DocumentEditPage() {
                     <SelectValue placeholder={t('erpDocs.documents.form.selectType')} />
                   </SelectTrigger>
                   <SelectContent>
+                    {/* 沖銷單（REV）只能由「發起沖銷」建立，後端的新增端點會拒絕它，
+                        所以建立時不列為選項；只有正在看一張既有 REV 單據時才保留，下拉才顯得出值。 */}
                     {Object.entries(DOC_TYPE_NAMES)
+                      .filter(([key]) => key !== 'REV' || formData.doc_type === 'REV')
                       .map(([key, name]) => (
                         <SelectItem key={key} value={key}>
                           {name}

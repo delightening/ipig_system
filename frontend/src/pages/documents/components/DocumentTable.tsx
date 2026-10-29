@@ -30,7 +30,8 @@ const docTypeNames = DOC_TYPE_NAMES
 const statusNames = DOC_STATUS_NAMES
 
 // SO 一段式（#1004）核准即過帳 → 併入「已過帳」badge 判斷
-const ACCOUNTING_DOC_TYPES: DocType[] = ['GRN', 'PR', 'SO']
+// REV：沖銷單核准時會鏡射原單的傳票（借貸互換），傳票掛在沖銷單上，一樣要顯示「已過帳」。
+const ACCOUNTING_DOC_TYPES: DocType[] = ['GRN', 'PR', 'SO', 'REV']
 
 interface DocumentTableProps {
   documents: DocumentListItem[] | undefined
