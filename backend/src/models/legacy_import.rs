@@ -51,14 +51,14 @@ pub struct LegacyPigDescriptor {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct LegacyImportItem {
-    pub kind: String,                    // observation/surgery/weight/vaccine/sacrifice
-    pub legacy_record_id: String,        // stable key from legacy
+    pub kind: String,             // observation/surgery/weight/vaccine/sacrifice
+    pub legacy_record_id: String, // stable key from legacy
     pub legacy_record_type_text: Option<String>, // textual label (e.g. "-")
-    pub record_type: Option<String>,     // mapped for observations: abnormal/experiment/observation
+    pub record_type: Option<String>, // mapped for observations: abnormal/experiment/observation
     pub legacy_created_at: Option<DateTime<Utc>>,
     pub event_date: Option<chrono::NaiveDate>, // observation/surgery/weight/vaccine dates
-    pub content: Option<String>,         // observation content
-    pub payload: serde_json::Value,      // raw legacy payload (for reports and mapping)
+    pub content: Option<String>,               // observation content
+    pub payload: serde_json::Value,            // raw legacy payload (for reports and mapping)
     pub original_recorder_name: Option<String>,
     pub mapped_user_id: Option<Uuid>,
 }
@@ -110,4 +110,3 @@ pub struct LegacyReportRow {
     pub record_kind: String,
     pub status: String,
 }
-

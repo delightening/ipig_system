@@ -37,14 +37,18 @@ async fn main() -> anyhow::Result<()> {
     let pool = PgPool::connect(&args.database_url).await?;
 
     // Resolve actor (for audit); permission gate is ensured by requiring admin or explicit permission
-    let actor_email = args.actor_email.or_else(|| std::env::var("ADMIN_EMAIL").ok()).unwrap_or_else(|| "admin@ipigsystem.asia".to_string());
+    let actor_email = args
+        .actor_email
+        .or_else(|| std::env::var("ADMIN_EMAIL").ok())
+        .unwrap_or_else(|| "admin@ipigsystem.asia".to_string());
     let actor_user: Option<(Uuid, bool)> = sqlx::query_as(
         r#"SELECT id, is_admin FROM users WHERE lower(email) = lower($1) AND is_active = true LIMIT 1"#,
     )
     .bind(&actor_email)
     .fetch_optional(&pool)
     .await?;
-    let (actor_id, is_admin) = actor_user.ok_or_else(|| anyhow::anyhow!(format!("Actor user not found: {}", actor_email)))?;
+    let (actor_id, is_admin) = actor_user
+        .ok_or_else(|| anyhow::anyhow!(format!("Actor user not found: {}", actor_email)))?;
 
     // Permission check: admin short-circuit or explicit permission
     if !is_admin {
@@ -67,12 +71,11 @@ async fn main() -> anyhow::Result<()> {
 
     // Resolve import user id (accept disabled accounts)
     let import_user_id: Option<Uuid> = {
-        let uid: Option<Uuid> = sqlx::query_scalar(
-            "SELECT id FROM users WHERE lower(email) = lower($1) LIMIT 1",
-        )
-        .bind(&args.import_user_email)
-        .fetch_optional(&pool)
-        .await?;
+        let uid: Option<Uuid> =
+            sqlx::query_scalar("SELECT id FROM users WHERE lower(email) = lower($1) LIMIT 1")
+                .bind(&args.import_user_email)
+                .fetch_optional(&pool)
+                .await?;
         if uid.is_none() {
             return Err(anyhow::anyhow!(format!(
                 "import user not found: {}",
@@ -93,15 +96,16 @@ async fn main() -> anyhow::Result<()> {
         impersonated_by: None,
     });
 
-    let (approved, skipped, conflict) = erp_backend::services::legacy_import::LegacyImportService::approve_batch(
-        &pool,
-        &actor,
-        batch_id,
-        import_user_id,
-        args.dry_run,
-    )
-    .await
-    .map_err(|e| anyhow::anyhow!(format!("approve failed: {}", e)))?;
+    let (approved, skipped, conflict) =
+        erp_backend::services::legacy_import::LegacyImportService::approve_batch(
+            &pool,
+            &actor,
+            batch_id,
+            import_user_id,
+            args.dry_run,
+        )
+        .await
+        .map_err(|e| anyhow::anyhow!(format!("approve failed: {}", e)))?;
 
     println!(
         "{}",
@@ -116,4 +120,3 @@ async fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
-

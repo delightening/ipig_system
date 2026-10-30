@@ -23,6 +23,7 @@ mod erp;
 mod honeypot;
 mod hr;
 mod invitation;
+mod legacy_import;
 mod mcp;
 mod messaging;
 mod notification;
@@ -30,7 +31,6 @@ mod protocol;
 mod report;
 mod upload;
 mod user;
-mod legacy_import;
 
 pub fn api_routes(state: AppState) -> Router {
     let public_routes = auth::public_routes()

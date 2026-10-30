@@ -1,17 +1,17 @@
 use chrono::NaiveDate;
+use chrono::Offset;
 use chrono::TimeZone;
+use rust_decimal::prelude::FromPrimitive;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
-use rust_decimal::prelude::FromPrimitive;
 
 use crate::{
     middleware::ActorContext,
     models::{
-        Animal, AnimalObservation, AnimalSacrifice, AnimalSurgery, AnimalVaccination, AnimalWeight,
-        CreateImportBatchRequest, ImportBatchReport, IngestPigRecordsRequest,
-        IngestPigRecordsResponse, IngestPigRecordsResultItem, LegacyImportBatch, LegacyImportItem,
-        LegacyImportRecord,
-        audit_diff::DataDiff,
+        audit_diff::DataDiff, Animal, AnimalObservation, AnimalSacrifice, AnimalSurgery,
+        AnimalVaccination, AnimalWeight, CreateImportBatchRequest, ImportBatchReport,
+        IngestPigRecordsRequest, IngestPigRecordsResponse, IngestPigRecordsResultItem,
+        LegacyImportBatch, LegacyImportItem, LegacyImportRecord,
     },
     services::audit::{ActivityLogEntry, AuditEntity, AuditService},
     AppError, Result,
@@ -77,22 +77,23 @@ impl LegacyImportService {
 
         let user = actor.require_user()?;
 
-        let animal = Self::match_animal(
+        let animal_opt = Self::match_animal(
             pool,
             &req.pig.ear_tag,
             req.pig.birth_date,
             req.pig.iacuc_no.as_deref(),
         )
         .await?;
-        let _animal_id = animal.as_ref().map(|a| a.id);
-
+        let _animal_id = animal_opt.as_ref().map(|a| a.id);
         // Unmatched → whole request 422 per spec
-        if animal.is_none() {
-            return Err(AppError::BusinessRule(
-                "PIG_NOT_FOUND：耳號/生日/IACUC 無法唯一配對到新系統動物".into(),
-            ));
-        }
-        let animal = animal.unwrap();
+        let animal = match animal_opt {
+            Some(a) => a,
+            None => {
+                return Err(AppError::BusinessRule(
+                    "PIG_NOT_FOUND：耳號/生日/IACUC 無法唯一配對到新系統動物".into(),
+                ))
+            }
+        };
 
         let mut results = Vec::with_capacity(req.records.len());
         // Run whole ingest in one transaction when not dry_run
@@ -105,21 +106,31 @@ impl LegacyImportService {
             let res = if req.dry_run {
                 // Simulate staging without writes
                 let duplicate = Self::detect_duplicate(pool, animal.id, item).await?;
-                let status = if duplicate { "skipped_duplicate".to_string() } else { "pending".to_string() };
+                let status = if duplicate {
+                    "skipped_duplicate".to_string()
+                } else {
+                    "pending".to_string()
+                };
                 // recorder mapping preview
                 let (resolved_user_id, resolved_status) = if let Some(uid) = item.mapped_user_id {
                     // validate existence
-                    let exists: Option<bool> = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)")
-                        .bind(uid)
-                        .fetch_one(pool)
-                        .await
-                        .ok();
+                    let exists: Option<bool> =
+                        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)")
+                            .bind(uid)
+                            .fetch_one(pool)
+                            .await
+                            .ok();
                     if exists == Some(true) {
                         (Some(uid), Some("explicit"))
                     } else {
                         (None, Some("unmatched"))
                     }
-                } else if let Some(name) = item.original_recorder_name.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                } else if let Some(name) = item
+                    .original_recorder_name
+                    .as_deref()
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty())
+                {
                     let rows: Vec<(Uuid, bool)> = sqlx::query_as(
                         r#"SELECT id, is_active FROM users WHERE display_name = $1"#,
                     )
@@ -128,7 +139,14 @@ impl LegacyImportService {
                     .await?;
                     match rows.len() {
                         0 => (None, Some("unmatched")),
-                        1 => (Some(rows[0].0), Some(if rows[0].1 { "matched_active" } else { "matched_disabled" })),
+                        1 => (
+                            Some(rows[0].0),
+                            Some(if rows[0].1 {
+                                "matched_active"
+                            } else {
+                                "matched_disabled"
+                            }),
+                        ),
                         _ => (None, Some("ambiguous")),
                     }
                 } else {
@@ -137,15 +155,24 @@ impl LegacyImportService {
                 // Validate anesthesia time formats for observations
                 let mut warnings: Vec<String> = Vec::new();
                 if item.kind == "observation" {
-                    if let Some(t) = item.payload.get("anesthesia_start_time").and_then(|v| v.as_str()) {
+                    if let Some(t) = item
+                        .payload
+                        .get("anesthesia_start_time")
+                        .and_then(|v| v.as_str())
+                    {
                         let ok = chrono::NaiveTime::parse_from_str(t, "%H:%M:%S")
                             .or_else(|_| chrono::NaiveTime::parse_from_str(t, "%H:%M"))
                             .is_ok();
                         if !ok {
-                            warnings.push(format!("WARN_INVALID_TIME anesthesia_start_time='{}'", t));
+                            warnings
+                                .push(format!("WARN_INVALID_TIME anesthesia_start_time='{}'", t));
                         }
                     }
-                    if let Some(t) = item.payload.get("anesthesia_end_time").and_then(|v| v.as_str()) {
+                    if let Some(t) = item
+                        .payload
+                        .get("anesthesia_end_time")
+                        .and_then(|v| v.as_str())
+                    {
                         let ok = chrono::NaiveTime::parse_from_str(t, "%H:%M:%S")
                             .or_else(|_| chrono::NaiveTime::parse_from_str(t, "%H:%M"))
                             .is_ok();
@@ -183,7 +210,10 @@ impl LegacyImportService {
         if let Some(tx) = maybe_tx {
             tx.commit().await?;
         }
-        Ok(IngestPigRecordsResponse { animal_id: Some(animal.id), results })
+        Ok(IngestPigRecordsResponse {
+            animal_id: Some(animal.id),
+            results,
+        })
     }
 
     async fn match_animal(
@@ -193,7 +223,11 @@ impl LegacyImportService {
         iacuc_no: Option<&str>,
     ) -> Result<Option<Animal>> {
         // Require ear_tag and birth_date per spec; if absent return None
-        let Some(et) = ear_tag.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) else {
+        let Some(et) = ear_tag
+            .as_ref()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+        else {
             return Ok(None);
         };
         let Some(bd) = birth_date else {
@@ -228,7 +262,7 @@ impl LegacyImportService {
         };
         Ok(match rows.len() {
             0 => None,
-            1 => Some(rows.into_iter().next().unwrap()),
+            1 => rows.into_iter().next(),
             _ => None, // ambiguous: caller will 422 the whole request
         })
     }
@@ -247,13 +281,9 @@ impl LegacyImportService {
 
         // Determine mapped record_type for observations; '-' becomes observation
         let mapped_type = if item.kind == "observation" {
-            match item
-                .record_type
-                .as_deref()
-                .or(item.legacy_record_type_text.as_deref().map(|s| if s.trim() == "-" { "observation" } else { "observation" }))
-            {
+            match item.record_type.as_deref() {
                 Some(rt @ ("abnormal" | "experiment" | "observation")) => Some(rt.to_string()),
-                _ => Some("observation".to_string()),
+                _ => Some("observation".to_string()), // default to observation; '-' already tracked in legacy_record_type_text
             }
         } else {
             None
@@ -261,24 +291,39 @@ impl LegacyImportService {
 
         // Duplicate detection against formal tables (simple heuristics per type)
         let is_duplicate = Self::detect_duplicate(pool, animal.id, item).await?;
-        let initial_status = if is_duplicate { "skipped_duplicate" } else { "pending" };
+        let initial_status = if is_duplicate {
+            "skipped_duplicate"
+        } else {
+            "pending"
+        };
 
         // Resolve recorder mapping: prefer explicit mapped_user_id; else match by display_name
         let (resolved_user_id, resolved_status) = if let Some(uid) = item.mapped_user_id {
             (Some(uid), Some("explicit"))
-        } else if let Some(name) = item.original_recorder_name.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        } else if let Some(name) = item
+            .original_recorder_name
+            .as_deref()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+        {
             // Detect ambiguity: multiple users with the same display_name should be treated as unmatched
-            let rows: Vec<(Uuid, bool)> = sqlx::query_as(
-                r#"SELECT id, is_active FROM users WHERE display_name = $1"#,
-            )
-            .bind(name)
-            .fetch_all(pool)
-            .await?;
+            let rows: Vec<(Uuid, bool)> =
+                sqlx::query_as(r#"SELECT id, is_active FROM users WHERE display_name = $1"#)
+                    .bind(name)
+                    .fetch_all(pool)
+                    .await?;
             match rows.len() {
                 0 => (None, Some("unmatched")),
                 1 => {
                     let (id, is_active) = rows[0];
-                    (Some(id), Some(if is_active { "matched_active" } else { "matched_disabled" }))
+                    (
+                        Some(id),
+                        Some(if is_active {
+                            "matched_active"
+                        } else {
+                            "matched_disabled"
+                        }),
+                    )
                 }
                 _ => (None, Some("ambiguous")),
             }
@@ -318,8 +363,14 @@ impl LegacyImportService {
                 .bind(uid)
                 .fetch_one(&mut **tx)
                 .await?;
-            if ok { Some(uid) } else { None }
-        } else { None };
+            if ok {
+                Some(uid)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
 
         let (row_id, status): (Uuid, String) = sqlx::query_as::<_, (Uuid, String)>(
             r#"
@@ -378,7 +429,11 @@ impl LegacyImportService {
             ActivityLogEntry {
                 event_category: "legacy_import",
                 event_type: "STAGE_RECORD",
-                entity: Some(AuditEntity::new("legacy_import_record", row_id, &item.legacy_record_id)),
+                entity: Some(AuditEntity::new(
+                    "legacy_import_record",
+                    row_id,
+                    &item.legacy_record_id,
+                )),
                 data_diff: Some({
                     let mut dd = DataDiff::empty();
                     dd.after = Some(serde_json::json!({
@@ -413,12 +468,18 @@ impl LegacyImportService {
         Ok((result_status.to_string(), None, Some(msg)))
     }
 
-    async fn detect_duplicate(pool: &PgPool, animal_id: Uuid, item: &LegacyImportItem) -> Result<bool> {
+    async fn detect_duplicate(
+        pool: &PgPool,
+        animal_id: Uuid,
+        item: &LegacyImportItem,
+    ) -> Result<bool> {
         match item.kind.as_str() {
             "observation" => {
-                if let (Some(date), Some(content), Some(rt)) =
-                    (item.event_date, item.content.as_deref(), item.record_type.as_deref().or(Some("observation")))
-                {
+                if let (Some(date), Some(content), Some(rt)) = (
+                    item.event_date,
+                    item.content.as_deref(),
+                    item.record_type.as_deref().or(Some("observation")),
+                ) {
                     let exists: Option<Uuid> = sqlx::query_scalar(
                         r#"
                         SELECT id FROM animal_observations
@@ -439,9 +500,10 @@ impl LegacyImportService {
                 }
             }
             "weight" => {
-                if let (Some(date), Some(weight_val)) =
-                    (item.event_date, item.payload.get("weight").and_then(|v| v.as_str()))
-                {
+                if let (Some(date), Some(weight_val)) = (
+                    item.event_date,
+                    item.payload.get("weight").and_then(|v| v.as_str()),
+                ) {
                     // weight provided as string in payload; compare text equality after cast
                     let exists: Option<Uuid> = sqlx::query_scalar(
                         r#"
@@ -462,8 +524,16 @@ impl LegacyImportService {
             }
             "vaccine" => {
                 if let Some(date) = item.event_date {
-                    let vaccine = item.payload.get("vaccine").and_then(|v| v.as_str()).unwrap_or_default();
-                    let deworm = item.payload.get("deworming_dose").and_then(|v| v.as_str()).unwrap_or_default();
+                    let vaccine = item
+                        .payload
+                        .get("vaccine")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or_default();
+                    let deworm = item
+                        .payload
+                        .get("deworming_dose")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or_default();
                     let exists: Option<Uuid> = sqlx::query_scalar(
                         r#"
                         SELECT id FROM animal_vaccinations
@@ -485,7 +555,11 @@ impl LegacyImportService {
             }
             "surgery" => {
                 if let Some(date) = item.event_date {
-                    let site = item.payload.get("surgery_site").and_then(|v| v.as_str()).unwrap_or_default();
+                    let site = item
+                        .payload
+                        .get("surgery_site")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or_default();
                     let exists: Option<Uuid> = sqlx::query_scalar(
                         r#"
                         SELECT id FROM animal_surgeries
@@ -550,7 +624,9 @@ impl LegacyImportService {
             has_perm
         };
         if !allowed {
-            return Err(AppError::Forbidden("無權核准匯入（需 animal.legacy_import.approve）".into()));
+            return Err(AppError::Forbidden(
+                "無權核准匯入（需 animal.legacy_import.approve）".into(),
+            ));
         }
         // Batch size limit (safety)
         let (pending_count,): (i64,) = sqlx::query_as(
@@ -560,7 +636,9 @@ impl LegacyImportService {
         .fetch_one(pool)
         .await?;
         if pending_count > 5000 {
-            return Err(AppError::BusinessRule("批次過大，請分批核准（> 5000）".into()));
+            return Err(AppError::BusinessRule(
+                "批次過大，請分批核准（> 5000）".into(),
+            ));
         }
         let mut tx = pool.begin().await?;
 
@@ -594,18 +672,35 @@ impl LegacyImportService {
                         .get("event_date")
                         .and_then(|v| v.as_str())
                         .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
-                    let content = r.payload.get("content").and_then(|v| v.as_str()).unwrap_or_default();
-                    let record_type = r
-                        .record_type
-                        .as_deref()
-                        .unwrap_or("observation");
+                    let content = r
+                        .payload
+                        .get("content")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or_default();
+                    let record_type = r.record_type.as_deref().unwrap_or("observation");
                     // Compose remark: legacy remark + optional extras without any prefix tags
                     let mut remark_parts: Vec<String> = Vec::new();
-                    if let Some(s) = r.payload.get("remark").and_then(|v| v.as_str()).map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                    if let Some(s) = r
+                        .payload
+                        .get("remark")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.trim())
+                        .filter(|s| !s.is_empty())
+                    {
                         remark_parts.push(s.to_string());
                     }
-                    for key in ["vet_advice_text", "care_medication_text", "pain_assessment_text"] {
-                        if let Some(s) = r.payload.get(key).and_then(|v| v.as_str()).map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                    for key in [
+                        "vet_advice_text",
+                        "care_medication_text",
+                        "pain_assessment_text",
+                    ] {
+                        if let Some(s) = r
+                            .payload
+                            .get(key)
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.trim())
+                            .filter(|s| !s.is_empty())
+                        {
                             remark_parts.push(s.to_string());
                         }
                     }
@@ -618,8 +713,8 @@ impl LegacyImportService {
                         // equipment_used mapping: accept string or array-of-strings
                         let equipment_used_json: Option<serde_json::Value> =
                             if let Some(eq) = r.payload.get("equipment_used") {
-                                if eq.is_string() {
-                                    Some(serde_json::json!([eq.as_str().unwrap()]))
+                                if let Some(s) = eq.as_str() {
+                                    Some(serde_json::json!([s]))
                                 } else if eq.is_array() {
                                     Some(eq.clone())
                                 } else {
@@ -637,7 +732,8 @@ impl LegacyImportService {
                                 None
                             };
                         // anesthesia start/end from HH:MM or HH:MM:SS with event_date in +08:00
-                        let tz = chrono::FixedOffset::east_opt(8 * 3600).unwrap();
+                        let tz = chrono::FixedOffset::east_opt(8 * 3600)
+                            .unwrap_or_else(|| chrono::Utc.fix());
                         // helper for parsing both formats
                         fn parse_hhmm_or_hhmmss(s: &str) -> Option<chrono::NaiveTime> {
                             chrono::NaiveTime::parse_from_str(s, "%H:%M:%S")
@@ -648,30 +744,32 @@ impl LegacyImportService {
                             .payload
                             .get("anesthesia_start_time")
                             .and_then(|v| v.as_str())
-                            .map(|t| {
-                                match parse_hhmm_or_hhmmss(t) {
-                                    Some(nt) => {
-                                        let ndt = ed.and_time(nt);
-                                        let zdt = tz.from_local_datetime(&ndt).single().map(|dt| dt.with_timezone(&chrono::Utc));
-                                        (zdt, false)
-                                    }
-                                    None => (None, true),
+                            .map(|t| match parse_hhmm_or_hhmmss(t) {
+                                Some(nt) => {
+                                    let ndt = ed.and_time(nt);
+                                    let zdt = tz
+                                        .from_local_datetime(&ndt)
+                                        .single()
+                                        .map(|dt| dt.with_timezone(&chrono::Utc));
+                                    (zdt, false)
                                 }
+                                None => (None, true),
                             })
                             .unwrap_or((None, false));
                         let (anesthesia_end, end_err) = r
                             .payload
                             .get("anesthesia_end_time")
                             .and_then(|v| v.as_str())
-                            .map(|t| {
-                                match parse_hhmm_or_hhmmss(t) {
-                                    Some(nt) => {
-                                        let ndt = ed.and_time(nt);
-                                        let zdt = tz.from_local_datetime(&ndt).single().map(|dt| dt.with_timezone(&chrono::Utc));
-                                        (zdt, false)
-                                    }
-                                    None => (None, true),
+                            .map(|t| match parse_hhmm_or_hhmmss(t) {
+                                Some(nt) => {
+                                    let ndt = ed.and_time(nt);
+                                    let zdt = tz
+                                        .from_local_datetime(&ndt)
+                                        .single()
+                                        .map(|dt| dt.with_timezone(&chrono::Utc));
+                                    (zdt, false)
                                 }
+                                None => (None, true),
                             })
                             .unwrap_or((None, false));
                         // If invalid time strings present, mark conflict (do not silently drop)
@@ -808,17 +906,23 @@ impl LegacyImportService {
                         .and_then(|v| v.as_str())
                         .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
                     {
-                    let site = r
-                        .payload
-                        .get("surgery_site")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.trim())
-                        .filter(|s| !s.is_empty())
-                        .unwrap_or("未記載");
+                        let site = r
+                            .payload
+                            .get("surgery_site")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.trim())
+                            .filter(|s| !s.is_empty())
+                            .unwrap_or("未記載");
                         // Respiration rate: per owner update 2026-10-31 — NEVER import into numeric column; keep original text in remark
                         // Combine any legacy remark + respiration text
                         let mut remark_parts: Vec<String> = Vec::new();
-                        if let Some(s) = r.payload.get("remark").and_then(|v| v.as_str()).map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                        if let Some(s) = r
+                            .payload
+                            .get("remark")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.trim())
+                            .filter(|s| !s.is_empty())
+                        {
                             remark_parts.push(s.to_string());
                         }
                         if let Some(rt) = r
@@ -869,7 +973,12 @@ impl LegacyImportService {
                                         .collect::<Vec<_>>()
                                         .join(", ")
                                 })
-                                .or_else(|| r.payload.get("positioning").and_then(|v| v.as_str()).map(|s| s.trim().to_string()));
+                                .or_else(|| {
+                                    r.payload
+                                        .get("positioning")
+                                        .and_then(|v| v.as_str())
+                                        .map(|s| s.trim().to_string())
+                                });
                             let positioning = {
                                 let mut base = positioning.unwrap_or_default();
                                 if let Some(other) = r
@@ -885,7 +994,11 @@ impl LegacyImportService {
                                         base = format!("{}, {}", base, other);
                                     }
                                 }
-                                if base.is_empty() { None } else { Some(base) }
+                                if base.is_empty() {
+                                    None
+                                } else {
+                                    Some(base)
+                                }
                             };
                             let inserted: AnimalSurgery = sqlx::query_as(
                                 r#"
@@ -941,11 +1054,12 @@ impl LegacyImportService {
                 "sacrifice" => {
                     // animal_sacrifices unique per animal; map fields and skip duplicates at approval time
                     // Skip if sacrifice already exists for this animal (report as skipped_duplicate)
-                    let exists: Option<Uuid> =
-                        sqlx::query_scalar("SELECT id FROM animal_sacrifices WHERE animal_id = $1 LIMIT 1")
-                            .bind(animal_id)
-                            .fetch_optional(&mut *tx)
-                            .await?;
+                    let exists: Option<Uuid> = sqlx::query_scalar(
+                        "SELECT id FROM animal_sacrifices WHERE animal_id = $1 LIMIT 1",
+                    )
+                    .bind(animal_id)
+                    .fetch_optional(&mut *tx)
+                    .await?;
                     if exists.is_some() {
                         if !dry_run {
                             sqlx::query("UPDATE legacy_import_records SET status = 'skipped_duplicate' WHERE id = $1")
@@ -966,25 +1080,54 @@ impl LegacyImportService {
                             .get("event_date")
                             .and_then(|v| v.as_str())
                             .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
-                        let zoletil_dose = r.payload.get("zoletil_dose").and_then(|v| v.as_str()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-                        let method_electrocution = r.payload.get("method_electrocution").and_then(|v| v.as_bool()).unwrap_or(false);
-                        let method_bloodletting = r.payload.get("method_bloodletting").and_then(|v| v.as_bool()).unwrap_or(false);
-                        let method_other = r.payload.get("method_other").and_then(|v| v.as_str()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-                        let sampling = r.payload.get("sampling").and_then(|v| v.as_str()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-                        let sampling_other = r.payload.get("sampling_other").and_then(|v| v.as_str()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-                        let blood_volume_ml = r
+                        let zoletil_dose = r
                             .payload
-                            .get("blood_volume_ml")
-                            .and_then(|v| {
-                                if let Some(s) = v.as_str() {
-                                    rust_decimal::Decimal::from_str_exact(s).ok()
-                                } else if let Some(n) = v.as_f64() {
-                                    rust_decimal::Decimal::from_f64(n)
-                                } else {
-                                    None
-                                }
-                            });
-                        let confirmed_sacrifice = r.payload.get("confirmed_sacrifice").and_then(|v| v.as_bool()).unwrap_or(true);
+                            .get("zoletil_dose")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.trim().to_string())
+                            .filter(|s| !s.is_empty());
+                        let method_electrocution = r
+                            .payload
+                            .get("method_electrocution")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false);
+                        let method_bloodletting = r
+                            .payload
+                            .get("method_bloodletting")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false);
+                        let method_other = r
+                            .payload
+                            .get("method_other")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.trim().to_string())
+                            .filter(|s| !s.is_empty());
+                        let sampling = r
+                            .payload
+                            .get("sampling")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.trim().to_string())
+                            .filter(|s| !s.is_empty());
+                        let sampling_other = r
+                            .payload
+                            .get("sampling_other")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.trim().to_string())
+                            .filter(|s| !s.is_empty());
+                        let blood_volume_ml = r.payload.get("blood_volume_ml").and_then(|v| {
+                            if let Some(s) = v.as_str() {
+                                rust_decimal::Decimal::from_str_exact(s).ok()
+                            } else if let Some(n) = v.as_f64() {
+                                rust_decimal::Decimal::from_f64(n)
+                            } else {
+                                None
+                            }
+                        });
+                        let confirmed_sacrifice = r
+                            .payload
+                            .get("confirmed_sacrifice")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(true);
                         if !dry_run {
                             let inserted: AnimalSacrifice = sqlx::query_as(
                                 r#"
@@ -1149,4 +1292,3 @@ impl LegacyImportService {
         })
     }
 }
-

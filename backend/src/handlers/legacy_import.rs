@@ -4,8 +4,8 @@ use uuid::Uuid;
 use crate::{
     middleware::CurrentUser,
     models::{
-        CreateImportBatchRequest, ImportBatchReport, IngestPigRecordsRequest, LegacyImportBatch,
-        IngestPigRecordsResponse,
+        CreateImportBatchRequest, ImportBatchReport, IngestPigRecordsRequest,
+        IngestPigRecordsResponse, LegacyImportBatch,
     },
     require_permission,
     services::legacy_import::LegacyImportService,
@@ -47,4 +47,3 @@ pub async fn get_batch_report(
     let report = LegacyImportService::get_batch_report(&state.db, batch_id).await?;
     Ok(Json(report))
 }
-

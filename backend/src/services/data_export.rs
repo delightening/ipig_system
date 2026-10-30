@@ -280,6 +280,9 @@ const INTENTIONALLY_EXCLUDED_TABLES: &[&str] = &[
     "refresh_tokens",
     "password_reset_tokens",
     "_sqlx_migrations",
+    // One-time legacy import staging tables: not business data, intentionally excluded from full export
+    "legacy_import_batches",
+    "legacy_import_records",
     // R30-27c：bridge session 為 5min TTL 短期 token，匯出後恢復狀態錯亂、且 plaintext
     // payload 含密碼即便 hash 也屬敏感；不視為業務資料。
     "signature_bridge_sessions",
