@@ -34,7 +34,7 @@ async fn staging_idempotency_and_duplicate_skipping_and_approval_created_at() {
     let created = common::create_animal_with_free_ear_tag(&app, &admin_token, |ear_tag| {
         serde_json::json!({
             "ear_tag": ear_tag,
-            "breed": "mini_pig",
+            "breed": "minipig",
             "gender": "male",
             "entry_date": "2025-01-01",
             "entry_weight": 20.0,
@@ -292,7 +292,7 @@ async fn surgery_respiration_rate_is_never_imported_numeric_but_text_in_remark()
     let created = common::create_animal_with_free_ear_tag(&app, &admin_token, |ear_tag| {
         serde_json::json!({
             "ear_tag": ear_tag,
-            "breed": "mini_pig",
+            "breed": "minipig",
             "gender": "male",
             "entry_date": "2025-02-02",
             "entry_weight": 18.5,
@@ -391,7 +391,7 @@ async fn surgery_approval_maps_fields_and_blank_site_defaults() {
     let created = common::create_animal_with_free_ear_tag(&app, &admin_token, |ear_tag| {
         serde_json::json!({
             "ear_tag": ear_tag,
-            "breed": "mini_pig",
+            "breed": "minipig",
             "gender": "female",
             "entry_date": "2025-03-03",
             "entry_weight": 19.0,
@@ -490,7 +490,7 @@ async fn weight_and_vaccine_and_sacrifice_approval_and_duplicate_sacrifice() {
     let created = common::create_animal_with_free_ear_tag(&app, &admin_token, |ear_tag| {
         serde_json::json!({
             "ear_tag": ear_tag,
-            "breed": "mini_pig",
+            "breed": "minipig",
             "gender": "male",
             "entry_date": "2025-04-04",
             "entry_weight": 21.0,
@@ -673,7 +673,7 @@ async fn ingest_dry_run_reports_pending_and_writes_nothing() {
     let created = common::create_animal_with_free_ear_tag(&app, &admin_token, |ear_tag| {
         serde_json::json!({
             "ear_tag": ear_tag,
-            "breed": "mini_pig",
+            "breed": "minipig",
             "gender": "male",
             "entry_date": "2025-05-05",
             "entry_weight": 20.5,
@@ -736,7 +736,7 @@ async fn changed_resend_after_approval_reports_conflict_and_does_not_overwrite()
     let created = common::create_animal_with_free_ear_tag(&app, &admin_token, |ear_tag| {
         serde_json::json!({
             "ear_tag": ear_tag,
-            "breed": "mini_pig",
+            "breed": "minipig",
             "gender": "female",
             "entry_date": "2025-06-06",
             "entry_weight": 23.0,

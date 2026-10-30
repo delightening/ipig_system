@@ -41,16 +41,33 @@ async fn main() -> anyhow::Result<()> {
         .actor_email
         .or_else(|| std::env::var("ADMIN_EMAIL").ok())
         .unwrap_or_else(|| "admin@ipigsystem.asia".to_string());
-    let actor_user: Option<(Uuid, bool)> = sqlx::query_as(
-        r#"SELECT id, is_admin FROM users WHERE lower(email) = lower($1) AND is_active = true LIMIT 1"#,
+    let actor_user: Option<(Uuid,)> = sqlx::query_as(
+        r#"SELECT id FROM users WHERE lower(email) = lower($1) AND is_active = true LIMIT 1"#,
     )
     .bind(&actor_email)
     .fetch_optional(&pool)
     .await?;
-    let (actor_id, is_admin) = actor_user
+    let (actor_id,) = actor_user
         .ok_or_else(|| anyhow::anyhow!(format!("Actor user not found: {}", actor_email)))?;
 
     // Permission check: admin short-circuit or explicit permission
+    // Determine admin via roles membership (SYSTEM_ADMIN or legacy 'admin')
+    let is_admin: bool = sqlx::query_scalar(
+        r#"
+        SELECT EXISTS (
+          SELECT 1 FROM user_roles ur
+          JOIN roles r ON r.id = ur.role_id
+          WHERE ur.user_id = $1 AND r.is_active = true
+            AND r.code IN ($2, $3)
+        )
+        "#,
+    )
+    .bind(actor_id)
+    .bind(erp_backend::constants::ROLE_SYSTEM_ADMIN)
+    .bind(erp_backend::constants::ROLE_ADMIN_LEGACY)
+    .fetch_one(&pool)
+    .await
+    .unwrap_or(false);
     if !is_admin {
         let has_perm: Option<bool> = sqlx::query_scalar(
             r#"

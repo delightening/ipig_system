@@ -603,11 +603,8 @@ impl LegacyImportService {
     ) -> Result<(i64, i64, i64)> {
         // Permission gate: require animal.legacy_import.approve or admin
         let actor_user = actor.require_user()?;
-        let is_admin: Option<bool> = sqlx::query_scalar("SELECT is_admin FROM users WHERE id = $1")
-            .bind(actor_user.id)
-            .fetch_optional(pool)
-            .await?;
-        let allowed = if is_admin.unwrap_or(false) {
+        let is_admin = actor_user.is_admin();
+        let allowed = if is_admin {
             true
         } else {
             let has_perm: bool = sqlx::query_scalar(
