@@ -15,9 +15,9 @@ struct Args {
     database_url: String,
     /// Batch ID to approve
     batch_id: String,
-    /// Import user email whose id will be used as created_by; optional (created_by NULL when omitted)
+    /// Import user email whose id will be used as created_by when recorder is unmatched/ambiguous (required)
     #[arg(long)]
-    import_user_email: Option<String>,
+    import_user_email: String,
     /// Actor email for audit trail and permission gate; defaults to ADMIN_EMAIL env or admin@ipigsystem.asia
     #[arg(long)]
     actor_email: Option<String>,
@@ -65,19 +65,21 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let import_user_id: Option<Uuid> = if let Some(email) = args.import_user_email {
+    // Resolve import user id (accept disabled accounts)
+    let import_user_id: Option<Uuid> = {
         let uid: Option<Uuid> = sqlx::query_scalar(
-            "SELECT id FROM users WHERE lower(email) = lower($1) AND is_active = true LIMIT 1",
+            "SELECT id FROM users WHERE lower(email) = lower($1) LIMIT 1",
         )
-        .bind(&email)
+        .bind(&args.import_user_email)
         .fetch_optional(&pool)
         .await?;
         if uid.is_none() {
-            eprintln!("warning: import_user_email not found: {}; created_by will be NULL", email);
+            return Err(anyhow::anyhow!(format!(
+                "import user not found: {}",
+                args.import_user_email
+            )));
         }
         uid
-    } else {
-        None
     };
 
     // Run approval

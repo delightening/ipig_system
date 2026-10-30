@@ -21,6 +21,7 @@ pub struct LegacyImportRecord {
     pub record_kind: String, // observation/surgery/weight/vaccine/sacrifice
     pub legacy_record_id: String,
     pub legacy_pig_system_id: Option<i32>,
+    pub matched_animal_id: Option<Uuid>,
     pub legacy_record_type_text: Option<String>,
     pub original_recorder_name: Option<String>,
     pub mapped_user_id: Option<Uuid>,
@@ -87,7 +88,7 @@ pub struct IngestPigRecordsResponse {
     pub results: Vec<IngestPigRecordsResultItem>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct ImportBatchReport {
     pub batch_id: Uuid,
     pub pending: i64,
@@ -96,5 +97,17 @@ pub struct ImportBatchReport {
     pub skipped_duplicate: i64,
     pub conflict: i64,
     pub dash_type_records: Vec<Uuid>, // legacy_import_records.id having legacy_record_type_text == "-"
+    pub skipped_duplicate_rows: Vec<LegacyReportRow>,
+    pub conflict_rows: Vec<LegacyReportRow>,
+    pub unmatched_recorder_rows: Vec<LegacyReportRow>,
+    pub disabled_account_rows: Vec<LegacyReportRow>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct LegacyReportRow {
+    pub id: Uuid,
+    pub legacy_record_id: String,
+    pub record_kind: String,
+    pub status: String,
 }
 

@@ -1,7 +1,9 @@
 -- 020_legacy_import_staging.sql
 -- Staging tables for one-time legacy import from ipig.pigmodel.asia
 -- Up: create legacy_import_batches and legacy_import_records
--- Down: drop the two tables
+-- Down（手動）：
+--   DROP TABLE IF EXISTS legacy_import_records;
+--   DROP TABLE IF EXISTS legacy_import_batches;
 
 -- Up
 BEGIN;
@@ -23,6 +25,7 @@ CREATE TABLE IF NOT EXISTS legacy_import_records (
     record_kind             text NOT NULL CHECK (record_kind IN ('observation','surgery','weight','vaccine','sacrifice')),
     legacy_record_id        text NOT NULL,
     legacy_pig_system_id    integer,
+    matched_animal_id       uuid NULL REFERENCES animals(id),
     legacy_record_type_text text, -- literal label from old system (e.g. '-', '觀察記錄')
     original_recorder_name  text,
     mapped_user_id          uuid NULL REFERENCES users(id),
@@ -52,9 +55,9 @@ COMMENT ON COLUMN legacy_import_records.target_record_id IS 'UUID of the created
 
 COMMIT;
 
--- Down
-BEGIN;
-DROP TABLE IF EXISTS legacy_import_records;
-DROP TABLE IF EXISTS legacy_import_batches;
-COMMIT;
+-- Down（手動）：
+-- BEGIN;
+-- DROP TABLE IF EXISTS legacy_import_records;
+-- DROP TABLE IF EXISTS legacy_import_batches;
+-- COMMIT;
 

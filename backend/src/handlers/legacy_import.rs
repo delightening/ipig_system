@@ -43,7 +43,7 @@ pub async fn get_batch_report(
     Extension(current_user): Extension<CurrentUser>,
     Path(batch_id): Path<Uuid>,
 ) -> Result<Json<ImportBatchReport>> {
-    require_permission!(current_user, "animal.legacy_import.write");
+    require_permission!(current_user, "animal.legacy_import.approve");
     let report = LegacyImportService::get_batch_report(&state.db, batch_id).await?;
     Ok(Json(report))
 }

@@ -1,4 +1,5 @@
 use chrono::NaiveDate;
+use chrono::TimeZone;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -94,14 +95,45 @@ impl LegacyImportService {
 
         let mut results = Vec::with_capacity(req.records.len());
         for item in &req.records {
-            let (status, error_code, message) =
-                Self::stage_one_record(pool, &animal, batch_id, user.id, item).await?;
+            let res = if req.dry_run {
+                // Simulate staging without writes
+                let duplicate = Self::detect_duplicate(pool, animal.id, item).await?;
+                let status = if duplicate { "skipped_duplicate".to_string() } else { "created".to_string() };
+                // recorder mapping preview
+                let (resolved_user_id, resolved_status) = if let Some(uid) = item.mapped_user_id {
+                    (Some(uid), Some("explicit"))
+                } else if let Some(name) = item.original_recorder_name.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                    let rows: Vec<(Uuid, bool)> = sqlx::query_as(
+                        r#"SELECT id, is_active FROM users WHERE display_name = $1"#,
+                    )
+                    .bind(name)
+                    .fetch_all(pool)
+                    .await?;
+                    match rows.len() {
+                        0 => (None, Some("unmatched")),
+                        1 => (Some(rows[0].0), Some(if rows[0].1 { "matched_active" } else { "matched_disabled" })),
+                        _ => (None, Some("ambiguous")),
+                    }
+                } else {
+                    (None, Some("unmatched"))
+                };
+                let msg = format!(
+                    "recorder_map={}; mapped_user_id={}",
+                    resolved_status.unwrap_or("unknown"),
+                    resolved_user_id
+                        .map(|u| u.to_string())
+                        .unwrap_or_else(|| "import_user".to_string())
+                );
+                (status, None, Some(msg))
+            } else {
+                Self::stage_one_record(pool, &animal, batch_id, user.id, item).await?
+            };
             results.push(IngestPigRecordsResultItem {
                 legacy_record_id: item.legacy_record_id.clone(),
                 kind: item.kind.clone(),
-                status,
-                error_code,
-                message,
+                status: res.0,
+                error_code: res.1,
+                message: res.2,
             });
         }
         Ok(IngestPigRecordsResponse { animal_id: Some(animal.id), results })
@@ -202,24 +234,43 @@ impl LegacyImportService {
             (None, Some("unmatched"))
         };
 
-        // Upsert into staging
+        // Existing row check for idempotency and conflict (no overwrite of approved rows)
+        let existing: Option<(String, serde_json::Value, String)> = sqlx::query_as(
+            r#"SELECT status, payload, record_kind FROM legacy_import_records
+               WHERE legacy_source = $1 AND record_kind = $2 AND legacy_record_id = $3"#,
+        )
+        .bind(legacy_source)
+        .bind(&item.kind)
+        .bind(&item.legacy_record_id)
+        .fetch_optional(pool)
+        .await?;
+        if let Some(existing) = existing {
+            let (exist_status, exist_payload, _kind) = existing;
+            if exist_status == "approved" && exist_payload != item.payload {
+                // Do not overwrite approved rows; report conflict, write nothing
+                let msg = format!(
+                    "recorder_map={}; mapped_user_id={}",
+                    resolved_status.unwrap_or("unknown"),
+                    resolved_user_id
+                        .map(|u| u.to_string())
+                        .unwrap_or_else(|| "import_user".to_string())
+                );
+                return Ok(("conflict".to_string(), None, Some(msg)));
+            }
+        }
+
+        // Upsert into staging (no overwrite of payload; mark conflict when changed)
         let (row_id, status): (Uuid, String) = sqlx::query_as::<_, (Uuid, String)>(
             r#"
             INSERT INTO legacy_import_records (
                 legacy_source, record_kind, legacy_record_id, legacy_pig_system_id,
-                legacy_record_type_text, original_recorder_name, mapped_user_id,
+                matched_animal_id, legacy_record_type_text, original_recorder_name, mapped_user_id,
                 legacy_created_at, record_type, status, payload, import_batch_id, created_at
             )
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW())
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())
             ON CONFLICT (legacy_source, record_kind, legacy_record_id)
             DO UPDATE SET
-                legacy_pig_system_id = EXCLUDED.legacy_pig_system_id,
-                legacy_record_type_text = EXCLUDED.legacy_record_type_text,
-                original_recorder_name = EXCLUDED.original_recorder_name,
-                mapped_user_id = EXCLUDED.mapped_user_id,
-                legacy_created_at = EXCLUDED.legacy_created_at,
-                record_type = EXCLUDED.record_type,
-                payload = EXCLUDED.payload,
+                -- do not overwrite payload or matched animal; only set conflict status when payload changed
                 status = CASE 
                     WHEN legacy_import_records.payload = EXCLUDED.payload THEN legacy_import_records.status
                     ELSE 'conflict'
@@ -231,6 +282,7 @@ impl LegacyImportService {
         .bind(&item.kind)
         .bind(&item.legacy_record_id)
         .bind(None::<i32>)
+        .bind(Some(animal.id))
         .bind(&item.legacy_record_type_text)
         .bind(&item.original_recorder_name)
         .bind(resolved_user_id)
@@ -407,7 +459,42 @@ impl LegacyImportService {
         import_user_id: Option<Uuid>,
         dry_run: bool,
     ) -> Result<(i64, i64, i64)> {
-        // Permission gate is checked at the caller/CLI; here we just execute.
+        // Permission gate: require animal.legacy_import.approve or admin
+        let actor_user = actor.require_user()?;
+        let is_admin: Option<bool> = sqlx::query_scalar("SELECT is_admin FROM users WHERE id = $1")
+            .bind(actor_user.id)
+            .fetch_optional(pool)
+            .await?;
+        let allowed = if is_admin.unwrap_or(false) {
+            true
+        } else {
+            let has_perm: bool = sqlx::query_scalar(
+                r#"SELECT EXISTS(
+                    SELECT 1 FROM role_permissions rp
+                    JOIN user_roles ur ON ur.role_id = rp.role_id
+                    JOIN permissions p ON p.id = rp.permission_id
+                    WHERE ur.user_id = $1 AND p.code = 'animal.legacy_import.approve'
+                )"#,
+            )
+            .bind(actor_user.id)
+            .fetch_one(pool)
+            .await
+            .unwrap_or(false);
+            has_perm
+        };
+        if !allowed {
+            return Err(AppError::Forbidden("無權核准匯入（需 animal.legacy_import.approve）".into()));
+        }
+        // Batch size limit (safety)
+        let (pending_count,): (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM legacy_import_records WHERE import_batch_id = $1 AND status = 'pending'",
+        )
+        .bind(batch_id)
+        .fetch_one(pool)
+        .await?;
+        if pending_count > 5000 {
+            return Err(AppError::BusinessRule("批次過大，請分批核准（> 5000）".into()));
+        }
         let mut tx = pool.begin().await?;
 
         // Load all pending rows
@@ -424,19 +511,11 @@ impl LegacyImportService {
 
         for r in &rows {
             // Extract minimal fields
-            let animal_id: Uuid = match r
-                .payload
-                .get("animal_id")
-                .and_then(|v| v.as_str())
-                .and_then(|s| Uuid::parse_str(s).ok())
-            {
-                Some(id) => id,
-                None => {
-                    // Fallback: caller may not include animal_id in payload; attempt to join via animals table by ear_tag/birth_date if provided
-                    // For simplicity, require payload.animal_id; otherwise skip with conflict
-                    conflicts += 1;
-                    continue;
-                }
+            let animal_id: Uuid = if let Some(aid) = r.matched_animal_id {
+                aid
+            } else {
+                conflicts += 1;
+                continue;
             };
             let created_by = r.mapped_user_id.or(import_user_id);
             let legacy_name = r.original_recorder_name.clone();
@@ -469,6 +548,45 @@ impl LegacyImportService {
                         Some(remark_parts.join("\n"))
                     };
                     if let Some(ed) = event_date {
+                        // equipment_used mapping: accept string or array-of-strings
+                        let equipment_used_json: Option<serde_json::Value> =
+                            if let Some(eq) = r.payload.get("equipment_used") {
+                                if eq.is_string() {
+                                    Some(serde_json::json!([eq.as_str().unwrap()]))
+                                } else if eq.is_array() {
+                                    Some(eq.clone())
+                                } else {
+                                    None
+                                }
+                            } else if let Some(eq_text) =
+                                r.payload.get("equipment_text").and_then(|v| v.as_str())
+                            {
+                                if eq_text.trim() == "-" || eq_text.trim().is_empty() {
+                                    None
+                                } else {
+                                    Some(serde_json::json!([eq_text.trim()]))
+                                }
+                            } else {
+                                None
+                            };
+                        // anesthesia start/end from HH:MM:SS with event_date in +08:00
+                        let tz = chrono::FixedOffset::east_opt(8 * 3600).unwrap();
+                        let anesthesia_start = r
+                            .payload
+                            .get("anesthesia_start_time")
+                            .and_then(|v| v.as_str())
+                            .and_then(|t| chrono::NaiveTime::parse_from_str(t, "%H:%M:%S").ok())
+                            .map(|nt| ed.and_time(nt))
+                            .and_then(|ndt| tz.from_local_datetime(&ndt).single())
+                            .map(|dt| dt.with_timezone(&chrono::Utc));
+                        let anesthesia_end = r
+                            .payload
+                            .get("anesthesia_end_time")
+                            .and_then(|v| v.as_str())
+                            .and_then(|t| chrono::NaiveTime::parse_from_str(t, "%H:%M:%S").ok())
+                            .map(|nt| ed.and_time(nt))
+                            .and_then(|ndt| tz.from_local_datetime(&ndt).single())
+                            .map(|dt| dt.with_timezone(&chrono::Utc));
                         if !dry_run {
                             let inserted: AnimalObservation = sqlx::query_as(
                                 r#"
@@ -477,14 +595,17 @@ impl LegacyImportService {
                                     anesthesia_end, content, no_medication_needed, stop_medication, treatments, remark,
                                     created_by, created_at, updated_at, legacy_recorder_name
                                 )
-                                VALUES ($1,$2,$3, NULL, NULL, NULL, $4, false, false, NULL, $5,
-                                        $6, COALESCE($7, NOW()), NOW(), $8)
+                                VALUES ($1,$2,$3, $4, $5, $6, $7, false, false, NULL, $8,
+                                        $9, COALESCE($10, NOW()), NOW(), $11)
                                 RETURNING *
                                 "#,
                             )
                             .bind(animal_id)
                             .bind(ed)
                             .bind(record_type)
+                            .bind(&equipment_used_json)
+                            .bind(anesthesia_start)
+                            .bind(anesthesia_end)
                             .bind(content)
                             .bind(remark_combined)
                             .bind(created_by)
@@ -610,6 +731,12 @@ impl LegacyImportService {
                             Some(remark_parts.join("\n"))
                         };
                         if !dry_run {
+                            // Read JSON blobs directly if provided
+                            let induction = r.payload.get("induction_anesthesia").cloned();
+                            let premed = r.payload.get("pre_surgery_medication").cloned();
+                            let maint = r.payload.get("anesthesia_maintenance").cloned();
+                            let vitals = r.payload.get("vital_signs").cloned();
+                            let postmed = r.payload.get("post_surgery_medication").cloned();
                             let inserted: AnimalSurgery = sqlx::query_as(
                                 r#"
                                 INSERT INTO animal_surgeries (
@@ -620,14 +747,19 @@ impl LegacyImportService {
                                     no_medication_needed, vet_read, vet_read_at,
                                     created_by, created_at, updated_at, legacy_recorder_name
                                 )
-                                VALUES ($1,false,$2,$3,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,$4,false,false,NULL,
-                                        $5, COALESCE($6,NOW()), NOW(), $7)
+                                VALUES ($1,false,$2,$3,$4,$5,NULL,$6,NULL,$7,NULL,NULL,$8,$9,false,false,NULL,
+                                        $10, COALESCE($11,NOW()), NOW(), $12)
                                 RETURNING *
                                 "#,
                             )
                             .bind(animal_id)
                             .bind(ed)
                             .bind(site)
+                            .bind(induction)
+                            .bind(premed)
+                            .bind(maint)
+                            .bind(vitals)
+                            .bind(postmed)
                             .bind(remark_combined)
                             .bind(created_by)
                             .bind(r.legacy_created_at)
@@ -749,6 +881,45 @@ impl LegacyImportService {
         .fetch_all(pool)
         .await?;
 
+        // Per-row lists
+        let skipped_duplicate_rows: Vec<crate::models::LegacyReportRow> = sqlx::query_as(
+            r#"SELECT id, legacy_record_id, record_kind, status
+               FROM legacy_import_records
+               WHERE import_batch_id = $1 AND status = 'skipped_duplicate'
+               ORDER BY created_at"#,
+        )
+        .bind(batch_id)
+        .fetch_all(pool)
+        .await?;
+        let conflict_rows: Vec<crate::models::LegacyReportRow> = sqlx::query_as(
+            r#"SELECT id, legacy_record_id, record_kind, status
+               FROM legacy_import_records
+               WHERE import_batch_id = $1 AND status = 'conflict'
+               ORDER BY created_at"#,
+        )
+        .bind(batch_id)
+        .fetch_all(pool)
+        .await?;
+        let unmatched_recorder_rows: Vec<crate::models::LegacyReportRow> = sqlx::query_as(
+            r#"SELECT id, legacy_record_id, record_kind, status
+               FROM legacy_import_records
+               WHERE import_batch_id = $1 AND original_recorder_name IS NOT NULL AND mapped_user_id IS NULL
+               ORDER BY created_at"#,
+        )
+        .bind(batch_id)
+        .fetch_all(pool)
+        .await?;
+        let disabled_account_rows: Vec<crate::models::LegacyReportRow> = sqlx::query_as(
+            r#"SELECT r.id, r.legacy_record_id, r.record_kind, r.status
+               FROM legacy_import_records r
+               JOIN users u ON r.mapped_user_id = u.id
+               WHERE r.import_batch_id = $1 AND u.is_active = false
+               ORDER BY r.created_at"#,
+        )
+        .bind(batch_id)
+        .fetch_all(pool)
+        .await?;
+
         Ok(ImportBatchReport {
             batch_id,
             pending,
@@ -757,6 +928,10 @@ impl LegacyImportService {
             skipped_duplicate,
             conflict,
             dash_type_records,
+            skipped_duplicate_rows,
+            conflict_rows,
+            unmatched_recorder_rows,
+            disabled_account_rows,
         })
     }
 }
