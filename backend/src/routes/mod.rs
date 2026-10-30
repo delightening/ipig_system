@@ -30,6 +30,7 @@ mod protocol;
 mod report;
 mod upload;
 mod user;
+mod legacy_import;
 
 pub fn api_routes(state: AppState) -> Router {
     let public_routes = auth::public_routes()
@@ -80,6 +81,7 @@ pub fn api_routes(state: AppState) -> Router {
         .merge(erp::routes())
         .merge(report::routes())
         .merge(protocol::routes())
+        .merge(legacy_import::routes())
         .merge(animal::routes())
         .merge(notification::routes())
         .merge(messaging::routes())

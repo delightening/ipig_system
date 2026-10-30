@@ -178,6 +178,7 @@ pub use glp_compliance::GlpComplianceService;
 mod data_export;
 mod data_import;
 mod schema_mapping;
+pub mod legacy_import;
 pub use data_export::{export_full_database, get_schema_version, ExportFormat, ExportParams};
 pub use data_import::{import_idxf, ImportMode, ImportResult};
 
