@@ -30,23 +30,26 @@ async fn staging_idempotency_and_duplicate_skipping_and_approval_created_at() {
     let admin_token = app.login_as_admin().await;
 
     // Create an animal
-    let ear_tag = common::free_ear_tag(&app.db_pool).await;
     let birth_date = chrono::NaiveDate::from_ymd_opt(2025, 1, 1).expect("valid birth date");
-    let animal_body = json!({
-        "ear_tag": ear_tag,
-        "status": "in_experiment",
-        "breed": "mini_pig",
-        "gender": "male",
-        "entry_date": "2025-01-01",
-        "birth_date": birth_date.to_string(),
-    });
-    let animal_res = app
-        .auth_post("/api/v1/animals", &animal_body, &admin_token)
-        .await;
-    assert!(animal_res.status().is_success(), "create animal");
-    let animal_json: serde_json::Value = TestApp::json(animal_res).await;
-    let animal_id = Uuid::parse_str(animal_json["id"].as_str().expect("animal id present"))
+    let created = common::create_animal_with_free_ear_tag(&app, &admin_token, |ear_tag| {
+        serde_json::json!({
+            "ear_tag": ear_tag,
+            "breed": "mini_pig",
+            "gender": "male",
+            "entry_date": "2025-01-01",
+            "entry_weight": 20.0,
+            "pen_location": "A-01",
+            "birth_date": birth_date.to_string(),
+            "force_create": true
+        })
+    })
+    .await;
+    let animal_id = Uuid::parse_str(created["id"].as_str().expect("created animal id"))
         .expect("parse animal uuid");
+    let ear_tag_for_import = created["ear_tag"]
+        .as_str()
+        .expect("created ear_tag")
+        .to_string();
 
     // Create an existing observation to trigger duplicate skip
     let obs_body = json!({
@@ -97,7 +100,7 @@ async fn staging_idempotency_and_duplicate_skipping_and_approval_created_at() {
 
     let ingest_req = json!({
         "pig": {
-            "ear_tag": ear_tag,
+            "ear_tag": ear_tag_for_import,
             "birth_date": birth_date.to_string(),
             "iacuc_no": null
         },
@@ -285,22 +288,22 @@ async fn surgery_respiration_rate_is_never_imported_numeric_but_text_in_remark()
     let app = TestApp::spawn().await;
     let admin_token = app.login_as_admin().await;
     // Create an animal
-    let ear_tag = common::free_ear_tag(&app.db_pool).await;
     let birth_date = chrono::NaiveDate::from_ymd_opt(2025, 2, 2).expect("valid date");
-    let animal_body = json!({
-        "ear_tag": ear_tag,
-        "status": "in_experiment",
-        "breed": "mini_pig",
-        "gender": "male",
-        "entry_date": "2025-02-02",
-        "birth_date": birth_date.to_string(),
-    });
-    let animal_res = app
-        .auth_post("/api/v1/animals", &animal_body, &admin_token)
-        .await;
-    assert!(animal_res.status().is_success(), "create animal");
-    let animal_json: serde_json::Value = TestApp::json(animal_res).await;
-    let animal_id = Uuid::parse_str(animal_json["id"].as_str().expect("animal id")).expect("uuid");
+    let created = common::create_animal_with_free_ear_tag(&app, &admin_token, |ear_tag| {
+        serde_json::json!({
+            "ear_tag": ear_tag,
+            "breed": "mini_pig",
+            "gender": "male",
+            "entry_date": "2025-02-02",
+            "entry_weight": 18.5,
+            "pen_location": "A-01",
+            "birth_date": birth_date.to_string(),
+            "force_create": true
+        })
+    })
+    .await;
+    let animal_id = Uuid::parse_str(created["id"].as_str().expect("animal id")).expect("uuid");
+    let ear_tag = created["ear_tag"].as_str().expect("ear_tag").to_string();
 
     // Create batch and stage one surgery with respiration text
     let batch_json: serde_json::Value = TestApp::json(
@@ -384,22 +387,22 @@ async fn surgery_approval_maps_fields_and_blank_site_defaults() {
     let app = TestApp::spawn().await;
     let admin_token = app.login_as_admin().await;
     // Create an animal
-    let ear_tag = common::free_ear_tag(&app.db_pool).await;
     let birth_date = chrono::NaiveDate::from_ymd_opt(2025, 3, 3).expect("valid date");
-    let animal_body = json!({
-        "ear_tag": ear_tag,
-        "status": "in_experiment",
-        "breed": "mini_pig",
-        "gender": "female",
-        "entry_date": "2025-03-03",
-        "birth_date": birth_date.to_string(),
-    });
-    let animal_res = app
-        .auth_post("/api/v1/animals", &animal_body, &admin_token)
-        .await;
-    assert!(animal_res.status().is_success(), "create animal");
-    let animal_json: serde_json::Value = TestApp::json(animal_res).await;
-    let animal_id = Uuid::parse_str(animal_json["id"].as_str().expect("animal id")).expect("uuid");
+    let created = common::create_animal_with_free_ear_tag(&app, &admin_token, |ear_tag| {
+        serde_json::json!({
+            "ear_tag": ear_tag,
+            "breed": "mini_pig",
+            "gender": "female",
+            "entry_date": "2025-03-03",
+            "entry_weight": 19.0,
+            "pen_location": "A-01",
+            "birth_date": birth_date.to_string(),
+            "force_create": true
+        })
+    })
+    .await;
+    let animal_id = Uuid::parse_str(created["id"].as_str().expect("animal id")).expect("uuid");
+    let ear_tag = created["ear_tag"].as_str().expect("ear_tag").to_string();
 
     // Batch
     let batch_json: serde_json::Value = TestApp::json(
@@ -483,22 +486,22 @@ async fn weight_and_vaccine_and_sacrifice_approval_and_duplicate_sacrifice() {
     let app = TestApp::spawn().await;
     let admin_token = app.login_as_admin().await;
     // Create animal
-    let ear_tag = common::free_ear_tag(&app.db_pool).await;
     let birth_date = chrono::NaiveDate::from_ymd_opt(2025, 4, 4).expect("valid date");
-    let animal_body = json!({
-        "ear_tag": ear_tag,
-        "status": "in_experiment",
-        "breed": "mini_pig",
-        "gender": "male",
-        "entry_date": "2025-04-04",
-        "birth_date": birth_date.to_string(),
-    });
-    let animal_res = app
-        .auth_post("/api/v1/animals", &animal_body, &admin_token)
-        .await;
-    assert!(animal_res.status().is_success(), "create animal");
-    let animal_json: serde_json::Value = TestApp::json(animal_res).await;
-    let animal_id = Uuid::parse_str(animal_json["id"].as_str().expect("animal id")).expect("uuid");
+    let created = common::create_animal_with_free_ear_tag(&app, &admin_token, |ear_tag| {
+        serde_json::json!({
+            "ear_tag": ear_tag,
+            "breed": "mini_pig",
+            "gender": "male",
+            "entry_date": "2025-04-04",
+            "entry_weight": 21.0,
+            "pen_location": "A-01",
+            "birth_date": birth_date.to_string(),
+            "force_create": true
+        })
+    })
+    .await;
+    let animal_id = Uuid::parse_str(created["id"].as_str().expect("animal id")).expect("uuid");
+    let ear_tag = created["ear_tag"].as_str().expect("ear_tag").to_string();
 
     // Batch
     let batch_json: serde_json::Value = TestApp::json(
@@ -627,14 +630,10 @@ async fn weight_and_vaccine_and_sacrifice_approval_and_duplicate_sacrifice() {
 #[tokio::test]
 async fn approval_permission_denied_for_non_privileged_user() {
     let app = TestApp::spawn().await;
-    // Create a non-admin user
-    let uid: (Uuid,) = sqlx::query_as("INSERT INTO users (email, password_hash, display_name, is_internal, is_active, must_change_password, login_attempts, created_at, updated_at, totp_enabled, version) VALUES ($1,'!','測試人員',false,true,false,0,now(),now(),false,1) RETURNING id")
-        .bind(format!("tester{}@example.com", uuid::Uuid::new_v4()))
-        .fetch_one(&app.db_pool)
-        .await
-        .expect("insert test user");
+    // Create a non-admin user via helper
+    let uid = common::test_db::seed_other_user(&app.db_pool, "perm-deny").await;
     let actor = erp_backend::middleware::ActorContext::User(erp_backend::middleware::CurrentUser {
-        id: uid.0,
+        id: uid,
         email: "tester@example.com".into(),
         roles: vec![],
         permissions: vec![],
@@ -670,22 +669,21 @@ async fn ingest_dry_run_reports_pending_and_writes_nothing() {
     let app = TestApp::spawn().await;
     let admin_token = app.login_as_admin().await;
     // Animal
-    let ear_tag = common::free_ear_tag(&app.db_pool).await;
     let birth_date = chrono::NaiveDate::from_ymd_opt(2025, 5, 5).expect("valid date");
-    let animal_body = json!({
-        "ear_tag": ear_tag,
-        "status": "in_experiment",
-        "breed": "mini_pig",
-        "gender": "male",
-        "entry_date": "2025-05-05",
-        "birth_date": birth_date.to_string(),
-    });
-    let animal_res = app
-        .auth_post("/api/v1/animals", &animal_body, &admin_token)
-        .await;
-    assert!(animal_res.status().is_success(), "create animal");
-    let animal_json: serde_json::Value = TestApp::json(animal_res).await;
-    let _animal_id = Uuid::parse_str(animal_json["id"].as_str().expect("animal id")).expect("uuid");
+    let created = common::create_animal_with_free_ear_tag(&app, &admin_token, |ear_tag| {
+        serde_json::json!({
+            "ear_tag": ear_tag,
+            "breed": "mini_pig",
+            "gender": "male",
+            "entry_date": "2025-05-05",
+            "entry_weight": 20.5,
+            "pen_location": "A-01",
+            "birth_date": birth_date.to_string(),
+            "force_create": true
+        })
+    })
+    .await;
+    let ear_tag = created["ear_tag"].as_str().expect("ear_tag").to_string();
     // Batch
     let batch: serde_json::Value = TestApp::json(
         app.auth_post(
@@ -734,22 +732,22 @@ async fn changed_resend_after_approval_reports_conflict_and_does_not_overwrite()
     let app = TestApp::spawn().await;
     let admin_token = app.login_as_admin().await;
     // Animal
-    let ear_tag = common::free_ear_tag(&app.db_pool).await;
     let birth_date = chrono::NaiveDate::from_ymd_opt(2025, 6, 6).expect("valid date");
-    let animal_body = json!({
-        "ear_tag": ear_tag,
-        "status": "in_experiment",
-        "breed": "mini_pig",
-        "gender": "female",
-        "entry_date": "2025-06-06",
-        "birth_date": birth_date.to_string(),
-    });
-    let animal_res = app
-        .auth_post("/api/v1/animals", &animal_body, &admin_token)
-        .await;
-    assert!(animal_res.status().is_success());
-    let animal_json: serde_json::Value = TestApp::json(animal_res).await;
-    let animal_id = Uuid::parse_str(animal_json["id"].as_str().expect("animal id")).expect("uuid");
+    let created = common::create_animal_with_free_ear_tag(&app, &admin_token, |ear_tag| {
+        serde_json::json!({
+            "ear_tag": ear_tag,
+            "breed": "mini_pig",
+            "gender": "female",
+            "entry_date": "2025-06-06",
+            "entry_weight": 23.0,
+            "pen_location": "A-01",
+            "birth_date": birth_date.to_string(),
+            "force_create": true
+        })
+    })
+    .await;
+    let animal_id = Uuid::parse_str(created["id"].as_str().expect("animal id")).expect("uuid");
+    let ear_tag = created["ear_tag"].as_str().expect("ear_tag").to_string();
     // Batch
     let batch: serde_json::Value = TestApp::json(
         app.auth_post(
