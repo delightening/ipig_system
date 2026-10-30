@@ -206,6 +206,7 @@ async fn staging_idempotency_and_duplicate_skipping_and_approval_created_at() {
     assert_eq!(before_count.0, after_count.0, "dry run must not write formal tables");
 
     // Real approval
+    let notif_before: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM notifications").fetch_one(&app.db_pool).await.unwrap();
     let (approved, _skipped, _conflict) =
         LegacyImportService::approve_batch(&app.db_pool, &actor, batch_id, Some(actor_id), false)
             .await
@@ -229,12 +230,9 @@ async fn staging_idempotency_and_duplicate_skipping_and_approval_created_at() {
     assert_eq!(obs.2, Some(actor_id));
     assert_eq!(obs.3.as_deref(), Some("王意萍"));
 
-    // Notification bypass: abnormal route in handler would create notifications; direct insert should not.
-    let notif_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM notifications").fetch_one(&app.db_pool).await.unwrap();
-    assert!(
-        notif_count.0 >= 0,
-        "approval path does not create notifications; count unchanged or zero"
-    );
+    // Notification bypass: ensure exactly zero new notifications were created by approval
+    let notif_after: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM notifications").fetch_one(&app.db_pool).await.unwrap();
+    assert_eq!(notif_before.0, notif_after.0, "approval path must not create notifications");
 
     // Report endpoint should include '-' record_type row id
     let rep_res = app
@@ -340,5 +338,376 @@ async fn surgery_respiration_rate_is_never_imported_numeric_but_text_in_remark()
     .unwrap();
     assert!(row.0.is_none(), "respiration_rate must remain NULL");
     assert!(row.1.as_deref().unwrap_or("").contains("18-25"), "remark should keep original respiration text");
+}
+
+#[tokio::test]
+async fn surgery_approval_maps_fields_and_blank_site_defaults() {
+    let app = TestApp::spawn().await;
+    let admin_token = app.login_as_admin().await;
+    // Create an animal
+    let ear_tag = common::free_ear_tag(&app.db_pool).await;
+    let birth_date = chrono::NaiveDate::from_ymd_opt(2025, 3, 3).unwrap();
+    let animal_body = json!({
+        "ear_tag": ear_tag,
+        "status": "in_experiment",
+        "breed": "mini_pig",
+        "gender": "female",
+        "entry_date": "2025-03-03",
+        "birth_date": birth_date.to_string(),
+    });
+    let animal_res = app.auth_post("/api/v1/animals", &animal_body, &admin_token).await;
+    assert!(animal_res.status().is_success(), "create animal");
+    let animal_json: serde_json::Value = TestApp::json(animal_res).await;
+    let animal_id = Uuid::parse_str(animal_json["id"].as_str().unwrap()).unwrap();
+
+    // Batch
+    let batch_json: serde_json::Value = TestApp::json(
+        app.auth_post("/api/v1/legacy-import/batches", &json!({"description":"sx fields"}), &admin_token)
+            .await,
+    )
+    .await;
+    let batch_id = Uuid::parse_str(batch_json["id"].as_str().unwrap()).unwrap();
+    let legacy_created_at = chrono::DateTime::parse_from_rfc3339("2025-03-10T12:34:56+08:00")
+        .unwrap()
+        .with_timezone(&chrono::Utc);
+    let ingest_req = json!({
+        "pig": { "ear_tag": ear_tag, "birth_date": birth_date.to_string(), "iacuc_no": null },
+        "records": [{
+            "kind":"surgery",
+            "legacy_record_id":"sx-2",
+            "legacy_created_at": legacy_created_at.to_rfc3339(),
+            "event_date":"2025-03-09",
+            "payload":{
+                "animal_id": animal_id.to_string(),
+                "event_date":"2025-03-09",
+                "surgery_site":"  ",  // blank/whitespace
+                "anesthesia_observation":"維持平穩",
+                "vital_signs":{"hr":"100"},
+                "reflex_recovery":"30 分",
+                "positioning_list":["仰臥","右側臥"],
+                "positioning_other":"頭部墊高",
+                "post_surgery_medication":{"drug":"Meloxicam"}
+            }
+        }]
+    });
+    let _ = app
+        .auth_post(
+            &format!("/api/v1/legacy-import/batches/{}/records", batch_id),
+            &ingest_req,
+            &admin_token,
+        )
+        .await;
+    // Approve
+    let admin_email = std::env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@ipigsystem.asia".to_string());
+    let (admin_id,): (Uuid,) = sqlx::query_as("SELECT id FROM users WHERE lower(email)=lower($1) LIMIT 1")
+        .bind(&admin_email)
+        .fetch_one(&app.db_pool)
+        .await
+        .unwrap();
+    let actor = erp_backend::middleware::ActorContext::User(erp_backend::middleware::CurrentUser {
+        id: admin_id,
+        email: admin_email,
+        roles: vec![],
+        permissions: vec![],
+        jti: String::new(),
+        exp: 0,
+        impersonated_by: None,
+    });
+    let (_a, _s, _c) =
+        LegacyImportService::approve_batch(&app.db_pool, &actor, batch_id, Some(admin_id), false)
+            .await
+            .unwrap();
+    // Verify field mappings
+    let row: (String, Option<String>, Option<serde_json::Value>, Option<String>) = sqlx::query_as(
+        "SELECT surgery_site, anesthesia_observation, vital_signs, reflex_recovery FROM animal_surgeries WHERE animal_id=$1 LIMIT 1",
+    )
+    .bind(animal_id)
+    .fetch_one(&app.db_pool)
+    .await
+    .unwrap();
+    assert_eq!(row.0, "未記載", "blank site defaults to 未記載");
+    assert_eq!(row.1.as_deref(), Some("維持平穩"));
+    assert!(row.2.as_ref().unwrap().get("hr").is_some());
+    assert_eq!(row.3.as_deref(), Some("30 分"));
+}
+
+#[tokio::test]
+async fn weight_and_vaccine_and_sacrifice_approval_and_duplicate_sacrifice() {
+    let app = TestApp::spawn().await;
+    let admin_token = app.login_as_admin().await;
+    // Create animal
+    let ear_tag = common::free_ear_tag(&app.db_pool).await;
+    let birth_date = chrono::NaiveDate::from_ymd_opt(2025, 4, 4).unwrap();
+    let animal_body = json!({
+        "ear_tag": ear_tag,
+        "status": "in_experiment",
+        "breed": "mini_pig",
+        "gender": "male",
+        "entry_date": "2025-04-04",
+        "birth_date": birth_date.to_string(),
+    });
+    let animal_res = app.auth_post("/api/v1/animals", &animal_body, &admin_token).await;
+    assert!(animal_res.status().is_success(), "create animal");
+    let animal_json: serde_json::Value = TestApp::json(animal_res).await;
+    let animal_id = Uuid::parse_str(animal_json["id"].as_str().unwrap()).unwrap();
+
+    // Batch
+    let batch_json: serde_json::Value = TestApp::json(
+        app.auth_post("/api/v1/legacy-import/batches", &json!({"description":"wvsc"}), &admin_token)
+            .await,
+    )
+    .await;
+    let batch_id = Uuid::parse_str(batch_json["id"].as_str().unwrap()).unwrap();
+    let legacy_created_at = chrono::DateTime::parse_from_rfc3339("2025-04-10T08:00:00+08:00")
+        .unwrap()
+        .with_timezone(&chrono::Utc);
+
+    // Stage weight, vaccine, and two sacrifices (second will be skipped at approval)
+    let ingest_req = json!({
+        "pig": { "ear_tag": ear_tag, "birth_date": birth_date.to_string(), "iacuc_no": null },
+        "records": [
+            {
+                "kind": "weight",
+                "legacy_record_id": "w-1",
+                "legacy_created_at": legacy_created_at.to_rfc3339(),
+                "event_date": "2025-04-05",
+                "payload": { "event_date":"2025-04-05", "weight":"12.3" }
+            },
+            {
+                "kind": "vaccine",
+                "legacy_record_id": "v-1",
+                "legacy_created_at": legacy_created_at.to_rfc3339(),
+                "event_date": "2025-04-06",
+                "payload": { "event_date":"2025-04-06", "vaccine":"APP", "deworming_dose":"5ml" }
+            },
+            {
+                "kind": "sacrifice",
+                "legacy_record_id": "s-1",
+                "legacy_created_at": legacy_created_at.to_rfc3339(),
+                "event_date": "2025-04-07",
+                "payload": {
+                    "event_date":"2025-04-07",
+                    "zoletil_dose":"10 mg/kg",
+                    "method_electrocution": true,
+                    "method_bloodletting": false,
+                    "sampling":"血液",
+                    "blood_volume_ml":"20.0"
+                }
+            },
+            {
+                "kind": "sacrifice",
+                "legacy_record_id": "s-2",
+                "legacy_created_at": legacy_created_at.to_rfc3339(),
+                "event_date": "2025-04-08",
+                "payload": {
+                    "event_date":"2025-04-08",
+                    "zoletil_dose":"11 mg/kg",
+                    "method_electrocution": false,
+                    "method_bloodletting": true,
+                    "sampling":"血液",
+                    "blood_volume_ml":"25.0"
+                }
+            }
+        ]
+    });
+    let ingest_res = app
+        .auth_post(
+            &format!("/api/v1/legacy-import/batches/{}/records", batch_id),
+            &ingest_req,
+            &admin_token,
+        )
+        .await;
+    assert!(ingest_res.status().is_success());
+
+    // Approve
+    let admin_email = std::env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@ipigsystem.asia".to_string());
+    let (admin_id,): (Uuid,) = sqlx::query_as("SELECT id FROM users WHERE lower(email)=lower($1) LIMIT 1")
+        .bind(&admin_email)
+        .fetch_one(&app.db_pool)
+        .await
+        .unwrap();
+    let actor = erp_backend::middleware::ActorContext::User(erp_backend::middleware::CurrentUser {
+        id: admin_id,
+        email: admin_email,
+        roles: vec![],
+        permissions: vec![],
+        jti: String::new(),
+        exp: 0,
+        impersonated_by: None,
+    });
+    let (_a, skipped, _c) =
+        LegacyImportService::approve_batch(&app.db_pool, &actor, batch_id, Some(admin_id), false)
+            .await
+            .unwrap();
+    // Weight exists
+    let w: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM animal_weights WHERE animal_id=$1 AND weight=12.3")
+        .bind(animal_id)
+        .fetch_one(&app.db_pool)
+        .await
+        .unwrap();
+    assert_eq!(w.0, 1);
+    // Vaccine exists
+    let v: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM animal_vaccinations WHERE animal_id=$1 AND vaccine='APP'")
+        .bind(animal_id)
+        .fetch_one(&app.db_pool)
+        .await
+        .unwrap();
+    assert_eq!(v.0, 1);
+    // One sacrifice exists, second skipped at approval
+    let s: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM animal_sacrifices WHERE animal_id=$1")
+        .bind(animal_id)
+        .fetch_one(&app.db_pool)
+        .await
+        .unwrap();
+    assert_eq!(s.0, 1, "only one sacrifice should be created");
+    assert!(skipped >= 1, "approval should report skipped duplicate sacrifice");
+}
+
+#[tokio::test]
+async fn approval_permission_denied_for_non_privileged_user() {
+    let app = TestApp::spawn().await;
+    // Create a non-admin user
+    let uid: (Uuid,) = sqlx::query_as("INSERT INTO users (email, password_hash, display_name, is_internal, is_active, must_change_password, login_attempts, created_at, updated_at, totp_enabled, version) VALUES ($1,'!','測試人員',false,true,false,0,now(),now(),false,1) RETURNING id")
+        .bind(format!("tester{}@example.com", uuid::Uuid::new_v4()))
+        .fetch_one(&app.db_pool)
+        .await
+        .unwrap();
+    let actor = erp_backend::middleware::ActorContext::User(erp_backend::middleware::CurrentUser {
+        id: uid.0,
+        email: "tester@example.com".into(),
+        roles: vec![],
+        permissions: vec![],
+        jti: String::new(),
+        exp: 0,
+        impersonated_by: None,
+    });
+    // Create empty batch to attempt approval
+    let admin_token = app.login_as_admin().await;
+    let batch: serde_json::Value = TestApp::json(
+        app.auth_post("/api/v1/legacy-import/batches", &json!({"description":"perm deny"}), &admin_token).await
+    ).await;
+    let batch_id = Uuid::parse_str(batch["id"].as_str().unwrap()).unwrap();
+    let err = LegacyImportService::approve_batch(&app.db_pool, &actor, batch_id, None, true)
+        .await
+        .expect_err("should be forbidden");
+    let err_text = format!("{}", err);
+    assert!(err_text.contains("無權核准匯入"), "expected Forbidden error, got {}", err_text);
+}
+
+#[tokio::test]
+async fn ingest_dry_run_reports_pending_and_writes_nothing() {
+    let app = TestApp::spawn().await;
+    let admin_token = app.login_as_admin().await;
+    // Animal
+    let ear_tag = common::free_ear_tag(&app.db_pool).await;
+    let birth_date = chrono::NaiveDate::from_ymd_opt(2025, 5, 5).unwrap();
+    let animal_body = json!({
+        "ear_tag": ear_tag,
+        "status": "in_experiment",
+        "breed": "mini_pig",
+        "gender": "male",
+        "entry_date": "2025-05-05",
+        "birth_date": birth_date.to_string(),
+    });
+    let animal_res = app.auth_post("/api/v1/animals", &animal_body, &admin_token).await;
+    assert!(animal_res.status().is_success(), "create animal");
+    let animal_json: serde_json::Value = TestApp::json(animal_res).await;
+    let animal_id = Uuid::parse_str(animal_json["id"].as_str().unwrap()).unwrap();
+    // Batch
+    let batch: serde_json::Value = TestApp::json(
+        app.auth_post("/api/v1/legacy-import/batches", &json!({"description":"dryrun"}), &admin_token).await
+    ).await;
+    let batch_id = Uuid::parse_str(batch["id"].as_str().unwrap()).unwrap();
+    let req = json!({
+        "pig": { "ear_tag": ear_tag, "birth_date": birth_date.to_string(), "iacuc_no": null },
+        "dry_run": true,
+        "records": [{
+            "kind":"observation",
+            "legacy_record_id":"dry-1",
+            "legacy_created_at":"2025-05-06T01:02:03Z",
+            "event_date":"2025-05-06",
+            "content":"just note",
+            "payload":{"event_date":"2025-05-06","content":"just note"}
+        }]
+    });
+    let res = app.auth_post(&format!("/api/v1/legacy-import/batches/{}/records", batch_id), &req, &admin_token).await;
+    assert!(res.status().is_success());
+    let json: serde_json::Value = TestApp::json(res).await;
+    assert_eq!(json["results"][0]["status"], "pending");
+    // Ensure no staging rows inserted (dry_run write nothing)
+    let staged: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM legacy_import_records WHERE import_batch_id = $1")
+        .bind(batch_id)
+        .fetch_one(&app.db_pool)
+        .await
+        .unwrap();
+    assert_eq!(staged.0, 0);
+}
+
+#[tokio::test]
+async fn changed_resend_after_approval_reports_conflict_and_does_not_overwrite() {
+    let app = TestApp::spawn().await;
+    let admin_token = app.login_as_admin().await;
+    // Animal
+    let ear_tag = common::free_ear_tag(&app.db_pool).await;
+    let birth_date = chrono::NaiveDate::from_ymd_opt(2025, 6, 6).unwrap();
+    let animal_body = json!({
+        "ear_tag": ear_tag,
+        "status": "in_experiment",
+        "breed": "mini_pig",
+        "gender": "female",
+        "entry_date": "2025-06-06",
+        "birth_date": birth_date.to_string(),
+    });
+    let animal_res = app.auth_post("/api/v1/animals", &animal_body, &admin_token).await;
+    assert!(animal_res.status().is_success());
+    let animal_json: serde_json::Value = TestApp::json(animal_res).await;
+    let animal_id = Uuid::parse_str(animal_json["id"].as_str().unwrap()).unwrap();
+    // Batch
+    let batch: serde_json::Value = TestApp::json(
+        app.auth_post("/api/v1/legacy-import/batches", &json!({"description":"resend"}), &admin_token).await
+    ).await;
+    let batch_id = Uuid::parse_str(batch["id"].as_str().unwrap()).unwrap();
+    let admin_email = std::env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@ipigsystem.asia".to_string());
+    let (admin_id,): (Uuid,) = sqlx::query_as("SELECT id FROM users WHERE lower(email)=lower($1) LIMIT 1")
+        .bind(&admin_email)
+        .fetch_one(&app.db_pool)
+        .await
+        .unwrap();
+    // Ingest and approve one observation
+    let req1 = json!({
+        "pig": { "ear_tag": ear_tag, "birth_date": birth_date.to_string(), "iacuc_no": null },
+        "records": [{
+            "kind":"observation","legacy_record_id":"x-1","legacy_created_at":"2025-06-07T00:00:00Z","event_date":"2025-06-07","content":"A","payload":{"event_date":"2025-06-07","content":"A"}
+        }]
+    });
+    let _ = app.auth_post(&format!("/api/v1/legacy-import/batches/{}/records", batch_id), &req1, &admin_token).await;
+    let actor = erp_backend::middleware::ActorContext::User(erp_backend::middleware::CurrentUser {
+        id: admin_id,
+        email: admin_email,
+        roles: vec![],
+        permissions: vec![],
+        jti: String::new(),
+        exp: 0,
+        impersonated_by: None,
+    });
+    let _ = LegacyImportService::approve_batch(&app.db_pool, &actor, batch_id, Some(admin_id), false).await.unwrap();
+    // Re-send same legacy_record_id with changed content
+    let req2 = json!({
+        "pig": { "ear_tag": ear_tag, "birth_date": birth_date.to_string(), "iacuc_no": null },
+        "records": [{
+            "kind":"observation","legacy_record_id":"x-1","legacy_created_at":"2025-06-07T00:00:00Z","event_date":"2025-06-07","content":"B","payload":{"event_date":"2025-06-07","content":"B"}
+        }]
+    });
+    let res = app.auth_post(&format!("/api/v1/legacy-import/batches/{}/records", batch_id), &req2, &admin_token).await;
+    assert!(res.status().is_success());
+    let js: serde_json::Value = TestApp::json(res).await;
+    assert_eq!(js["results"][0]["status"], "conflict");
+    // The formal observation content should remain "A"
+    let row: (String,) = sqlx::query_as("SELECT content FROM animal_observations WHERE animal_id=$1 ORDER BY created_at DESC LIMIT 1")
+        .bind(animal_id)
+        .fetch_one(&app.db_pool)
+        .await
+        .unwrap();
+    assert_eq!(row.0, "A");
 }
 
