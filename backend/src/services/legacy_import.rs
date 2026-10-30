@@ -603,8 +603,25 @@ impl LegacyImportService {
     ) -> Result<(i64, i64, i64)> {
         // Permission gate: require animal.legacy_import.approve or admin
         let actor_user = actor.require_user()?;
-        let is_admin = actor_user.is_admin();
-        let allowed = if is_admin {
+        // Consider admin via CurrentUser roles OR database roles membership
+        let is_admin_token = actor_user.is_admin();
+        let is_admin_db: bool = sqlx::query_scalar(
+            r#"
+            SELECT EXISTS (
+              SELECT 1 FROM user_roles ur
+              JOIN roles r ON r.id = ur.role_id
+              WHERE ur.user_id = $1 AND r.is_active = true
+                AND r.code IN ($2, $3)
+            )
+            "#,
+        )
+        .bind(actor_user.id)
+        .bind(crate::constants::ROLE_SYSTEM_ADMIN)
+        .bind(crate::constants::ROLE_ADMIN_LEGACY)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(false);
+        let allowed = if is_admin_token || is_admin_db {
             true
         } else {
             let has_perm: bool = sqlx::query_scalar(
