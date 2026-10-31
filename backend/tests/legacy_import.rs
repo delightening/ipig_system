@@ -145,8 +145,15 @@ async fn staging_idempotency_and_duplicate_skipping_and_approval_created_at() {
             &admin_token,
         )
         .await;
-    assert!(ingest_res.status().is_success(), "ingest should succeed");
-    let ingest_json: serde_json::Value = TestApp::json(ingest_res).await;
+    let ingest_status = ingest_res.status();
+    let ingest_text = ingest_res.text().await.unwrap_or_default();
+    assert!(
+        ingest_status.is_success(),
+        "ingest should succeed: status={} body={}",
+        ingest_status,
+        ingest_text
+    );
+    let ingest_json: serde_json::Value = serde_json::from_str(&ingest_text).expect("ingest json");
     let results = ingest_json["results"].as_array().expect("results array");
     // Verify statuses
     let r0 = results

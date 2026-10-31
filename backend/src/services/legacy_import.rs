@@ -807,7 +807,7 @@ impl LegacyImportService {
                                     anesthesia_end, content, no_medication_needed, stop_medication, treatments, remark,
                                     created_by, created_at, updated_at, legacy_recorder_name
                                 )
-                                VALUES ($1,$2,$3, $4, $5, $6, $7, false, false, NULL, $8,
+                                VALUES ($1,$2,$3::record_type, $4, $5, $6, $7, false, false, NULL, $8,
                                         $9, COALESCE($10, NOW()), NOW(), $11)
                                 RETURNING *
                                 "#,
