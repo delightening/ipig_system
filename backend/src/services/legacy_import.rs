@@ -654,6 +654,21 @@ impl LegacyImportService {
 
             // Track duplicates we intentionally skip (e.g., second sacrifice)
             let mut duplicate_ids: Vec<Uuid> = Vec::new();
+            // Pre-scan sacrifice duplicates so they are counted even if another record for this animal fails later
+            for r in &recs {
+                if r.record_kind == "sacrifice" {
+                    let exists: Option<Uuid> = sqlx::query_scalar(
+                        "SELECT id FROM animal_sacrifices WHERE animal_id = $1 LIMIT 1",
+                    )
+                    .bind(animal_id)
+                    .fetch_optional(&mut *tx)
+                    .await?;
+                    if exists.is_some() && !duplicate_ids.contains(&r.id) {
+                        duplicate_ids.push(r.id);
+                        skipped += 1;
+                    }
+                }
+            }
             // Track created target ids to set on staging after insert
             // Per record branch handles updates as before; they are all within savepoint.
             let mut animal_failed: Option<(String, String)> = None; // (code, message)
@@ -661,6 +676,10 @@ impl LegacyImportService {
             for r in &recs {
                 if animal_failed.is_some() {
                     break;
+                }
+                // Skip sacrifice rows already marked as duplicates; they will be updated after rollback/release
+                if r.record_kind == "sacrifice" && duplicate_ids.contains(&r.id) {
+                    continue;
                 }
                 let created_by = resolve_created_by(&r.original_recorder_name);
                 let legacy_name = r.original_recorder_name.clone();
