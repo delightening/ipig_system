@@ -1049,6 +1049,19 @@ async fn per_animal_error_rollback_and_counts_with_duplicate_sacrifice_kept() {
     .execute(&app.db_pool)
     .await
     .expect("seed sacrifice");
+    // Counts before approval (A already has initial weight from creation)
+    let w_before_a: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM animal_weights WHERE animal_id=$1")
+            .bind(a_id)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("count weights A before");
+    let s_before_a: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM animal_sacrifices WHERE animal_id=$1")
+            .bind(a_id)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("count sacrifices A before");
     // Approve
     let actor = erp_backend::middleware::ActorContext::User(erp_backend::middleware::CurrentUser {
         id: admin_id,
@@ -1072,13 +1085,27 @@ async fn per_animal_error_rollback_and_counts_with_duplicate_sacrifice_kept() {
     assert!(approved >= 1, "animal B should be approved");
     assert!(skipped >= 1, "duplicate sacrifice should be skipped");
     assert!(error_count >= 1, "animal A should be counted as error");
-    // Animal A should have no new weight or sacrifice created
-    let w_cnt: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM animal_weights WHERE animal_id=$1")
-        .bind(a_id)
-        .fetch_one(&app.db_pool)
-        .await
-        .expect("count weights A");
-    assert_eq!(w_cnt.0, 0, "failed animal should not write formal rows");
+    // Animal A should have no new weight or sacrifice created by approval
+    let w_after_a: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM animal_weights WHERE animal_id=$1")
+            .bind(a_id)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("count weights A after");
+    assert_eq!(
+        w_after_a.0, w_before_a.0,
+        "failed animal should not write additional weight rows"
+    );
+    let s_after_a: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM animal_sacrifices WHERE animal_id=$1")
+            .bind(a_id)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("count sacrifices A after");
+    assert_eq!(
+        s_after_a.0, s_before_a.0,
+        "failed animal should not write a new sacrifice row"
+    );
     // Its staging rows should be marked error, except duplicate sacrifice which remains skipped_duplicate
     let rows_a: Vec<(String,)> = sqlx::query_as(
         "SELECT status FROM legacy_import_records WHERE import_batch_id=$1 AND matched_animal_id=$2 ORDER BY created_at",
