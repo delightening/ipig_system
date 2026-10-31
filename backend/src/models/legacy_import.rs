@@ -31,6 +31,10 @@ pub struct LegacyImportRecord {
     pub payload: serde_json::Value,
     pub import_batch_id: Uuid,
     pub target_record_id: Option<Uuid>,
+    #[sqlx(default)]
+    pub error_code: Option<String>,
+    #[sqlx(default)]
+    pub error_message: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 impl crate::models::audit_diff::AuditRedact for LegacyImportRecord {}
@@ -96,11 +100,15 @@ pub struct ImportBatchReport {
     pub rejected: i64,
     pub skipped_duplicate: i64,
     pub conflict: i64,
+    #[serde(default)]
+    pub error: i64,
     pub dash_type_records: Vec<Uuid>, // legacy_import_records.id having legacy_record_type_text == "-"
     pub skipped_duplicate_rows: Vec<LegacyReportRow>,
     pub conflict_rows: Vec<LegacyReportRow>,
     pub unmatched_recorder_rows: Vec<LegacyReportRow>,
     pub disabled_account_rows: Vec<LegacyReportRow>,
+    #[serde(default)]
+    pub error_rows: Vec<LegacyReportRow>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]

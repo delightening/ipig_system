@@ -18,6 +18,11 @@ struct Args {
     /// Import user email whose id will be used as created_by when recorder is unmatched/ambiguous (required)
     #[arg(long)]
     import_user_email: String,
+    /// Optional CSV mapping file: columns legacy_recorder_name,user_email
+    /// When present, created_by is resolved by mapping name → email → user_id (disabled allowed).
+    /// Unmapped names fallback to import_user_email.
+    #[arg(long)]
+    recorder_map: Option<std::path::PathBuf>,
     /// Actor email for audit trail and permission gate; defaults to ADMIN_EMAIL env or admin@ipigsystem.asia
     #[arg(long)]
     actor_email: Option<String>,
@@ -113,13 +118,60 @@ async fn main() -> anyhow::Result<()> {
         impersonated_by: None,
     });
 
-    let (approved, skipped, conflict) =
+    // Build recorder mapping (legacy name → user_id), if a CSV file is provided
+    let mut name_to_user: std::collections::HashMap<String, uuid::Uuid> =
+        std::collections::HashMap::new();
+    if let Some(path) = args.recorder_map.as_ref() {
+        let mut rdr = csv::ReaderBuilder::new()
+            .has_headers(true)
+            .from_path(path)
+            .map_err(|e| anyhow::anyhow!(format!("read recorder_map CSV: {}", e)))?;
+        for rec in rdr.records() {
+            let rec = rec.map_err(|e| anyhow::anyhow!(format!("parse CSV row: {}", e)))?;
+            // Expect headers legacy_recorder_name,user_email
+            let name = rec
+                .get(
+                    rec.iter()
+                        .position(|h| h == "legacy_recorder_name")
+                        .unwrap_or(0),
+                )
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+            let email = rec
+                .get(rec.iter().position(|h| h == "user_email").unwrap_or(1))
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+            if name.is_empty() || email.is_empty() {
+                continue;
+            }
+            if let Some((uid,)) = sqlx::query_as::<_, (uuid::Uuid,)>(
+                "SELECT id FROM users WHERE lower(email) = lower($1) LIMIT 1",
+            )
+            .bind(&email)
+            .fetch_optional(&pool)
+            .await?
+            {
+                name_to_user.insert(name, uid);
+            } else {
+                eprintln!("recorder_map: email not found, name='{}' email='{}' (falls back to import_user)", name, email);
+            }
+        }
+    }
+
+    let (approved, skipped, error_count) =
         erp_backend::services::legacy_import::LegacyImportService::approve_batch(
             &pool,
             &actor,
             batch_id,
             import_user_id,
             args.dry_run,
+            if name_to_user.is_empty() {
+                None
+            } else {
+                Some(&name_to_user)
+            },
         )
         .await
         .map_err(|e| anyhow::anyhow!(format!("approve failed: {}", e)))?;
@@ -131,7 +183,7 @@ async fn main() -> anyhow::Result<()> {
             "dry_run": args.dry_run,
             "approved": approved,
             "skipped": skipped,
-            "conflict": conflict
+            "error": error_count
         })
     );
 

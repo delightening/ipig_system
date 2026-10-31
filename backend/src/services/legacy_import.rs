@@ -3,6 +3,7 @@ use chrono::Offset;
 use chrono::TimeZone;
 use rust_decimal::prelude::FromPrimitive;
 use sqlx::{PgPool, Postgres, Transaction};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
@@ -111,7 +112,7 @@ impl LegacyImportService {
                 } else {
                     "pending".to_string()
                 };
-                // recorder mapping preview
+                // recorder mapping preview: only honor explicit mapped_user_id; no display-name fallback
                 let (resolved_user_id, resolved_status) = if let Some(uid) = item.mapped_user_id {
                     // validate existence
                     let exists: Option<bool> =
@@ -124,30 +125,6 @@ impl LegacyImportService {
                         (Some(uid), Some("explicit"))
                     } else {
                         (None, Some("unmatched"))
-                    }
-                } else if let Some(name) = item
-                    .original_recorder_name
-                    .as_deref()
-                    .map(|s| s.trim())
-                    .filter(|s| !s.is_empty())
-                {
-                    let rows: Vec<(Uuid, bool)> = sqlx::query_as(
-                        r#"SELECT id, is_active FROM users WHERE display_name = $1"#,
-                    )
-                    .bind(name)
-                    .fetch_all(pool)
-                    .await?;
-                    match rows.len() {
-                        0 => (None, Some("unmatched")),
-                        1 => (
-                            Some(rows[0].0),
-                            Some(if rows[0].1 {
-                                "matched_active"
-                            } else {
-                                "matched_disabled"
-                            }),
-                        ),
-                        _ => (None, Some("ambiguous")),
                     }
                 } else {
                     (None, Some("unmatched"))
@@ -297,36 +274,9 @@ impl LegacyImportService {
             "pending"
         };
 
-        // Resolve recorder mapping: prefer explicit mapped_user_id; else match by display_name
+        // Resolve recorder mapping: only honor explicit mapped_user_id; no display-name fallback
         let (resolved_user_id, resolved_status) = if let Some(uid) = item.mapped_user_id {
             (Some(uid), Some("explicit"))
-        } else if let Some(name) = item
-            .original_recorder_name
-            .as_deref()
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-        {
-            // Detect ambiguity: multiple users with the same display_name should be treated as unmatched
-            let rows: Vec<(Uuid, bool)> =
-                sqlx::query_as(r#"SELECT id, is_active FROM users WHERE display_name = $1"#)
-                    .bind(name)
-                    .fetch_all(pool)
-                    .await?;
-            match rows.len() {
-                0 => (None, Some("unmatched")),
-                1 => {
-                    let (id, is_active) = rows[0];
-                    (
-                        Some(id),
-                        Some(if is_active {
-                            "matched_active"
-                        } else {
-                            "matched_disabled"
-                        }),
-                    )
-                }
-                _ => (None, Some("ambiguous")),
-            }
         } else {
             (None, Some("unmatched"))
         };
@@ -593,13 +543,14 @@ impl LegacyImportService {
     }
 
     /// Approve a batch: write formal records with created_at from legacy time, bypassing handlers.
-    /// Returns (approved_count, skipped_count, conflict_count).
+    /// Returns (approved_count, skipped_duplicate_count, error_count).
     pub async fn approve_batch(
         pool: &PgPool,
         actor: &ActorContext,
         batch_id: Uuid,
         import_user_id: Option<Uuid>,
         dry_run: bool,
+        recorder_map: Option<&HashMap<String, Uuid>>,
     ) -> Result<(i64, i64, i64)> {
         // Permission gate: require animal.legacy_import.approve or admin
         let actor_user = actor.require_user()?;
@@ -666,141 +617,177 @@ impl LegacyImportService {
 
         let mut approved = 0_i64;
         let mut skipped = 0_i64;
-        let mut conflicts = 0_i64;
+        let mut errors = 0_i64;
 
-        for r in &rows {
-            // Extract minimal fields
-            let animal_id: Uuid = if let Some(aid) = r.matched_animal_id {
-                aid
+        // Group rows by animal_id (must be matched by staging)
+        let mut by_animal: HashMap<Uuid, Vec<LegacyImportRecord>> = HashMap::new();
+        for r in rows {
+            if let Some(aid) = r.matched_animal_id {
+                by_animal.entry(aid).or_default().push(r);
             } else {
-                conflicts += 1;
-                continue;
-            };
-            let created_by = r.mapped_user_id.or(import_user_id);
-            let legacy_name = r.original_recorder_name.clone();
-            match r.record_kind.as_str() {
-                "observation" => {
-                    // required: event_date and content
-                    let event_date = r
-                        .payload
-                        .get("event_date")
-                        .and_then(|v| v.as_str())
-                        .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
-                    let content = r
-                        .payload
-                        .get("content")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or_default();
-                    let record_type = r.record_type.as_deref().unwrap_or("observation");
-                    // Compose remark: legacy remark + optional extras without any prefix tags
-                    let mut remark_parts: Vec<String> = Vec::new();
-                    if let Some(s) = r
-                        .payload
-                        .get("remark")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.trim())
-                        .filter(|s| !s.is_empty())
-                    {
-                        remark_parts.push(s.to_string());
+                // unmatched should not happen (ingest enforces), but keep a count as error
+                errors += 1;
+            }
+        }
+
+        // Helper: resolve created_by from recorder_map (by legacy original name) or fallback to import_user_id
+        let resolve_created_by = |legacy_name: &Option<String>| -> Option<Uuid> {
+            if let Some(name) = legacy_name.as_deref() {
+                if let Some(map) = recorder_map {
+                    if let Some(uid) = map.get(name) {
+                        return Some(*uid);
                     }
-                    for key in [
-                        "vet_advice_text",
-                        "care_medication_text",
-                        "pain_assessment_text",
-                    ] {
+                }
+            }
+            import_user_id
+        };
+
+        // Process each animal within a SAVEPOINT; on any DB error, roll back this animal only and
+        // mark its rows as status='error' (except known skipped_duplicate sacrifice rows).
+        for (animal_id, recs) in by_animal {
+            // Open savepoint (reused name per-animal is acceptable; redefines previous savepoint)
+            sqlx::query("SAVEPOINT li_sp").execute(&mut *tx).await?;
+
+            // Track duplicates we intentionally skip (e.g., second sacrifice)
+            let mut duplicate_ids: Vec<Uuid> = Vec::new();
+            // Track created target ids to set on staging after insert
+            // Per record branch handles updates as before; they are all within savepoint.
+            let mut animal_failed: Option<(String, String)> = None; // (code, message)
+
+            for r in &recs {
+                if animal_failed.is_some() {
+                    break;
+                }
+                let created_by = resolve_created_by(&r.original_recorder_name);
+                let legacy_name = r.original_recorder_name.clone();
+                match r.record_kind.as_str() {
+                    "observation" => {
+                        // required: event_date and content
+                        let event_date = r
+                            .payload
+                            .get("event_date")
+                            .and_then(|v| v.as_str())
+                            .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+                        let content = r
+                            .payload
+                            .get("content")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or_default();
+                        let record_type = r.record_type.as_deref().unwrap_or("observation");
+                        // Compose remark: legacy remark + optional extras without any prefix tags
+                        let mut remark_parts: Vec<String> = Vec::new();
                         if let Some(s) = r
                             .payload
-                            .get(key)
+                            .get("remark")
                             .and_then(|v| v.as_str())
                             .map(|s| s.trim())
                             .filter(|s| !s.is_empty())
                         {
                             remark_parts.push(s.to_string());
                         }
-                    }
-                    let remark_combined = if remark_parts.is_empty() {
-                        None
-                    } else {
-                        Some(remark_parts.join("\n"))
-                    };
-                    if let Some(ed) = event_date {
-                        // equipment_used mapping: accept string or array-of-strings
-                        let equipment_used_json: Option<serde_json::Value> =
-                            if let Some(eq) = r.payload.get("equipment_used") {
-                                if let Some(s) = eq.as_str() {
-                                    Some(serde_json::json!([s]))
-                                } else if eq.is_array() {
-                                    Some(eq.clone())
-                                } else {
-                                    None
-                                }
-                            } else if let Some(eq_text) =
-                                r.payload.get("equipment_text").and_then(|v| v.as_str())
+                        for key in [
+                            "vet_advice_text",
+                            "care_medication_text",
+                            "pain_assessment_text",
+                        ] {
+                            if let Some(s) = r
+                                .payload
+                                .get(key)
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.trim())
+                                .filter(|s| !s.is_empty())
                             {
-                                if eq_text.trim() == "-" || eq_text.trim().is_empty() {
-                                    None
-                                } else {
-                                    Some(serde_json::json!([eq_text.trim()]))
-                                }
-                            } else {
-                                None
-                            };
-                        // anesthesia start/end from HH:MM or HH:MM:SS with event_date in +08:00
-                        let tz = chrono::FixedOffset::east_opt(8 * 3600)
-                            .unwrap_or_else(|| chrono::Utc.fix());
-                        // helper for parsing both formats
-                        fn parse_hhmm_or_hhmmss(s: &str) -> Option<chrono::NaiveTime> {
-                            chrono::NaiveTime::parse_from_str(s, "%H:%M:%S")
-                                .ok()
-                                .or_else(|| chrono::NaiveTime::parse_from_str(s, "%H:%M").ok())
+                                remark_parts.push(s.to_string());
+                            }
                         }
-                        let (anesthesia_start, start_err) = r
-                            .payload
-                            .get("anesthesia_start_time")
-                            .and_then(|v| v.as_str())
-                            .map(|t| match parse_hhmm_or_hhmmss(t) {
-                                Some(nt) => {
-                                    let ndt = ed.and_time(nt);
-                                    let zdt = tz
-                                        .from_local_datetime(&ndt)
-                                        .single()
-                                        .map(|dt| dt.with_timezone(&chrono::Utc));
-                                    (zdt, false)
-                                }
-                                None => (None, true),
-                            })
-                            .unwrap_or((None, false));
-                        let (anesthesia_end, end_err) = r
-                            .payload
-                            .get("anesthesia_end_time")
-                            .and_then(|v| v.as_str())
-                            .map(|t| match parse_hhmm_or_hhmmss(t) {
-                                Some(nt) => {
-                                    let ndt = ed.and_time(nt);
-                                    let zdt = tz
-                                        .from_local_datetime(&ndt)
-                                        .single()
-                                        .map(|dt| dt.with_timezone(&chrono::Utc));
-                                    (zdt, false)
-                                }
-                                None => (None, true),
-                            })
-                            .unwrap_or((None, false));
-                        // If invalid time strings present, mark conflict (do not silently drop)
-                        if (start_err && r.payload.get("anesthesia_start_time").is_some())
-                            || (end_err && r.payload.get("anesthesia_end_time").is_some())
-                        {
-                            if !dry_run {
-                                sqlx::query("UPDATE legacy_import_records SET status = 'conflict' WHERE id = $1")
+                        let remark_combined = if remark_parts.is_empty() {
+                            None
+                        } else {
+                            Some(remark_parts.join("\n"))
+                        };
+                        if let Some(ed) = event_date {
+                            // equipment_used mapping: accept string or array-of-strings
+                            let equipment_used_json: Option<serde_json::Value> =
+                                if let Some(eq) = r.payload.get("equipment_used") {
+                                    if let Some(s) = eq.as_str() {
+                                        Some(serde_json::json!([s]))
+                                    } else if eq.is_array() {
+                                        Some(eq.clone())
+                                    } else {
+                                        None
+                                    }
+                                } else if let Some(eq_text) =
+                                    r.payload.get("equipment_text").and_then(|v| v.as_str())
+                                {
+                                    if eq_text.trim() == "-" || eq_text.trim().is_empty() {
+                                        None
+                                    } else {
+                                        Some(serde_json::json!([eq_text.trim()]))
+                                    }
+                                } else {
+                                    None
+                                };
+                            // anesthesia start/end from HH:MM or HH:MM:SS with event_date in +08:00
+                            let tz = chrono::FixedOffset::east_opt(8 * 3600)
+                                .unwrap_or_else(|| chrono::Utc.fix());
+                            // helper for parsing both formats
+                            fn parse_hhmm_or_hhmmss(s: &str) -> Option<chrono::NaiveTime> {
+                                chrono::NaiveTime::parse_from_str(s, "%H:%M:%S")
+                                    .ok()
+                                    .or_else(|| chrono::NaiveTime::parse_from_str(s, "%H:%M").ok())
+                            }
+                            let (anesthesia_start, start_err) = r
+                                .payload
+                                .get("anesthesia_start_time")
+                                .and_then(|v| v.as_str())
+                                .map(|t| match parse_hhmm_or_hhmmss(t) {
+                                    Some(nt) => {
+                                        let ndt = ed.and_time(nt);
+                                        let zdt = tz
+                                            .from_local_datetime(&ndt)
+                                            .single()
+                                            .map(|dt| dt.with_timezone(&chrono::Utc));
+                                        (zdt, false)
+                                    }
+                                    None => (None, true),
+                                })
+                                .unwrap_or((None, false));
+                            let (anesthesia_end, end_err) = r
+                                .payload
+                                .get("anesthesia_end_time")
+                                .and_then(|v| v.as_str())
+                                .map(|t| match parse_hhmm_or_hhmmss(t) {
+                                    Some(nt) => {
+                                        let ndt = ed.and_time(nt);
+                                        let zdt = tz
+                                            .from_local_datetime(&ndt)
+                                            .single()
+                                            .map(|dt| dt.with_timezone(&chrono::Utc));
+                                        (zdt, false)
+                                    }
+                                    None => (None, true),
+                                })
+                                .unwrap_or((None, false));
+                            // If invalid time strings present, mark conflict (do not silently drop)
+                            if (start_err && r.payload.get("anesthesia_start_time").is_some())
+                                || (end_err && r.payload.get("anesthesia_end_time").is_some())
+                            {
+                                // soft failure (business rule), not a DB error — mark conflict and continue
+                                if !dry_run {
+                                    if let Err(e) = sqlx::query("UPDATE legacy_import_records SET status = 'conflict' WHERE id = $1")
                                     .bind(r.id)
                                     .execute(&mut *tx)
-                                    .await?;
+                                    .await {
+                                        let code = e.as_database_error().and_then(|d| d.code()).map(|s| s.to_string()).unwrap_or_else(|| "APP_ERROR".to_string());
+                                        let msg = format!("mark conflict failed: {}", e);
+                                        animal_failed = Some((code, msg));
+                                        break;
+                                }
+                                }
+                                continue;
                             }
-                            conflicts += 1;
-                            continue;
-                        }
-                        if !dry_run {
-                            let inserted: AnimalObservation = sqlx::query_as(
+                            if !dry_run {
+                                let inserted_res = sqlx::query_as::<_, AnimalObservation>(
                                 r#"
                                 INSERT INTO animal_observations (
                                     animal_id, event_date, record_type, equipment_used, anesthesia_start,
@@ -824,31 +811,51 @@ impl LegacyImportService {
                             .bind(r.legacy_created_at)
                             .bind(legacy_name)
                             .fetch_one(&mut *tx)
-                            .await?;
-                            // set target_record_id and status
-                            sqlx::query(
-                                "UPDATE legacy_import_records SET status = 'approved', target_record_id = $2 WHERE id = $1",
-                            )
-                            .bind(r.id)
-                            .bind(inserted.id)
-                            .execute(&mut *tx)
-                            .await?;
+                            .await;
+                                match inserted_res {
+                                    Ok(inserted) => {
+                                        // set target_record_id and status
+                                        if let Err(e) = sqlx::query(
+                                        "UPDATE legacy_import_records SET status = 'approved', target_record_id = $2, mapped_user_id = $3 WHERE id = $1",
+                                    )
+                                    .bind(r.id)
+                                    .bind(inserted.id)
+                                    .bind(created_by)
+                                    .execute(&mut *tx)
+                                    .await {
+                                        let code = e.as_database_error().and_then(|d| d.code()).map(|s| s.to_string()).unwrap_or_else(|| "APP_ERROR".to_string());
+                                        let msg = format!("update staging after observation insert failed: {}", e);
+                                        animal_failed = Some((code, msg));
+                                        break;
+                                    }
+                                        approved += 1;
+                                    }
+                                    Err(e) => {
+                                        let code = e
+                                            .as_database_error()
+                                            .and_then(|d| d.code())
+                                            .map(|s| s.to_string())
+                                            .unwrap_or_else(|| "DB_ERROR".to_string());
+                                        let msg = e.to_string();
+                                        animal_failed = Some((code, msg));
+                                        break;
+                                    }
+                                }
+                            }
                         }
-                        approved += 1;
-                    } else {
-                        conflicts += 1;
                     }
-                }
-                "weight" => {
-                    if let (Some(ed), Some(w)) = (
-                        r.payload
-                            .get("event_date")
-                            .and_then(|v| v.as_str())
-                            .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok()),
-                        r.payload.get("weight").and_then(|v| v.as_str()),
-                    ) {
-                        if !dry_run {
-                            let inserted: AnimalWeight = sqlx::query_as(
+                    "weight" => {
+                        if let (Some(ed), Some(w)) = (
+                            r.payload
+                                .get("event_date")
+                                .and_then(|v| v.as_str())
+                                .and_then(|s| {
+                                    chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok()
+                                }),
+                            r.payload.get("weight").and_then(|v| v.as_str()),
+                        ) {
+                            if !dry_run {
+                                let inserted_res = sqlx::query_as::<_, AnimalWeight>(
                                 r#"
                                 INSERT INTO animal_weights (animal_id, measure_date, weight, created_by, created_at, legacy_recorder_name)
                                 VALUES ($1,$2,$3::decimal, $4, COALESCE($5,NOW()), $6)
@@ -862,29 +869,47 @@ impl LegacyImportService {
                             .bind(r.legacy_created_at)
                             .bind(legacy_name)
                             .fetch_one(&mut *tx)
-                            .await?;
-                            sqlx::query(
-                                "UPDATE legacy_import_records SET status='approved', target_record_id = $2 WHERE id = $1",
-                            )
-                            .bind(r.id)
-                            .bind(inserted.id)
-                            .execute(&mut *tx)
-                            .await?;
+                            .await;
+                                match inserted_res {
+                                    Ok(inserted) => {
+                                        if let Err(e) = sqlx::query(
+                                        "UPDATE legacy_import_records SET status='approved', target_record_id = $2, mapped_user_id = $3 WHERE id = $1",
+                                    )
+                                    .bind(r.id)
+                                    .bind(inserted.id)
+                                    .bind(created_by)
+                                    .execute(&mut *tx)
+                                    .await {
+                                        let code = e.as_database_error().and_then(|d| d.code()).map(|s| s.to_string()).unwrap_or_else(|| "APP_ERROR".to_string());
+                                        let msg = format!("update staging after weight insert failed: {}", e);
+                                        animal_failed = Some((code, msg));
+                                        break;
+                                    }
+                                        approved += 1;
+                                    }
+                                    Err(e) => {
+                                        let code = e
+                                            .as_database_error()
+                                            .and_then(|d| d.code())
+                                            .map(|s| s.to_string())
+                                            .unwrap_or_else(|| "DB_ERROR".to_string());
+                                        let msg = e.to_string();
+                                        animal_failed = Some((code, msg));
+                                        break;
+                                    }
+                                }
+                            }
                         }
-                        approved += 1;
-                    } else {
-                        conflicts += 1;
                     }
-                }
-                "vaccine" => {
-                    if let Some(ed) = r
-                        .payload
-                        .get("event_date")
-                        .and_then(|v| v.as_str())
-                        .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
-                    {
-                        if !dry_run {
-                            let inserted: AnimalVaccination = sqlx::query_as(
+                    "vaccine" => {
+                        if let Some(ed) = r
+                            .payload
+                            .get("event_date")
+                            .and_then(|v| v.as_str())
+                            .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+                        {
+                            if !dry_run {
+                                let inserted_res = sqlx::query_as::<_, AnimalVaccination>(
                                 r#"
                                 INSERT INTO animal_vaccinations (animal_id, administered_date, vaccine, deworming_dose, created_by, created_at, legacy_recorder_name)
                                 VALUES ($1,$2,$3,$4,$5,COALESCE($6,NOW()), $7)
@@ -899,122 +924,140 @@ impl LegacyImportService {
                             .bind(r.legacy_created_at)
                             .bind(legacy_name)
                             .fetch_one(&mut *tx)
-                            .await?;
-                            sqlx::query(
-                                "UPDATE legacy_import_records SET status='approved', target_record_id = $2 WHERE id = $1",
-                            )
-                            .bind(r.id)
-                            .bind(inserted.id)
-                            .execute(&mut *tx)
-                            .await?;
-                        }
-                        approved += 1;
-                    } else {
-                        conflicts += 1;
-                    }
-                }
-                "surgery" => {
-                    if let Some(ed) = r
-                        .payload
-                        .get("event_date")
-                        .and_then(|v| v.as_str())
-                        .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
-                    {
-                        let site = r
-                            .payload
-                            .get("surgery_site")
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.trim())
-                            .filter(|s| !s.is_empty())
-                            .unwrap_or("未記載");
-                        // Respiration rate: per owner update 2026-10-31 — NEVER import into numeric column; keep original text in remark
-                        // Combine any legacy remark + respiration text
-                        let mut remark_parts: Vec<String> = Vec::new();
-                        if let Some(s) = r
-                            .payload
-                            .get("remark")
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.trim())
-                            .filter(|s| !s.is_empty())
-                        {
-                            remark_parts.push(s.to_string());
-                        }
-                        if let Some(rt) = r
-                            .payload
-                            .get("respiration_text")
-                            .or_else(|| r.payload.get("respiration_rate_text"))
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.trim())
-                            .filter(|s| !s.is_empty())
-                        {
-                            remark_parts.push(rt.to_string());
-                        }
-                        let remark_combined = if remark_parts.is_empty() {
-                            None
-                        } else {
-                            Some(remark_parts.join("\n"))
-                        };
-                        if !dry_run {
-                            // Read JSON blobs directly if provided
-                            let induction = r.payload.get("induction_anesthesia").cloned();
-                            let premed = r.payload.get("pre_surgery_medication").cloned();
-                            let maint = r.payload.get("anesthesia_maintenance").cloned();
-                            let vitals = r.payload.get("vital_signs").cloned();
-                            // Map additional text fields per design
-                            let anesthesia_observation = r
-                                .payload
-                                .get("anesthesia_observation")
-                                .and_then(|v| v.as_str())
-                                .map(|s| s.trim().to_string())
-                                .filter(|s| !s.is_empty());
-                            let reflex_recovery = r
-                                .payload
-                                .get("reflex_recovery")
-                                .and_then(|v| v.as_str())
-                                .map(|s| s.trim().to_string())
-                                .filter(|s| !s.is_empty());
-                            let postmed = r.payload.get("post_surgery_medication").cloned();
-                            // positioning: combine list and other text
-                            let positioning = r
-                                .payload
-                                .get("positioning_list")
-                                .and_then(|v| v.as_array())
-                                .map(|arr| {
-                                    arr.iter()
-                                        .filter_map(|x| x.as_str())
-                                        .map(|s| s.trim())
-                                        .filter(|s| !s.is_empty())
-                                        .collect::<Vec<_>>()
-                                        .join(", ")
-                                })
-                                .or_else(|| {
-                                    r.payload
-                                        .get("positioning")
-                                        .and_then(|v| v.as_str())
-                                        .map(|s| s.trim().to_string())
-                                });
-                            let positioning = {
-                                let mut base = positioning.unwrap_or_default();
-                                if let Some(other) = r
-                                    .payload
-                                    .get("positioning_other")
-                                    .and_then(|v| v.as_str())
-                                    .map(|s| s.trim())
-                                    .filter(|s| !s.is_empty())
-                                {
-                                    if base.is_empty() {
-                                        base = other.to_string();
-                                    } else {
-                                        base = format!("{}, {}", base, other);
+                            .await;
+                                match inserted_res {
+                                    Ok(inserted) => {
+                                        if let Err(e) = sqlx::query(
+                                        "UPDATE legacy_import_records SET status='approved', target_record_id = $2, mapped_user_id = $3 WHERE id = $1",
+                                    )
+                                    .bind(r.id)
+                                    .bind(inserted.id)
+                                    .bind(created_by)
+                                    .execute(&mut *tx)
+                                    .await {
+                                        let code = e.as_database_error().and_then(|d| d.code()).map(|s| s.to_string()).unwrap_or_else(|| "APP_ERROR".to_string());
+                                        let msg = format!("update staging after vaccine insert failed: {}", e);
+                                        animal_failed = Some((code, msg));
+                                        break;
+                                    }
+                                        approved += 1;
+                                    }
+                                    Err(e) => {
+                                        let code = e
+                                            .as_database_error()
+                                            .and_then(|d| d.code())
+                                            .map(|s| s.to_string())
+                                            .unwrap_or_else(|| "DB_ERROR".to_string());
+                                        let msg = e.to_string();
+                                        animal_failed = Some((code, msg));
+                                        break;
                                     }
                                 }
-                                if base.is_empty() {
-                                    None
-                                } else {
-                                    Some(base)
-                                }
+                            }
+                        }
+                    }
+                    "surgery" => {
+                        if let Some(ed) = r
+                            .payload
+                            .get("event_date")
+                            .and_then(|v| v.as_str())
+                            .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+                        {
+                            let site = r
+                                .payload
+                                .get("surgery_site")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.trim())
+                                .filter(|s| !s.is_empty())
+                                .unwrap_or("未記載");
+                            // Respiration rate: per owner update 2026-10-31 — NEVER import into numeric column; keep original text in remark
+                            // Combine any legacy remark + respiration text
+                            let mut remark_parts: Vec<String> = Vec::new();
+                            if let Some(s) = r
+                                .payload
+                                .get("remark")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.trim())
+                                .filter(|s| !s.is_empty())
+                            {
+                                remark_parts.push(s.to_string());
+                            }
+                            if let Some(rt) = r
+                                .payload
+                                .get("respiration_text")
+                                .or_else(|| r.payload.get("respiration_rate_text"))
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.trim())
+                                .filter(|s| !s.is_empty())
+                            {
+                                remark_parts.push(rt.to_string());
+                            }
+                            let remark_combined = if remark_parts.is_empty() {
+                                None
+                            } else {
+                                Some(remark_parts.join("\n"))
                             };
-                            let inserted: AnimalSurgery = sqlx::query_as(
+                            if !dry_run {
+                                // Read JSON blobs directly if provided
+                                let induction = r.payload.get("induction_anesthesia").cloned();
+                                let premed = r.payload.get("pre_surgery_medication").cloned();
+                                let maint = r.payload.get("anesthesia_maintenance").cloned();
+                                let vitals = r.payload.get("vital_signs").cloned();
+                                // Map additional text fields per design
+                                let anesthesia_observation = r
+                                    .payload
+                                    .get("anesthesia_observation")
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| s.trim().to_string())
+                                    .filter(|s| !s.is_empty());
+                                let reflex_recovery = r
+                                    .payload
+                                    .get("reflex_recovery")
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| s.trim().to_string())
+                                    .filter(|s| !s.is_empty());
+                                let postmed = r.payload.get("post_surgery_medication").cloned();
+                                // positioning: combine list and other text
+                                let positioning = r
+                                    .payload
+                                    .get("positioning_list")
+                                    .and_then(|v| v.as_array())
+                                    .map(|arr| {
+                                        arr.iter()
+                                            .filter_map(|x| x.as_str())
+                                            .map(|s| s.trim())
+                                            .filter(|s| !s.is_empty())
+                                            .collect::<Vec<_>>()
+                                            .join(", ")
+                                    })
+                                    .or_else(|| {
+                                        r.payload
+                                            .get("positioning")
+                                            .and_then(|v| v.as_str())
+                                            .map(|s| s.trim().to_string())
+                                    });
+                                let positioning = {
+                                    let mut base = positioning.unwrap_or_default();
+                                    if let Some(other) = r
+                                        .payload
+                                        .get("positioning_other")
+                                        .and_then(|v| v.as_str())
+                                        .map(|s| s.trim())
+                                        .filter(|s| !s.is_empty())
+                                    {
+                                        if base.is_empty() {
+                                            base = other.to_string();
+                                        } else {
+                                            base = format!("{}, {}", base, other);
+                                        }
+                                    }
+                                    if base.is_empty() {
+                                        None
+                                    } else {
+                                        Some(base)
+                                    }
+                                };
+                                let inserted_res = sqlx::query_as::<_, AnimalSurgery>(
                                 r#"
                                 INSERT INTO animal_surgeries (
                                     animal_id, is_first_experiment, surgery_date, surgery_site,
@@ -1051,99 +1094,109 @@ impl LegacyImportService {
                             .bind(r.legacy_created_at)
                             .bind(legacy_name)
                             .fetch_one(&mut *tx)
-                            .await?;
-                            sqlx::query(
-                                "UPDATE legacy_import_records SET status='approved', target_record_id = $2 WHERE id = $1",
-                            )
-                            .bind(r.id)
-                            .bind(inserted.id)
-                            .execute(&mut *tx)
-                            .await?;
-                        }
-                        approved += 1;
-                    } else {
-                        conflicts += 1;
-                    }
-                }
-                "sacrifice" => {
-                    // animal_sacrifices unique per animal; map fields and skip duplicates at approval time
-                    // Skip if sacrifice already exists for this animal (report as skipped_duplicate)
-                    let exists: Option<Uuid> = sqlx::query_scalar(
-                        "SELECT id FROM animal_sacrifices WHERE animal_id = $1 LIMIT 1",
-                    )
-                    .bind(animal_id)
-                    .fetch_optional(&mut *tx)
-                    .await?;
-                    if exists.is_some() {
-                        if !dry_run {
-                            sqlx::query("UPDATE legacy_import_records SET status = 'skipped_duplicate' WHERE id = $1")
-                                .bind(r.id)
-                                .execute(&mut *tx)
-                                .await?;
-                        }
-                        // This row is skipped during approval
-                        // Note: skipped count aggregated below in audit; return tuple includes it.
-                        // We increment our local counter here.
-                        // We cannot mutate 'skipped' if it's immutable; ensure it is mutable at declaration.
-                        // The declaration has been updated to mutable.
-                        skipped += 1;
-                    } else {
-                        // Map fields
-                        let sacrifice_date = r
-                            .payload
-                            .get("event_date")
-                            .and_then(|v| v.as_str())
-                            .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
-                        let zoletil_dose = r
-                            .payload
-                            .get("zoletil_dose")
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.trim().to_string())
-                            .filter(|s| !s.is_empty());
-                        let method_electrocution = r
-                            .payload
-                            .get("method_electrocution")
-                            .and_then(|v| v.as_bool())
-                            .unwrap_or(false);
-                        let method_bloodletting = r
-                            .payload
-                            .get("method_bloodletting")
-                            .and_then(|v| v.as_bool())
-                            .unwrap_or(false);
-                        let method_other = r
-                            .payload
-                            .get("method_other")
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.trim().to_string())
-                            .filter(|s| !s.is_empty());
-                        let sampling = r
-                            .payload
-                            .get("sampling")
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.trim().to_string())
-                            .filter(|s| !s.is_empty());
-                        let sampling_other = r
-                            .payload
-                            .get("sampling_other")
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.trim().to_string())
-                            .filter(|s| !s.is_empty());
-                        let blood_volume_ml = r.payload.get("blood_volume_ml").and_then(|v| {
-                            if let Some(s) = v.as_str() {
-                                rust_decimal::Decimal::from_str_exact(s).ok()
-                            } else if let Some(n) = v.as_f64() {
-                                rust_decimal::Decimal::from_f64(n)
-                            } else {
-                                None
+                            .await;
+                                match inserted_res {
+                                    Ok(inserted) => {
+                                        if let Err(e) = sqlx::query(
+                                        "UPDATE legacy_import_records SET status='approved', target_record_id = $2, mapped_user_id = $3 WHERE id = $1",
+                                    )
+                                    .bind(r.id)
+                                    .bind(inserted.id)
+                                    .bind(created_by)
+                                    .execute(&mut *tx)
+                                    .await {
+                                        let code = e.as_database_error().and_then(|d| d.code()).map(|s| s.to_string()).unwrap_or_else(|| "APP_ERROR".to_string());
+                                        let msg = format!("update staging after surgery insert failed: {}", e);
+                                        animal_failed = Some((code, msg));
+                                        break;
+                                    }
+                                        approved += 1;
+                                    }
+                                    Err(e) => {
+                                        let code = e
+                                            .as_database_error()
+                                            .and_then(|d| d.code())
+                                            .map(|s| s.to_string())
+                                            .unwrap_or_else(|| "DB_ERROR".to_string());
+                                        let msg = e.to_string();
+                                        animal_failed = Some((code, msg));
+                                        break;
+                                    }
+                                }
                             }
-                        });
-                        let confirmed_sacrifice = r
-                            .payload
-                            .get("confirmed_sacrifice")
-                            .and_then(|v| v.as_bool())
-                            .unwrap_or(true);
-                        if !dry_run {
-                            let inserted: AnimalSacrifice = sqlx::query_as(
+                        }
+                    }
+                    "sacrifice" => {
+                        // animal_sacrifices unique per animal; map fields and skip duplicates at approval time
+                        // Skip if sacrifice already exists for this animal (report as skipped_duplicate)
+                        let exists: Option<Uuid> = sqlx::query_scalar(
+                            "SELECT id FROM animal_sacrifices WHERE animal_id = $1 LIMIT 1",
+                        )
+                        .bind(animal_id)
+                        .fetch_optional(&mut *tx)
+                        .await?;
+                        if exists.is_some() {
+                            duplicate_ids.push(r.id);
+                            skipped += 1;
+                        } else {
+                            // Map fields
+                            let sacrifice_date = r
+                                .payload
+                                .get("event_date")
+                                .and_then(|v| v.as_str())
+                                .and_then(|s| {
+                                    chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok()
+                                });
+                            let zoletil_dose = r
+                                .payload
+                                .get("zoletil_dose")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.trim().to_string())
+                                .filter(|s| !s.is_empty());
+                            let method_electrocution = r
+                                .payload
+                                .get("method_electrocution")
+                                .and_then(|v| v.as_bool())
+                                .unwrap_or(false);
+                            let method_bloodletting = r
+                                .payload
+                                .get("method_bloodletting")
+                                .and_then(|v| v.as_bool())
+                                .unwrap_or(false);
+                            let method_other = r
+                                .payload
+                                .get("method_other")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.trim().to_string())
+                                .filter(|s| !s.is_empty());
+                            let sampling = r
+                                .payload
+                                .get("sampling")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.trim().to_string())
+                                .filter(|s| !s.is_empty());
+                            let sampling_other = r
+                                .payload
+                                .get("sampling_other")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.trim().to_string())
+                                .filter(|s| !s.is_empty());
+                            let blood_volume_ml = r.payload.get("blood_volume_ml").and_then(|v| {
+                                if let Some(s) = v.as_str() {
+                                    rust_decimal::Decimal::from_str_exact(s).ok()
+                                } else if let Some(n) = v.as_f64() {
+                                    rust_decimal::Decimal::from_f64(n)
+                                } else {
+                                    None
+                                }
+                            });
+                            let confirmed_sacrifice = r
+                                .payload
+                                .get("confirmed_sacrifice")
+                                .and_then(|v| v.as_bool())
+                                .unwrap_or(true);
+                            if !dry_run {
+                                let inserted_res = sqlx::query_as::<_, AnimalSacrifice>(
                                 r#"
                                 INSERT INTO animal_sacrifices (
                                     animal_id, sacrifice_date, zoletil_dose,
@@ -1169,21 +1222,95 @@ impl LegacyImportService {
                             .bind(r.legacy_created_at)
                             .bind(legacy_name)
                             .fetch_one(&mut *tx)
-                            .await?;
-                            sqlx::query(
-                                "UPDATE legacy_import_records SET status='approved', target_record_id = $2 WHERE id = $1",
-                            )
-                            .bind(r.id)
-                            .bind(inserted.id)
-                            .execute(&mut *tx)
-                            .await?;
+                            .await;
+                                match inserted_res {
+                                    Ok(inserted) => {
+                                        if let Err(e) = sqlx::query(
+                                        "UPDATE legacy_import_records SET status='approved', target_record_id = $2, mapped_user_id = $3 WHERE id = $1",
+                                    )
+                                    .bind(r.id)
+                                    .bind(inserted.id)
+                                    .bind(created_by)
+                                    .execute(&mut *tx)
+                                    .await {
+                                        let code = e.as_database_error().and_then(|d| d.code()).map(|s| s.to_string()).unwrap_or_else(|| "APP_ERROR".to_string());
+                                        let msg = format!("update staging after sacrifice insert failed: {}", e);
+                                        animal_failed = Some((code, msg));
+                                        break;
+                                    }
+                                        approved += 1;
+                                    }
+                                    Err(e) => {
+                                        let code = e
+                                            .as_database_error()
+                                            .and_then(|d| d.code())
+                                            .map(|s| s.to_string())
+                                            .unwrap_or_else(|| "DB_ERROR".to_string());
+                                        let msg = e.to_string();
+                                        animal_failed = Some((code, msg));
+                                        break;
+                                    }
+                                }
+                            }
                         }
-                        approved += 1;
+                    }
+                    _ => {
+                        // unknown kind: treat as application error for this animal
+                        animal_failed = Some((
+                            "APP_ERROR".to_string(),
+                            format!("unknown record_kind: {}", r.record_kind),
+                        ));
                     }
                 }
-                _ => {
-                    conflicts += 1;
+            }
+
+            // Check if animal failed; if so rollback to savepoint and mark error statuses for all this animal's rows
+            if let Some((code, message)) = animal_failed {
+                // Roll back this animal's work
+                sqlx::query("ROLLBACK TO SAVEPOINT li_sp")
+                    .execute(&mut *tx)
+                    .await?;
+                // Mark duplicates back to skipped_duplicate (not error)
+                if !dry_run && !duplicate_ids.is_empty() {
+                    sqlx::query(
+                    "UPDATE legacy_import_records SET status = 'skipped_duplicate' WHERE id = ANY($1)",
+                )
+                .bind(&duplicate_ids)
+                .execute(&mut *tx)
+                .await?;
                 }
+                // Mark remaining pending rows for this animal as error with code/message
+                if !dry_run {
+                    sqlx::query(
+                        r#"
+                    UPDATE legacy_import_records
+                    SET status = 'error', error_code = $3, error_message = $4
+                    WHERE import_batch_id = $1
+                      AND matched_animal_id = $2
+                      AND status = 'pending'
+                    "#,
+                    )
+                    .bind(batch_id)
+                    .bind(animal_id)
+                    .bind(&code)
+                    .bind(&message)
+                    .execute(&mut *tx)
+                    .await?;
+                }
+                errors += 1;
+                // Continue with next animal
+                continue;
+            } else {
+                // No hard error: apply skipped_duplicate marks (if any) outside of savepoint
+                if !dry_run && !duplicate_ids.is_empty() {
+                    sqlx::query(
+                    "UPDATE legacy_import_records SET status = 'skipped_duplicate' WHERE id = ANY($1)",
+                )
+                .bind(&duplicate_ids)
+                .execute(&mut *tx)
+                .await?;
+                }
+                // RELEASE is optional; we just move on
             }
         }
 
@@ -1203,7 +1330,7 @@ impl LegacyImportService {
                         dd.after = Some(serde_json::json!({
                             "approved": approved,
                             "skipped": skipped,
-                            "conflict": conflicts,
+                            "error": errors,
                         }));
                         dd
                     }),
@@ -1214,7 +1341,7 @@ impl LegacyImportService {
             tx.commit().await?;
         }
 
-        Ok((approved, skipped, conflicts))
+        Ok((approved, skipped, errors))
     }
 
     pub async fn get_batch_report(pool: &PgPool, batch_id: Uuid) -> Result<ImportBatchReport> {
@@ -1239,11 +1366,19 @@ impl LegacyImportService {
         .bind(batch_id)
         .fetch_one(pool)
         .await?;
-        let (conflict,): (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM legacy_import_records WHERE import_batch_id = $1 AND status = 'conflict'")
-                .bind(batch_id)
-                .fetch_one(pool)
-                .await?;
+        let (conflict,): (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM legacy_import_records WHERE import_batch_id = $1 AND status = 'conflict'",
+        )
+        .bind(batch_id)
+        .fetch_one(pool)
+        .await?;
+        let (error_count,): (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM legacy_import_records WHERE import_batch_id = $1 AND status = 'error'",
+        )
+        .bind(batch_id)
+        .fetch_one(pool)
+        .await
+        .unwrap_or((0,));
 
         let dash_type_records: Vec<Uuid> = sqlx::query_scalar(
             "SELECT id FROM legacy_import_records WHERE import_batch_id = $1 AND legacy_record_type_text = '-'",
@@ -1271,6 +1406,16 @@ impl LegacyImportService {
         .bind(batch_id)
         .fetch_all(pool)
         .await?;
+        let error_rows: Vec<crate::models::LegacyReportRow> = sqlx::query_as(
+            r#"SELECT id, legacy_record_id, record_kind, status
+               FROM legacy_import_records
+               WHERE import_batch_id = $1 AND status = 'error'
+               ORDER BY created_at"#,
+        )
+        .bind(batch_id)
+        .fetch_all(pool)
+        .await
+        .unwrap_or_else(|_| Vec::new());
         let unmatched_recorder_rows: Vec<crate::models::LegacyReportRow> = sqlx::query_as(
             r#"SELECT id, legacy_record_id, record_kind, status
                FROM legacy_import_records
@@ -1298,11 +1443,13 @@ impl LegacyImportService {
             rejected,
             skipped_duplicate,
             conflict,
+            error: error_count,
             dash_type_records,
             skipped_duplicate_rows,
             conflict_rows,
             unmatched_recorder_rows,
             disabled_account_rows,
+            error_rows,
         })
     }
 }
