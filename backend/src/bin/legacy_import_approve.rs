@@ -126,23 +126,24 @@ async fn main() -> anyhow::Result<()> {
             .has_headers(true)
             .from_path(path)
             .map_err(|e| anyhow::anyhow!(format!("read recorder_map CSV: {}", e)))?;
+        let headers = rdr
+            .headers()
+            .map_err(|e| anyhow::anyhow!(format!("read CSV headers: {}", e)))?
+            .clone();
+        let name_idx = headers
+            .iter()
+            .position(|h| h.trim().eq_ignore_ascii_case("legacy_recorder_name"))
+            .ok_or_else(|| {
+                anyhow::anyhow!("recorder_map CSV missing 'legacy_recorder_name' header")
+            })?;
+        let email_idx = headers
+            .iter()
+            .position(|h| h.trim().eq_ignore_ascii_case("user_email"))
+            .ok_or_else(|| anyhow::anyhow!("recorder_map CSV missing 'user_email' header"))?;
         for rec in rdr.records() {
             let rec = rec.map_err(|e| anyhow::anyhow!(format!("parse CSV row: {}", e)))?;
-            // Expect headers legacy_recorder_name,user_email
-            let name = rec
-                .get(
-                    rec.iter()
-                        .position(|h| h == "legacy_recorder_name")
-                        .unwrap_or(0),
-                )
-                .unwrap_or_default()
-                .trim()
-                .to_string();
-            let email = rec
-                .get(rec.iter().position(|h| h == "user_email").unwrap_or(1))
-                .unwrap_or_default()
-                .trim()
-                .to_string();
+            let name = rec.get(name_idx).unwrap_or_default().trim().to_string();
+            let email = rec.get(email_idx).unwrap_or_default().trim().to_string();
             if name.is_empty() || email.is_empty() {
                 continue;
             }
@@ -155,7 +156,10 @@ async fn main() -> anyhow::Result<()> {
             {
                 name_to_user.insert(name, uid);
             } else {
-                eprintln!("recorder_map: email not found, name='{}' email='{}' (falls back to import_user)", name, email);
+                eprintln!(
+                    "recorder_map: email not found, name='{}' email='{}' (falls back to import_user)",
+                    name, email
+                );
             }
         }
     }

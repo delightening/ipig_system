@@ -858,7 +858,7 @@ impl LegacyImportService {
                                             if let Some(cap) = pain_re.captures(text) {
                                                 if let Some(m) = cap.get(1) {
                                                     if let Ok(score) = m.as_str().parse::<i16>() {
-                                                        let _ = sqlx::query(
+                                                        let insert_care = sqlx::query(
                                                             r#"
                                                             INSERT INTO care_medication_records (record_type, record_id, record_mode, pain_score)
                                                             VALUES ($1::vet_record_type, $2, $3::care_record_mode, $4)
@@ -870,6 +870,18 @@ impl LegacyImportService {
                                                         .bind(score)
                                                         .execute(&mut *tx)
                                                         .await;
+                                                        if let Err(e) = insert_care {
+                                                            let code = e
+                                                                .as_database_error()
+                                                                .and_then(|d| d.code())
+                                                                .map(|s| s.to_string())
+                                                                .unwrap_or_else(|| {
+                                                                    "DB_ERROR".to_string()
+                                                                });
+                                                            let msg = format!("insert care_medication_records failed: {}", e);
+                                                            animal_failed = Some((code, msg));
+                                                            break;
+                                                        }
                                                     }
                                                 }
                                             }

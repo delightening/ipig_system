@@ -6,6 +6,7 @@ mod common;
 use common::TestApp;
 
 #[tokio::test]
+#[serial_test::serial]
 async fn permission_checks_and_batch_creation() {
     let app = TestApp::spawn().await;
     // Admin has all permissions via has_permission short-circuit
@@ -25,6 +26,7 @@ async fn permission_checks_and_batch_creation() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn staging_idempotency_and_duplicate_skipping_and_approval_created_at() {
     let app = TestApp::spawn().await;
     let admin_token = app.login_as_admin().await;
@@ -303,6 +305,7 @@ async fn staging_idempotency_and_duplicate_skipping_and_approval_created_at() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn surgery_respiration_rate_is_never_imported_numeric_but_text_in_remark() {
     let app = TestApp::spawn().await;
     let admin_token = app.login_as_admin().await;
@@ -408,6 +411,7 @@ async fn surgery_respiration_rate_is_never_imported_numeric_but_text_in_remark()
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn surgery_approval_maps_fields_and_blank_site_defaults() {
     let app = TestApp::spawn().await;
     let admin_token = app.login_as_admin().await;
@@ -513,6 +517,7 @@ async fn surgery_approval_maps_fields_and_blank_site_defaults() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn weight_and_vaccine_and_sacrifice_approval_and_duplicate_sacrifice() {
     let app = TestApp::spawn().await;
     let admin_token = app.login_as_admin().await;
@@ -665,6 +670,7 @@ async fn weight_and_vaccine_and_sacrifice_approval_and_duplicate_sacrifice() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn approval_permission_denied_for_non_privileged_user() {
     let app = TestApp::spawn().await;
     // Create a non-admin user via helper
@@ -702,6 +708,7 @@ async fn approval_permission_denied_for_non_privileged_user() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn ingest_dry_run_reports_pending_and_writes_nothing() {
     let app = TestApp::spawn().await;
     let admin_token = app.login_as_admin().await;
@@ -765,6 +772,7 @@ async fn ingest_dry_run_reports_pending_and_writes_nothing() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn changed_resend_after_approval_reports_conflict_and_does_not_overwrite() {
     let app = TestApp::spawn().await;
     let admin_token = app.login_as_admin().await;
@@ -864,6 +872,7 @@ async fn changed_resend_after_approval_reports_conflict_and_does_not_overwrite()
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn recorder_mapping_csv_active_disabled_unmatched_and_legacy_name_written() {
     let app = TestApp::spawn().await;
     let admin_token = app.login_as_admin().await;
@@ -973,6 +982,7 @@ async fn recorder_mapping_csv_active_disabled_unmatched_and_legacy_name_written(
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn per_animal_error_rollback_and_counts_with_duplicate_sacrifice_kept() {
     let app = TestApp::spawn().await;
     let admin_token = app.login_as_admin().await;
