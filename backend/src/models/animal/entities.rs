@@ -117,6 +117,9 @@ pub struct AnimalObservation {
     // Optimistic locking (migration 014)
     #[sqlx(default)]
     pub version: Option<i32>,
+    /// Legacy import: original recorder name from legacy system
+    #[sqlx(default)]
+    pub legacy_recorder_name: Option<String>,
 }
 
 /// ⚠️ **R26-9 警告**：`AnimalObservation.content` / `equipment_used` / `treatments` /
@@ -152,6 +155,9 @@ pub struct AnimalSurgery {
     pub created_by_name: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// Legacy import: original recorder name from legacy system
+    #[sqlx(default)]
+    pub legacy_recorder_name: Option<String>,
 }
 
 // R26-9 warning 同 AnimalObservation：手術紀錄含 JSONB 麻醉/藥物/vital signs
@@ -167,6 +173,9 @@ pub struct AnimalWeight {
     pub weight: rust_decimal::Decimal,
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
+    /// Legacy import: original recorder name from legacy system
+    #[sqlx(default)]
+    pub legacy_recorder_name: Option<String>,
 }
 
 // 無敏感欄位（體重數值、測量日期）；空 impl 即可。
@@ -207,6 +216,9 @@ pub struct AnimalVaccination {
     pub deworming_dose: Option<String>,
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
+    /// Legacy import: original recorder name from legacy system
+    #[sqlx(default)]
+    pub legacy_recorder_name: Option<String>,
 }
 
 // 無敏感欄位（疫苗名、驅蟲劑量、給藥日期為研究紀錄本身）；空 impl 即可。
@@ -229,6 +241,9 @@ pub struct AnimalSacrifice {
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// Legacy import: original recorder name from legacy system
+    #[sqlx(default)]
+    pub legacy_recorder_name: Option<String>,
 }
 
 // R26-9 方針同 AnimalObservation：method_other / sampling_other 為自由文字
