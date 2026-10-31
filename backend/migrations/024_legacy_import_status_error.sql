@@ -18,11 +18,10 @@ BEGIN
           AND conkey IS NOT NULL
           AND EXISTS (
               SELECT 1
-              FROM unnest(pg_constraint.conkey) AS attnum
-              JOIN pg_attribute a
-                ON a.attrelid = pg_constraint.conrelid
-               AND a.attnum = attnum
-              WHERE a.attname = 'status'
+              FROM pg_attribute a
+              WHERE a.attrelid = pg_constraint.conrelid
+                AND a.attname = 'status'
+                AND a.attnum = ANY (pg_constraint.conkey)
           )
     LOOP
         EXECUTE format('ALTER TABLE legacy_import_records DROP CONSTRAINT %I', c.conname);

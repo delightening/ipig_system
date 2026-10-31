@@ -642,6 +642,10 @@ impl LegacyImportService {
             import_user_id
         };
 
+        // Pre-compile pain assessment numeric extractor once per batch
+        let pain_re = regex::Regex::new(r"^\s*(\d+)")
+            .map_err(|e| AppError::Internal(format!("compile pain regex: {}", e)))?;
+
         // Process each animal within a SAVEPOINT; on any DB error, roll back this animal only and
         // mark its rows as status='error' (except known skipped_duplicate sacrifice rows).
         for (animal_id, recs) in by_animal {
@@ -787,6 +791,15 @@ impl LegacyImportService {
                                 continue;
                             }
                             if !dry_run {
+                                // Map old checkbox to no_medication_needed only; stop_medication keeps default
+                                let no_medication_needed = r
+                                    .payload
+                                    .get("no_medication_needed")
+                                    .and_then(|v| v.as_bool())
+                                    .or_else(|| {
+                                        r.payload.get("stop_medication").and_then(|v| v.as_bool())
+                                    })
+                                    .unwrap_or(false);
                                 let inserted_res = sqlx::query_as::<_, AnimalObservation>(
                                 r#"
                                 INSERT INTO animal_observations (
@@ -794,8 +807,8 @@ impl LegacyImportService {
                                     anesthesia_end, content, no_medication_needed, stop_medication, treatments, remark,
                                     created_by, created_at, updated_at, legacy_recorder_name
                                 )
-                                VALUES ($1,$2,$3::record_type, $4, $5, $6, $7, false, false, NULL, $8,
-                                        $9, COALESCE($10, NOW()), NOW(), $11)
+                                VALUES ($1,$2,$3::record_type, $4, $5, $6, $7, $8, false, NULL, $9,
+                                        $10, COALESCE($11, NOW()), NOW(), $12)
                                 RETURNING *
                                 "#,
                             )
@@ -806,6 +819,7 @@ impl LegacyImportService {
                             .bind(anesthesia_start)
                             .bind(anesthesia_end)
                             .bind(content)
+                            .bind(no_medication_needed)
                             .bind(remark_combined)
                             .bind(created_by)
                             .bind(r.legacy_created_at)
@@ -814,6 +828,33 @@ impl LegacyImportService {
                             .await;
                                 match inserted_res {
                                     Ok(inserted) => {
+                                        // Optional: create a care_medication_records pain assessment row if a numeric leading score exists
+                                        if let Some(text) = r
+                                            .payload
+                                            .get("pain_assessment_text")
+                                            .and_then(|v| v.as_str())
+                                            .map(|s| s.trim())
+                                            .filter(|s| !s.is_empty())
+                                        {
+                                            if let Some(cap) = pain_re.captures(text) {
+                                                if let Some(m) = cap.get(1) {
+                                                    if let Ok(score) = m.as_str().parse::<i16>() {
+                                                        let _ = sqlx::query(
+                                                            r#"
+                                                            INSERT INTO care_medication_records (record_type, record_id, record_mode, pain_score)
+                                                            VALUES ($1::vet_record_type, $2, $3::care_record_mode, $4)
+                                                            "#,
+                                                        )
+                                                        .bind("observation")
+                                                        .bind(inserted.id)
+                                                        .bind("pain_assessment")
+                                                        .bind(score)
+                                                        .execute(&mut *tx)
+                                                        .await;
+                                                    }
+                                                }
+                                            }
+                                        }
                                         // set target_record_id and status
                                         if let Err(e) = sqlx::query(
                                         "UPDATE legacy_import_records SET status = 'approved', target_record_id = $2, mapped_user_id = $3 WHERE id = $1",
