@@ -433,7 +433,7 @@ impl LegacyImportService {
                     let exists: Option<Uuid> = sqlx::query_scalar(
                         r#"
                         SELECT id FROM animal_observations
-                        WHERE animal_id = $1 AND event_date = $2 AND record_type::text = $3 AND content = $4
+                        WHERE animal_id = $1 AND event_date = $2 AND record_type = $3::record_type AND content = $4
                           AND deleted_at IS NULL
                         LIMIT 1
                         "#,
@@ -1446,7 +1446,6 @@ impl LegacyImportService {
         .bind(batch_id)
         .fetch_all(pool)
         .await?;
-
         // Per-row lists
         let skipped_duplicate_rows: Vec<crate::models::LegacyReportRow> = sqlx::query_as(
             r#"SELECT id, legacy_record_id, record_kind, status
@@ -1513,3 +1512,4 @@ impl LegacyImportService {
         })
     }
 }
+ 

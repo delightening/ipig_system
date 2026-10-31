@@ -989,7 +989,6 @@ async fn per_animal_error_rollback_and_counts_with_duplicate_sacrifice_kept() {
     }).await;
     let b_id = Uuid::parse_str(created_b["id"].as_str().expect("id")).expect("uuid");
     let b_et = created_b["ear_tag"].as_str().expect("ear_tag").to_string();
-    // Pre-create one sacrifice for A to make later sacrifice a duplicate
     let admin_email =
         std::env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@ipigsystem.asia".to_string());
     let (admin_id,): (Uuid,) =
@@ -998,15 +997,6 @@ async fn per_animal_error_rollback_and_counts_with_duplicate_sacrifice_kept() {
             .fetch_one(&app.db_pool)
             .await
             .expect("admin lookup");
-    sqlx::query(
-        "INSERT INTO animal_sacrifices (animal_id, sacrifice_date, created_by, created_at) VALUES ($1,$2,$3,NOW())",
-    )
-    .bind(a_id)
-    .bind(chrono::NaiveDate::from_ymd_opt(2025, 8, 3).expect("valid date"))
-    .bind(admin_id)
-    .execute(&app.db_pool)
-    .await
-    .expect("seed sacrifice");
     // Batch: for A include invalid weight (abc) to trigger DB error, and a duplicate sacrifice; for B a valid observation
     let batch: serde_json::Value = TestApp::json(
         app.auth_post(
@@ -1026,13 +1016,14 @@ async fn per_animal_error_rollback_and_counts_with_duplicate_sacrifice_kept() {
             { "kind":"sacrifice","legacy_record_id":"a-s","legacy_created_at":"2025-08-05T00:00:00Z","event_date":"2025-08-05","payload":{"event_date":"2025-08-05"} }
         ]
     });
-    let _ = app
+    let res_a = app
         .auth_post(
             &format!("/api/v1/legacy-import/batches/{}/records", batch_id),
             &ingest_a,
             &admin_token,
         )
         .await;
+    assert!(res_a.status().is_success(), "ingest A should succeed");
     // B records
     let ingest_b = json!({
         "pig": { "ear_tag": b_et, "birth_date": bd_b.to_string(), "iacuc_no": null },
@@ -1040,13 +1031,24 @@ async fn per_animal_error_rollback_and_counts_with_duplicate_sacrifice_kept() {
             { "kind":"observation","legacy_record_id":"b-o","legacy_created_at":"2025-08-04T00:00:00Z","event_date":"2025-08-04","content":"ok","payload":{"event_date":"2025-08-04","content":"ok"} }
         ]
     });
-    let _ = app
+    let res_b = app
         .auth_post(
             &format!("/api/v1/legacy-import/batches/{}/records", batch_id),
             &ingest_b,
             &admin_token,
         )
         .await;
+    assert!(res_b.status().is_success(), "ingest B should succeed");
+    // Now pre-create one sacrifice for A so approval sees it as an existing duplicate
+    sqlx::query(
+        "INSERT INTO animal_sacrifices (animal_id, sacrifice_date, created_by, created_at) VALUES ($1,$2,$3,NOW())",
+    )
+    .bind(a_id)
+    .bind(chrono::NaiveDate::from_ymd_opt(2025, 8, 3).expect("valid date"))
+    .bind(admin_id)
+    .execute(&app.db_pool)
+    .await
+    .expect("seed sacrifice");
     // Approve
     let actor = erp_backend::middleware::ActorContext::User(erp_backend::middleware::CurrentUser {
         id: admin_id,
