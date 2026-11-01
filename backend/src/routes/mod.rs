@@ -23,6 +23,7 @@ mod erp;
 mod honeypot;
 mod hr;
 mod invitation;
+mod legacy_import;
 mod mcp;
 mod messaging;
 mod notification;
@@ -80,6 +81,7 @@ pub fn api_routes(state: AppState) -> Router {
         .merge(erp::routes())
         .merge(report::routes())
         .merge(protocol::routes())
+        .merge(legacy_import::routes())
         .merge(animal::routes())
         .merge(notification::routes())
         .merge(messaging::routes())

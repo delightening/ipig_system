@@ -13,6 +13,9 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("animal.animal.delete", "刪除動物", "animal", "可永久刪除（軟刪除）動物紀錄，僅限系統管理員"),
         // 動物來源管理
         ("animal.source.manage", "管理動物來源", "animal", "可管理動物來源資料"),
+        // 舊系統紀錄匯入（暫存寫入 / 批次核准）
+        ("animal.legacy_import.write", "寫入舊系統匯入暫存表", "animal", "可建立批次與寫入 legacy_import_* 暫存表（僅供一時性匯入工具使用）"),
+        ("animal.legacy_import.approve", "核准舊系統匯入批次", "animal", "可將暫存的 legacy 匯入紀錄寫入正式表（一次性匯入審核）"),
         // 動物預約與試驗規劃：檢視 / 操作分離。
         // 原本讀寫共用 animal.info.assign → SD 與試驗工作人員連頁面都進不來；
         // 且該權限同時被 batch_assign_animals 使用、由 EXPERIMENT_STAFF / VET 持有，

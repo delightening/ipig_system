@@ -61,6 +61,8 @@ export const PERMISSIONS = {
     ANIMAL_FIELD_CORRECTION_REVIEW: 'animal.field_correction.review',
     ANIMAL_INFO_ASSIGN: 'animal.info.assign',
     ANIMAL_INFO_EDIT: 'animal.info.edit',
+    ANIMAL_LEGACY_IMPORT_APPROVE: 'animal.legacy_import.approve',
+    ANIMAL_LEGACY_IMPORT_WRITE: 'animal.legacy_import.write',
     ANIMAL_PATHOLOGY_UPLOAD: 'animal.pathology.upload',
     ANIMAL_PATHOLOGY_VIEW: 'animal.pathology.view',
     ANIMAL_PLANNING_MANAGE: 'animal.planning.manage',
