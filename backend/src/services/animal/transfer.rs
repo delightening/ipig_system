@@ -19,6 +19,36 @@ use crate::{
 
 pub struct AnimalTransferService;
 
+/// 不受「資料邊界」限制的角色：看得到動物轉移前後的全部紀錄。
+///
+/// - 管理員：`ROLE_ADMIN_LEGACY`（`admin`，正式資料庫實際使用的代碼）與 `ROLE_SYSTEM_ADMIN`，
+///   與 `CurrentUser::is_admin` 同一組。原本這裡寫死字串 `"ADMIN"`，與正式庫的小寫 `admin`
+///   對不上，管理員因此被當成受限角色、看不到轉移前的紀錄。
+/// - 獸醫、IACUC 工作人員／主席、試驗工作人員。
+///
+/// 其他角色（PI、委託人 CLIENT、DIRECTOR、REVIEWER…）維持受限：取得該動物最近一筆已完成
+/// 轉移的 `completed_at` 作為邊界。
+const BOUNDARY_EXEMPT_ROLES: [&str; 6] = [
+    crate::constants::ROLE_SYSTEM_ADMIN,
+    crate::constants::ROLE_ADMIN_LEGACY,
+    crate::constants::ROLE_VET,
+    crate::constants::ROLE_IACUC_STAFF,
+    crate::constants::ROLE_IACUC_CHAIR,
+    crate::constants::ROLE_EXPERIMENT_STAFF,
+];
+
+/// 這組角色裡有沒有任何一個不受資料邊界限制。
+///
+/// 比對**不分大小寫**：角色代碼的大小寫在這個系統裡不一致（管理員在資料庫是小寫 `admin`，
+/// 其餘多為大寫），而寫死單一寫法的比對曾經讓管理員被誤判為受限。
+fn is_boundary_exempt(roles: &[String]) -> bool {
+    roles.iter().any(|r| {
+        BOUNDARY_EXEMPT_ROLES
+            .iter()
+            .any(|exempt| exempt.eq_ignore_ascii_case(r))
+    })
+}
+
 impl AnimalTransferService {
     // ============================================
     // 動物轉讓流程
@@ -33,17 +63,8 @@ impl AnimalTransferService {
         _current_user_id: Uuid,
         user_roles: &[String],
     ) -> Result<DataBoundaryResponse> {
-        // Admin / VET / IACUC_STAFF 可看到所有紀錄
-        let privileged = user_roles.iter().any(|r| {
-            [
-                "ADMIN",
-                crate::constants::ROLE_VET,
-                crate::constants::ROLE_IACUC_STAFF,
-                crate::constants::ROLE_IACUC_CHAIR,
-            ]
-            .contains(&r.as_str())
-        });
-        if privileged {
+        // 管理員 / VET / IACUC / 試驗工作人員可看到所有紀錄（名單與理由見 BOUNDARY_EXEMPT_ROLES）
+        if is_boundary_exempt(user_roles) {
             return Ok(DataBoundaryResponse { boundary: None });
         }
 
@@ -602,5 +623,68 @@ impl AnimalTransferService {
 
         tx.commit().await?;
         Ok(updated)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_boundary_exempt;
+
+    fn roles(codes: &[&str]) -> Vec<String> {
+        codes.iter().map(|c| c.to_string()).collect()
+    }
+
+    /// 正式資料庫的管理員代碼是小寫 `admin`。原本比對寫死大寫 `"ADMIN"`，對不上。
+    #[test]
+    fn lowercase_admin_in_production_db_is_exempt() {
+        assert!(is_boundary_exempt(&roles(&["admin"])));
+    }
+
+    #[test]
+    fn admin_matching_ignores_case_and_covers_system_admin() {
+        assert!(is_boundary_exempt(&roles(&["ADMIN"])));
+        assert!(is_boundary_exempt(&roles(&["Admin"])));
+        assert!(is_boundary_exempt(&roles(&["SYSTEM_ADMIN"])));
+    }
+
+    #[test]
+    fn experiment_staff_is_exempt() {
+        assert!(is_boundary_exempt(&roles(&["EXPERIMENT_STAFF"])));
+    }
+
+    #[test]
+    fn vet_and_iacuc_roles_stay_exempt() {
+        assert!(is_boundary_exempt(&roles(&["VET"])));
+        assert!(is_boundary_exempt(&roles(&["IACUC_STAFF"])));
+        assert!(is_boundary_exempt(&roles(&["IACUC_CHAIR"])));
+    }
+
+    /// 其他角色維持受限；`ADMIN_STAFF`（行政人員）名字像 admin 但不是管理員，不能被前綴比對放行。
+    #[test]
+    fn other_roles_remain_restricted() {
+        for code in [
+            "PI",
+            "CLIENT",
+            "DIRECTOR",
+            "REVIEWER",
+            "ADMIN_STAFF",
+            "WAREHOUSE_MANAGER",
+            "QAU",
+            "GUEST",
+        ] {
+            assert!(!is_boundary_exempt(&roles(&[code])), "{} 應維持受限", code);
+        }
+    }
+
+    #[test]
+    fn empty_roles_are_restricted() {
+        assert!(!is_boundary_exempt(&[]));
+    }
+
+    /// 多重角色：只要其中一個不受限就不受限（例如同時是 PI 與試驗工作人員）。
+    #[test]
+    fn any_exempt_role_among_several_is_enough() {
+        assert!(is_boundary_exempt(&roles(&["PI", "EXPERIMENT_STAFF"])));
+        assert!(!is_boundary_exempt(&roles(&["PI", "CLIENT"])));
     }
 }
