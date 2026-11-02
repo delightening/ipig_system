@@ -99,6 +99,15 @@ pub fn read_legacy_csv<R: std::io::Read>(reader: R) -> Result<Vec<LegacySacRow>>
         if get(i_ear).trim().is_empty() {
             continue;
         }
+        // 欄位數必須等於標頭：備註欄若有沒加引號的逗號會讓後面欄位整體位移，
+        // 位移後的資料不一定被日期／數字檢查擋下，卻會永久寫進犧牲紀錄。
+        if rec.len() != headers.len() {
+            return Err(AppError::BadRequest(format!(
+                "CSV 第 {line} 筆欄位數 {} 與標頭 {} 不符（含逗號的欄位需加引號）",
+                rec.len(),
+                headers.len()
+            )));
+        }
         let birth = date(get(i_birth), "birth", line)?
             .ok_or_else(|| AppError::BadRequest(format!("CSV 第 {line} 筆缺 birth")))?;
         let blood_ml = match opt(get(i_blood)) {
@@ -197,6 +206,10 @@ async fn apply_one(
     pen_id: Option<Uuid>,
     set_iacuc: Option<&String>,
 ) -> Result<()> {
+    // 授權必須在任何寫入之前：`AnimalService::update` 本身只確認有登入者、不驗動物存取，
+    // 若先補 IACUC 再授權，沒有權限的操作者會在 IACUC 已被改動之後才被拒絕。
+    let user = actor.require_user()?;
+    let scope = Scoped::<AnimalWrite>::authorize(pool, user, animal_id).await?;
     if let Some(iacuc) = set_iacuc {
         let req = UpdateAnimalRequest {
             iacuc_no: Some(iacuc.clone()),
@@ -205,8 +218,6 @@ async fn apply_one(
         };
         AnimalService::update(pool, actor, animal_id, &req).await?;
     }
-    let user = actor.require_user()?;
-    let scope = Scoped::<AnimalWrite>::authorize(pool, user, animal_id).await?;
     AnimalMedicalService::upsert_sacrifice(pool, actor, scope, &sacrifice_request(row)).await?;
     if let Some(pid) = pen_id {
         SacrificeBackfillRepository::recount_pen(pool, pid).await?;
@@ -320,6 +331,22 @@ mod tests {
         assert_eq!(rows[1].iacuc, None);
         assert_eq!(rows[1].sac_date, None);
         assert_eq!(rows[1].blood_ml, Some(Decimal::new(125, 1)));
+    }
+
+    #[test]
+    fn csv_row_with_wrong_field_count_is_rejected_but_blank_rows_skip() {
+        let head = "ear,legacy_id,birth,iacuc,sac_date,zoletil,electro,bleed,other,sampling,sampling_other,blood_ml\n";
+        // 備註欄逗號沒加引號 → 多出一欄
+        let extra = format!("{head}AAA,1,2025-01-01,P,2026-01-02,4,0,1,KCl,心, 脾,,\n");
+        assert!(read_legacy_csv(extra.as_bytes()).is_err());
+        // 短列
+        let short = format!("{head}AAA,1,2025-01-01,P,2026-01-02\n");
+        assert!(read_legacy_csv(short.as_bytes()).is_err());
+        // 耳號為空的尾端空列照舊略過
+        let blank = format!("{head},,,,,,,,,,,\n,\n");
+        assert!(read_legacy_csv(blank.as_bytes())
+            .expect("blank rows")
+            .is_empty());
     }
 
     #[test]

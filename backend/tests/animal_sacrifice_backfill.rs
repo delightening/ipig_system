@@ -131,6 +131,64 @@ async fn audit_count(pool: &PgPool, event: &str, ids: &[Uuid]) -> i64 {
     .expect("audit count")
 }
 
+/// 沒有任何角色的啟用中使用者：不具動物寫入權限。
+async fn seed_roleless_user(pool: &PgPool) -> String {
+    let id = Uuid::new_v4();
+    let email = format!("sb-nr-{}@test.local", &Uuid::new_v4().to_string()[..8]);
+    sqlx::query(
+        r#"INSERT INTO users (id, email, password_hash, display_name, is_active, must_change_password)
+           VALUES ($1, $2, 'fake', 'roleless actor', true, false)"#,
+    )
+    .bind(id)
+    .bind(&email)
+    .execute(pool)
+    .await
+    .expect("insert user");
+    email
+}
+
+/// 回歸：沒有權限的操作者 apply 時，必須在任何寫入之前就被拒絕——
+/// IACUC 不得被改、狀態不得變、不得產生犧牲紀錄。
+#[tokio::test]
+#[serial]
+async fn unauthorized_actor_is_rejected_before_any_write() {
+    let app = TestApp::spawn().await;
+    let pool = &app.db_pool;
+    let chair = seed_chair(pool).await;
+    let chair_actor = load_actor(pool, &chair).await.expect("chair actor");
+    let owner = chair_actor.require_user().expect("user").id;
+    let nobody = seed_roleless_user(pool).await;
+    let actor = load_actor(pool, &nobody).await.expect("roleless actor");
+
+    let suffix = Uuid::new_v4().to_string()[..4].to_uppercase();
+    let ear = format!("NA{suffix}1");
+    // 新系統沒有 IACUC、舊系統有 → 判斷為 Ready 並需要先補 IACUC
+    let a = seed_animal(pool, &ear, "unassigned", None, None, owner).await;
+
+    let csv = format!(
+        "ear,legacy_id,birth,iacuc,sac_date,zoletil,electro,bleed,other,sampling,sampling_other,blood_ml\n\
+         {ear},1,2025-03-03,PIG-TEST-9,2026-06-01,,0,0,KCl,,,\n"
+    );
+    let rows = read_legacy_csv(csv.as_bytes()).expect("csv");
+    let items = evaluate(pool, rows).await.expect("evaluate");
+    assert!(matches!(
+        &items[0].decision,
+        Decision::Ready {
+            set_iacuc: Some(_),
+            ..
+        }
+    ));
+
+    let out = apply(pool, &actor, &items).await;
+    assert!(matches!(out[0], RowOutcome::Failed(_)), "{:?}", out[0]);
+
+    let (status, iacuc) = status_iacuc(pool, a).await;
+    assert_eq!(status, "unassigned");
+    assert_eq!(iacuc, None, "被拒絕的操作者不得改動 IACUC");
+    assert!(sacrifice_ids(pool, &[a]).await.is_empty());
+    assert_eq!(audit_count(pool, "IACUC_CHANGE", &[a]).await, 0);
+}
+
 #[tokio::test]
 #[serial]
 async fn backfill_writes_sacrifice_via_service_path_and_is_idempotent() {
