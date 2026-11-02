@@ -4,6 +4,8 @@
 //! 輸出：這隻該 `Ready`（可補登）、`AlreadyDone`（已補過，冪等）或 `Manual`（交人工，附原因）。
 //! 原則：任何不確定都走 `Manual`，絕不猜。
 
+use std::collections::HashMap;
+
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use uuid::Uuid;
@@ -105,9 +107,51 @@ pub fn decide(row: &LegacySacRow, cands: &[AnimalCandidate]) -> Decision {
     }
 }
 
+/// 同一隻動物被 CSV 的多列對到（耳號＋出生日期重複列）時，這些列一律改交人工。
+///
+/// 若各列都維持 `Ready`，dry-run 會把該動物離欄預測兩次；apply 時第一列把動物轉為
+/// euthanized，第二列則因狀態已終結而失敗。與其猜「哪一列才對」，不如全部不寫。
+pub fn mark_duplicate_animals(decisions: &mut [Decision]) {
+    let mut count: HashMap<Uuid, usize> = HashMap::new();
+    for d in decisions.iter() {
+        if let Decision::Ready { animal_id, .. } = d {
+            *count.entry(*animal_id).or_default() += 1;
+        }
+    }
+    for d in decisions.iter_mut() {
+        let duplicated = matches!(
+            d,
+            Decision::Ready { animal_id, .. } if count.get(animal_id).copied().unwrap_or(0) > 1
+        );
+        if duplicated {
+            *d = Decision::Manual(
+                "CSV 有多列對應到同一隻動物（耳號＋出生日期重複），不補登，請人工確認".to_string(),
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rows_resolving_to_the_same_animal_all_go_manual() {
+        let shared = Uuid::new_v4();
+        let other = Uuid::new_v4();
+        let ready = |id: Uuid| Decision::Ready {
+            animal_id: id,
+            version: 1,
+            pen_id: None,
+            set_iacuc: None,
+            from_status: "unassigned".into(),
+        };
+        let mut ds = vec![ready(shared), ready(other), ready(shared)];
+        mark_duplicate_animals(&mut ds);
+        assert!(matches!(ds[0], Decision::Manual(_)));
+        assert!(matches!(ds[1], Decision::Ready { .. }));
+        assert!(matches!(ds[2], Decision::Manual(_)));
+    }
 
     fn row(iacuc: Option<&str>, sac: bool) -> LegacySacRow {
         LegacySacRow {

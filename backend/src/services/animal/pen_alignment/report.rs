@@ -144,6 +144,16 @@ pub fn render_plan(plan: &Plan, mode: Mode, applied: Option<&ApplyOutcome>) -> S
         }
     }
 
+    if !plan.unmatched_exclusions.is_empty() {
+        let _ = writeln!(
+            s,
+            "\n== ⚠ 警告：--exclude-ears 的下列耳號在舊系統清單中找不到（可能打錯，請核對）=="
+        );
+        for ear in &plan.unmatched_exclusions {
+            let _ = writeln!(s, "耳號 {ear}");
+        }
+    }
+
     if let Some(done) = applied {
         let _ = writeln!(
             s,

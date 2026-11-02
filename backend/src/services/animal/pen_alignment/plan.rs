@@ -75,6 +75,9 @@ pub struct Plan {
     pub items: Vec<PlanItem>,
     /// 模擬全部「要改」之後，各欄的即時在場數（供 dry-run 對帳的「預測後」）。
     pub predicted_live: HashMap<Uuid, i64>,
+    /// `--exclude-ears` 帶入、但在舊系統清單裡找不到的耳號（正規化後）。
+    /// 多半是打錯；若放著不報，真正想排除的那隻會留在移動清單裡。
+    pub unmatched_exclusions: Vec<String>,
 }
 
 impl Plan {
@@ -171,6 +174,11 @@ pub fn build_plan_excluding(
         entry.0.insert(r.old_pen.trim().to_string());
         entry.1.insert(r.birth);
     }
+    let unmatched_exclusions: Vec<String> = excluded
+        .iter()
+        .filter(|e| !e.is_empty() && !by_ear.contains_key(e.as_str()))
+        .cloned()
+        .collect();
 
     let mut animals_by_ear: HashMap<String, Vec<&AnimalSnap>> = HashMap::new();
     for a in animals {
@@ -333,6 +341,7 @@ pub fn build_plan_excluding(
     Plan {
         items,
         predicted_live: occ,
+        unmatched_exclusions,
     }
 }
 
@@ -390,6 +399,22 @@ mod tests {
         assert!(matches!(outcome(&plan, "010"), Outcome::Manual(m) if m.contains("不一致")));
         assert!(matches!(outcome(&plan, "011"), Outcome::Manual(m) if m.contains("沒有出生日期")));
         assert!(plan.moves_in_order().is_empty());
+    }
+
+    #[test]
+    fn exclusion_matching_no_legacy_ear_is_reported() {
+        let a1 = pen("A01", 1, 0);
+        let plan = build_plan_excluding(
+            &[row("A01", "010")],
+            &[animal("010", None, None)],
+            &[a1],
+            &["999".to_string(), "010".to_string(), " ".to_string()],
+        );
+        assert_eq!(
+            plan.unmatched_exclusions,
+            vec![AnimalUtils::format_ear_tag("999")]
+        );
+        assert!(matches!(outcome(&plan, "010"), Outcome::Manual(_)));
     }
 
     #[test]

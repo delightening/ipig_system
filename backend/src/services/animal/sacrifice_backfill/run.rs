@@ -14,7 +14,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::super::AnimalService;
-use super::plan::{decide, Decision, LegacySacRow};
+use super::plan::{decide, mark_duplicate_animals, Decision, LegacySacRow};
 use crate::{
     middleware::{ActorContext, CurrentUser},
     models::{CreateSacrificeRequest, UpdateAnimalRequest},
@@ -29,6 +29,18 @@ use crate::{
 fn opt(s: &str) -> Option<String> {
     let t = s.trim();
     (!t.is_empty()).then(|| t.to_string())
+}
+
+/// 旗標欄只接受 `0`、`1` 或空白（空白視為 0）。其他寫法（TRUE、yes、1.0…）一律拒收：
+/// 這兩欄會永久寫進犧牲紀錄，認錯格式比靜默當成 0 安全。
+fn flag(s: &str, what: &str, line: usize) -> Result<bool> {
+    match s.trim() {
+        "" | "0" => Ok(false),
+        "1" => Ok(true),
+        other => Err(AppError::BadRequest(format!(
+            "CSV 第 {line} 筆 {what} 只接受 0、1 或空白，收到「{other}」"
+        ))),
+    }
 }
 
 /// 解析輸入 CSV。欄位：ear, legacy_id, birth, iacuc, sac_date, zoletil, electro, bleed,
@@ -102,8 +114,8 @@ pub fn read_legacy_csv<R: std::io::Read>(reader: R) -> Result<Vec<LegacySacRow>>
             iacuc: opt(get(i_iacuc)),
             sac_date: date(get(i_sac), "sac_date", line)?,
             zoletil: opt(get(i_zol)),
-            electro: get(i_el).trim() == "1",
-            bleed: get(i_bl).trim() == "1",
+            electro: flag(get(i_el), "electro", line)?,
+            bleed: flag(get(i_bl), "bleed", line)?,
             other: opt(get(i_oth)),
             sampling: opt(get(i_smp)),
             sampling_other: opt(get(i_smo)),
@@ -141,13 +153,18 @@ pub struct Evaluated {
 
 /// 逐筆查候選並判斷（唯讀）。
 pub async fn evaluate(pool: &PgPool, rows: Vec<LegacySacRow>) -> Result<Vec<Evaluated>> {
-    let mut out = Vec::with_capacity(rows.len());
-    for row in rows {
+    let mut decisions = Vec::with_capacity(rows.len());
+    for row in &rows {
         let cands = SacrificeBackfillRepository::find_candidates(pool, &row.ear, row.birth).await?;
-        let decision = decide(&row, &cands);
-        out.push(Evaluated { row, decision });
+        decisions.push(decide(row, &cands));
     }
-    Ok(out)
+    // 多列對到同一隻動物時，全部改交人工（預測與 apply 才不會把同一隻算兩次）
+    mark_duplicate_animals(&mut decisions);
+    Ok(rows
+        .into_iter()
+        .zip(decisions)
+        .map(|(row, decision)| Evaluated { row, decision })
+        .collect())
 }
 
 #[derive(Debug, Clone)]
@@ -303,6 +320,20 @@ mod tests {
         assert_eq!(rows[1].iacuc, None);
         assert_eq!(rows[1].sac_date, None);
         assert_eq!(rows[1].blood_ml, Some(Decimal::new(125, 1)));
+    }
+
+    #[test]
+    fn csv_non_binary_method_flags_are_rejected() {
+        let head = "ear,legacy_id,birth,iacuc,sac_date,zoletil,electro,bleed,other,sampling,sampling_other,blood_ml\n";
+        for bad in ["TRUE", "yes", "1.0", "Y"] {
+            let data = format!("{head}AAA,1,2025-01-01,,,,{bad},0,,,,\n");
+            assert!(read_legacy_csv(data.as_bytes()).is_err(), "electro={bad}");
+            let data = format!("{head}AAA,1,2025-01-01,,,,0,{bad},,,,\n");
+            assert!(read_legacy_csv(data.as_bytes()).is_err(), "bleed={bad}");
+        }
+        let ok = format!("{head}AAA,1,2025-01-01,,,, ,1,,,,\n");
+        let rows = read_legacy_csv(ok.as_bytes()).expect("blank is false");
+        assert!(!rows[0].electro && rows[0].bleed);
     }
 
     #[test]
