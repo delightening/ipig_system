@@ -19,6 +19,8 @@ pub(crate) mod field_correction;
 mod import_export;
 pub(crate) mod medical;
 pub(crate) mod observation;
+pub mod pen_alignment;
+pub mod sacrifice_backfill;
 mod source;
 pub(crate) mod species_link;
 pub(crate) mod surgery;
