@@ -92,6 +92,13 @@ impl AnimalService {
     ) -> Result<Animal> {
         let user = actor.require_user()?;
         let ear_tag = Self::normalize_ear_tag(&req.ear_tag)?;
+        // 出生日期不可為未來日期（只擋新寫入；以台灣時間的今日為界）
+        if let Some(birth_date) = req.birth_date {
+            AnimalUtils::ensure_birth_date_not_future(
+                birth_date,
+                crate::time::today_taiwan_naive(),
+            )?;
+        }
         Self::guard_duplicate_ear_tag(pool, &ear_tag, req).await?;
 
         // 驗證 pen_id 對應的欄位是否可收容動物

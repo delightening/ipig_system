@@ -105,8 +105,12 @@ impl AnimalFieldCorrectionService {
                 }
             }
             "birth_date" => {
-                NaiveDate::parse_from_str(new_value, "%Y-%m-%d")
+                let parsed = NaiveDate::parse_from_str(new_value, "%Y-%m-%d")
                     .map_err(|_| AppError::Validation("出生日期格式須為 YYYY-MM-DD".to_string()))?;
+                super::utils::AnimalUtils::ensure_birth_date_not_future(
+                    parsed,
+                    crate::time::today_taiwan_naive(),
+                )?;
             }
             "gender" if new_value != "male" && new_value != "female" => {
                 return Err(AppError::Validation("性別須為 male 或 female".to_string()));
@@ -392,6 +396,18 @@ mod tests {
         assert!(
             AnimalFieldCorrectionService::validate_new_value("birth_date", "2025-01-15").is_ok()
         );
+    }
+
+    #[test]
+    fn test_birth_date_future_rejected() {
+        let future = (crate::time::today_taiwan_naive() + chrono::Days::new(1)).to_string();
+        assert!(AnimalFieldCorrectionService::validate_new_value("birth_date", &future).is_err());
+    }
+
+    #[test]
+    fn test_birth_date_today_allowed() {
+        let today = crate::time::today_taiwan_naive().to_string();
+        assert!(AnimalFieldCorrectionService::validate_new_value("birth_date", &today).is_ok());
     }
 
     #[test]

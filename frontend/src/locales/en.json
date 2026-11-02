@@ -1913,6 +1913,7 @@
     "vetRecommendation": "Vet Rec.",
     "entryDate": "Entry Date",
     "birthDate": "Birth Date",
+    "birthDateFuture": "Birth date cannot be later than today",
     "currentWeight": "Current Weight",
     "actions": "Actions",
     "noAnimalsFound": "No animals found matching criteria",

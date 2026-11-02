@@ -379,7 +379,7 @@ fn parse_optional_date(
     if bd.is_empty() {
         return Ok(None);
     }
-    parse_date_field(bd).map(Some).ok_or_else(|| {
+    let parsed = parse_date_field(bd).ok_or_else(|| {
         import_err(
             row_number,
             Some(row.ear_tag.clone()),
@@ -388,7 +388,18 @@ fn parse_optional_date(
                 bd
             ),
         )
-    })
+    })?;
+    // 出生日期不可為未來日期（以台灣時間的今日為界）
+    AnimalUtils::ensure_birth_date_not_future(parsed, crate::time::today_taiwan_naive()).map_err(
+        |e| {
+            let msg = match e {
+                AppError::Validation(m) => m,
+                other => other.to_string(),
+            };
+            import_err(row_number, Some(row.ear_tag.clone()), msg)
+        },
+    )?;
+    Ok(Some(parsed))
 }
 
 /// 解析必填進場體重

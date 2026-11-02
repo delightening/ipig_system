@@ -88,8 +88,13 @@ export function AnimalAddDialog({
   const selectedZone = zonesForBuilding.find(z => z.code === penZone)
   const pensForZone = selectedZone ? (pensByZone[selectedZone.id] ?? []) : []
 
+  // 台灣時間的今日（YYYY-MM-DD，可直接字串比較）；出生日期不可晚於今日
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' })
+  const birthDateInFuture = !!newAnimal.birth_date && newAnimal.birth_date > todayStr
+
   const isDisabled =
     isPending ||
+    birthDateInFuture ||
     !newAnimal.ear_tag ||
     !penBuilding ||
     !penZone ||
@@ -255,8 +260,12 @@ export function AnimalAddDialog({
             <Input
               type="date"
               value={newAnimal.birth_date}
+              max={todayStr}
               onChange={(e) => onNewAnimalChange({ ...newAnimal, birth_date: e.target.value })}
             />
+            {birthDateInFuture && (
+              <p className="text-sm text-destructive" role="alert">{t('animals.birthDateFuture')}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="entry_weight">{t('animalPages.shared.entryWeightKg')} *</Label>
