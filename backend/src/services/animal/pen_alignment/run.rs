@@ -4,6 +4,7 @@
 //! current_count、寫 `ANIMAL_UPDATE` 稽核（與一般的欄位變更同一事件類別）。
 //! 本檔沒有任何會改 animals / pens 的裸 SQL。
 
+use chrono::NaiveDate;
 use sqlx::PgPool;
 
 use super::super::AnimalService;
@@ -15,8 +16,9 @@ use crate::{
     AppError, Result,
 };
 
-/// 解析舊系統 CSV。只取 `old_pen` 與 `ear` 兩欄（其餘欄位忽略）；
-/// 標頭容許 UTF-8 BOM 與前後空白。
+/// 解析舊系統 CSV。只取 `old_pen`、`ear`、`birth` 三欄（其餘欄位忽略）；
+/// 標頭容許 UTF-8 BOM 與前後空白。`birth`（YYYY-MM-DD）必填：缺欄、
+/// 任一有資料的列空白或格式錯誤，整份拒收（出生日期用來確認同耳號是同一隻）。
 pub fn read_legacy_csv<R: std::io::Read>(reader: R) -> Result<Vec<LegacyRow>> {
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(true)
@@ -38,6 +40,7 @@ pub fn read_legacy_csv<R: std::io::Read>(reader: R) -> Result<Vec<LegacyRow>> {
     };
     let pen_idx = find("old_pen")?;
     let ear_idx = find("ear")?;
+    let birth_idx = find("birth")?;
 
     let mut rows = Vec::new();
     for (i, rec) in rdr.records().enumerate() {
@@ -48,7 +51,24 @@ pub fn read_legacy_csv<R: std::io::Read>(reader: R) -> Result<Vec<LegacyRow>> {
         if ear.is_empty() && old_pen.is_empty() {
             continue;
         }
-        rows.push(LegacyRow { old_pen, ear });
+        let birth_raw = rec.get(birth_idx).unwrap_or_default().trim();
+        if birth_raw.is_empty() {
+            return Err(AppError::BadRequest(format!(
+                "CSV 第 {} 筆資料列 birth 為空（出生日期必填）",
+                i + 1
+            )));
+        }
+        let birth = NaiveDate::parse_from_str(birth_raw, "%Y-%m-%d").map_err(|e| {
+            AppError::BadRequest(format!(
+                "CSV 第 {} 筆資料列 birth 日期無法解析（需 YYYY-MM-DD）：{e}",
+                i + 1
+            ))
+        })?;
+        rows.push(LegacyRow {
+            old_pen,
+            ear,
+            birth,
+        });
     }
     Ok(rows)
 }
@@ -116,19 +136,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn csv_reads_only_old_pen_and_ear_and_tolerates_bom() {
-        let data = "\u{feff}old_pen,ear,old_system_id,new_pen_location\nA03,010,x1,B01\nG03 , 011 ,x2,\n,,,\n";
+    fn csv_reads_only_old_pen_ear_birth_and_tolerates_bom() {
+        let data = "\u{feff}old_pen,ear,birth,old_system_id,new_pen_location\nA03,010,2025-01-31,x1,B01\nG03 , 011 , 2025-02-01 ,x2,\n,,,,\n";
         let rows = read_legacy_csv(data.as_bytes()).expect("parse csv");
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].old_pen, "A03");
         assert_eq!(rows[0].ear, "010");
+        assert_eq!(rows[0].birth.to_string(), "2025-01-31");
         assert_eq!(rows[1].old_pen, "G03");
         assert_eq!(rows[1].ear, "011");
+        assert_eq!(rows[1].birth.to_string(), "2025-02-01");
+    }
+
+    #[test]
+    fn csv_missing_birth_column_blank_or_bad_birth_is_rejected() {
+        let no_col = read_legacy_csv("old_pen,ear\nA03,010\n".as_bytes()).expect_err("no birth");
+        assert!(no_col.to_string().contains("birth"));
+        let blank = read_legacy_csv("old_pen,ear,birth\nA03,010,\n".as_bytes()).expect_err("blank");
+        assert!(blank.to_string().contains("birth"));
+        let bad = read_legacy_csv("old_pen,ear,birth\nA03,010,2025/01/31\n".as_bytes())
+            .expect_err("bad date");
+        assert!(bad.to_string().contains("birth"));
     }
 
     #[test]
     fn csv_missing_required_column_is_rejected() {
-        let err = read_legacy_csv("pen,ear\nA03,010\n".as_bytes()).expect_err("missing old_pen");
+        let err = read_legacy_csv("pen,ear,birth\nA03,010,2025-01-31\n".as_bytes())
+            .expect_err("missing old_pen");
         assert!(err.to_string().contains("old_pen"));
     }
 }

@@ -5,6 +5,7 @@
 //! （見 `services/animal/core/update.rs` 重算 current_count 的 SQL）。
 //! 本檔只有 SELECT；寫入一律走 `AnimalService::update`。
 
+use chrono::NaiveDate;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -17,6 +18,8 @@ pub struct AnimalSnap {
     pub ear_tag: String,
     pub pen_id: Option<Uuid>,
     pub pen_location: Option<String>,
+    /// 出生日期；與舊系統清單核對耳號是否為同一隻（空值 = 無法核對）。
+    pub birth_date: Option<NaiveDate>,
     /// 樂觀鎖版本；更新時帶回去，期間被別人改過就會 Conflict 而不是蓋掉。
     pub version: i32,
 }
@@ -41,7 +44,7 @@ impl PenAlignmentRepository {
     pub async fn list_live_animals(pool: &PgPool) -> Result<Vec<AnimalSnap>> {
         let rows = sqlx::query_as::<_, AnimalSnap>(
             r#"
-            SELECT id, ear_tag, pen_id, pen_location, version
+            SELECT id, ear_tag, pen_id, pen_location, birth_date, version
             FROM animals
             WHERE deleted_at IS NULL
               AND status NOT IN ('euthanized', 'sudden_death', 'transferred')

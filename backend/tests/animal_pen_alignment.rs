@@ -79,8 +79,8 @@ async fn seed_animal(
 ) -> Uuid {
     let id = Uuid::new_v4();
     sqlx::query(
-        r#"INSERT INTO animals (id, ear_tag, breed, gender, entry_date, created_by, pen_id, pen_location)
-           VALUES ($1, $2, 'miniature', 'male', '2026-01-01', $3, $4, $5)"#,
+        r#"INSERT INTO animals (id, ear_tag, breed, gender, entry_date, birth_date, created_by, pen_id, pen_location)
+           VALUES ($1, $2, 'miniature', 'male', '2026-01-01', '2025-03-03', $3, $4, $5)"#,
     )
     .bind(id)
     .bind(ear)
@@ -128,6 +128,7 @@ fn row(old_pen: &str, ear: &str) -> LegacyRow {
     LegacyRow {
         old_pen: old_pen.into(),
         ear: ear.into(),
+        birth: chrono::NaiveDate::from_ymd_opt(2025, 3, 3).expect("date"),
     }
 }
 

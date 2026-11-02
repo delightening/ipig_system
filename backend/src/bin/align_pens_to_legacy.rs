@@ -27,7 +27,8 @@ struct Args {
     /// Database URL
     #[arg(env = "DATABASE_URL")]
     database_url: String,
-    /// 舊系統清單 CSV（只用 old_pen 與 ear 兩欄）
+    /// 舊系統清單 CSV（只用 old_pen、ear、birth 三欄；birth 為 YYYY-MM-DD 且必填，
+    /// 用來確認同耳號是同一隻，不一致者列待人工、不移動）
     #[arg(long)]
     csv: std::path::PathBuf,
     /// 稽核用的操作者 email（必須是啟用中的使用者）

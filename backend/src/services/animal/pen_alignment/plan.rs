@@ -1,6 +1,6 @@
 //! 欄位對齊的純規劃邏輯（無 I/O，可單元測試）。
 //!
-//! 輸入：舊系統清單（old_pen, ear）、新系統在場動物快照、欄位快照。
+//! 輸入：舊系統清單（old_pen, ear, birth）、新系統在場動物快照、欄位快照。
 //! 輸出：每一列的處置——已對齊 / 要改 / 被容量擋 / 待人工。
 //!
 //! 容量是**序列模擬**：搬走一隻會空出位置給後面要進來的那隻，所以用多輪掃描直到
@@ -9,6 +9,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+use chrono::NaiveDate;
 use uuid::Uuid;
 
 use super::super::utils::AnimalUtils;
@@ -18,11 +19,13 @@ use crate::repositories::pen_alignment::{AnimalSnap, PenSnap};
 /// 那個常數是 core 的私有項，這裡只用來預判，真正的裁決仍是執行時的 service 檢查。
 const PEN_ALLOWED_STATUSES: &[&str] = &["active", "empty"];
 
-/// 舊系統清單的一列（CSV 只取 old_pen 與 ear）。
+/// 舊系統清單的一列（CSV 只取 old_pen、ear、birth）。
+/// 出生日期用來確認「同耳號」是同一隻（耳號可能被重用）；CSV 讀取時即要求必填。
 #[derive(Debug, Clone)]
 pub struct LegacyRow {
     pub old_pen: String,
     pub ear: String,
+    pub birth: NaiveDate,
 }
 
 #[derive(Debug, Clone)]
@@ -159,12 +162,14 @@ pub fn build_plan_excluding(
         .map(|e| AnimalUtils::format_ear_tag(e.trim()))
         .collect();
     // 舊系統清單依「正規化耳號」分組；同耳號出現不同欄 → 待人工。
-    let mut by_ear: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    // 同耳號若出現不同出生日期，也無法確定是哪一隻 → 待人工。
+    let mut by_ear: BTreeMap<String, (BTreeSet<String>, BTreeSet<NaiveDate>)> = BTreeMap::new();
     for r in legacy {
-        by_ear
+        let entry = by_ear
             .entry(AnimalUtils::format_ear_tag(r.ear.trim()))
-            .or_default()
-            .insert(r.old_pen.trim().to_string());
+            .or_default();
+        entry.0.insert(r.old_pen.trim().to_string());
+        entry.1.insert(r.birth);
     }
 
     let mut animals_by_ear: HashMap<String, Vec<&AnimalSnap>> = HashMap::new();
@@ -181,7 +186,7 @@ pub fn build_plan_excluding(
     let mut items: Vec<PlanItem> = Vec::with_capacity(by_ear.len());
     let mut pending: Vec<(usize, PlannedMove, &PenSnap)> = Vec::new();
 
-    for (ear, pen_set) in &by_ear {
+    for (ear, (pen_set, birth_set)) in &by_ear {
         let old_pen = pen_set.iter().cloned().collect::<Vec<_>>().join(" / ");
         // 用巨集而非閉包：閉包會長期借走 `items`，後面還要讀 `items.len()`。
         macro_rules! push {
@@ -200,6 +205,10 @@ pub fn build_plan_excluding(
         }
         if pen_set.len() > 1 {
             push!(Outcome::Manual("舊系統清單同一耳號對到多個欄".into()));
+            continue;
+        }
+        if birth_set.len() > 1 {
+            push!(Outcome::Manual("舊系統清單同一耳號對到多個出生日期".into()));
             continue;
         }
         let single = old_pen.as_str();
@@ -221,6 +230,24 @@ pub fn build_plan_excluding(
                 continue;
             }
         };
+        // 出生日期核對：不一致或新系統沒有，都不動（耳號可能被重用，寧可待人工）。
+        if let Some(legacy_birth) = birth_set.iter().next() {
+            match animal.birth_date {
+                Some(b) if b == *legacy_birth => {}
+                Some(b) => {
+                    push!(Outcome::Manual(format!(
+                        "出生日期不一致（新系統 {b}／舊系統 {legacy_birth}），不移動"
+                    )));
+                    continue;
+                }
+                None => {
+                    push!(Outcome::Manual(
+                        "新系統此動物沒有出生日期，無法核對，不移動".into()
+                    ));
+                    continue;
+                }
+            }
+        }
         let pen = match find_target_pen(single, pens) {
             Ok(p) => p,
             Err(why) => {
@@ -325,12 +352,17 @@ mod tests {
         }
     }
 
+    fn birth() -> NaiveDate {
+        NaiveDate::from_ymd_opt(2025, 3, 3).expect("date")
+    }
+
     fn animal(ear: &str, pen: Option<&PenSnap>, loc: Option<&str>) -> AnimalSnap {
         AnimalSnap {
             id: Uuid::new_v4(),
             ear_tag: ear.into(),
             pen_id: pen.map(|p| p.id),
             pen_location: loc.map(str::to_string),
+            birth_date: Some(birth()),
             version: 1,
         }
     }
@@ -339,7 +371,38 @@ mod tests {
         LegacyRow {
             old_pen: old_pen.into(),
             ear: ear.into(),
+            birth: birth(),
         }
+    }
+
+    #[test]
+    fn birth_date_mismatch_or_missing_goes_to_manual() {
+        let a1 = pen("A01", 1, 0);
+        let mut mismatched = animal("010", None, None);
+        mismatched.birth_date = NaiveDate::from_ymd_opt(2024, 1, 1);
+        let mut unknown = animal("011", None, None);
+        unknown.birth_date = None;
+        let plan = build_plan(
+            &[row("A01", "010"), row("A01", "011")],
+            &[mismatched, unknown],
+            &[a1],
+        );
+        assert!(matches!(outcome(&plan, "010"), Outcome::Manual(m) if m.contains("不一致")));
+        assert!(matches!(outcome(&plan, "011"), Outcome::Manual(m) if m.contains("沒有出生日期")));
+        assert!(plan.moves_in_order().is_empty());
+    }
+
+    #[test]
+    fn same_ear_with_different_birth_dates_is_manual() {
+        let a1 = pen("A01", 1, 0);
+        let mut other = row("A01", "010");
+        other.birth = NaiveDate::from_ymd_opt(2024, 1, 1).expect("date");
+        let plan = build_plan(
+            &[row("A01", "010"), other],
+            &[animal("010", None, None)],
+            &[a1],
+        );
+        assert!(matches!(outcome(&plan, "010"), Outcome::Manual(_)));
     }
 
     fn outcome<'a>(plan: &'a Plan, ear: &str) -> &'a Outcome {
