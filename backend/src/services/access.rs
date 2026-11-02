@@ -842,18 +842,25 @@ async fn require_animal_exists(pool: &PgPool, animal_id: Uuid) -> Result<()> {
 /// 是否可「跨計畫讀取」動物資料：真 view_all 角色（VET/REVIEWER/IACUC）
 /// 或具 `animal.animal.view_all` 權限者（含 EXPERIMENT_STAFF / INTERN）。
 ///
-/// 與 `has_protocol_view_all` 的差異：多納入「具 animal view_all 權限但非 view_all 角色」
-/// 的內部試驗人員，使其可**讀取**全場動物紀錄（R70 follow-up）；寫入仍走
-/// `require_animal_access`（限自己計畫），故跨計畫放寬僅及於讀取。
+/// 與 `has_protocol_view_all` 的差異：多納入「具 animal view_all 權限但不具
+/// `aup.protocol.view_all`、也非 view_all 角色」的內部人員，使其可**讀取**全場動物紀錄
+/// （R70 follow-up）；這類人員的寫入仍走 `require_animal_access`（限自己計畫），
+/// 故對他們而言跨計畫放寬僅及於讀取。
+/// 註：目前 `startup/permissions.rs` 的角色種子裡，具 `animal.animal.view_all` 的角色
+/// （VET / REVIEWER / IACUC_CHAIR / EXPERIMENT_STAFF / INTERN / QAU）同時也具
+/// `aup.protocol.view_all`，所以這個差異只在自訂授權（只給單一權限）時才出現。
 fn has_animal_view_all(current_user: &CurrentUser) -> bool {
     has_protocol_view_all(current_user) || current_user.has_permission("animal.animal.view_all")
 }
 
 /// 動物「寫入 / 計畫綁定」存取守衛（防 IDOR）。
 ///
-/// 先驗動物存在（查無此豬 → 404）；view_all 角色（IACUC Chair/Staff/Vet/Reviewer）放行；
-/// 其餘須為動物所屬計畫成員。用於計畫綁定紀錄的寫入（手術 / 犧牲 / 病理 / 照護 / 獸醫單 /
-/// 轉讓等）與動物本體編輯 / 刪除。EXPERIMENT_STAFF 雖可跨計畫讀取，寫入仍限自己計畫。
+/// 先驗動物存在（查無此豬 → 404）；`has_protocol_view_all`（`aup.protocol.view_all` 權限，
+/// 或 IACUC Chair/Staff/Vet/Reviewer 角色）放行——EXPERIMENT_STAFF、INTERN、QAU 等
+/// 角色種子也具 `aup.protocol.view_all`，因此同樣在放行之列（對任何動物，含未指派計畫者）；
+/// 其餘須為動物所屬計畫成員。
+/// 用於計畫綁定紀錄的寫入（手術 / 犧牲 / 病理 / 照護 / 獸醫單 / 轉讓等）與動物本體編輯 / 刪除。
+/// 各寫入端點仍須先通過自己的 `require_permission!`，例如轉讓協調段不給 EXPERIMENT_STAFF。
 pub async fn require_animal_access(
     pool: &PgPool,
     current_user: &CurrentUser,
@@ -868,12 +875,12 @@ pub async fn require_animal_access(
 
 /// 動物「讀取」存取守衛（防 IDOR）。
 ///
-/// 與 `require_animal_access` 的差異：放行範圍多納入具 `animal.animal.view_all` 權限的
-/// 內部試驗人員（EXPERIMENT_STAFF / INTERN），使其可跨計畫**讀取**動物紀錄（含基礎紀錄
+/// 與 `require_animal_access` 的差異：放行範圍多納入具 `animal.animal.view_all` 權限但不具
+/// `aup.protocol.view_all` 的內部人員（自訂授權時才會出現），使其可跨計畫**讀取**動物紀錄（含基礎紀錄
 /// 與計畫綁定紀錄的讀取端點）；PI / CLIENT 等僅 `view_project` 者仍限自己計畫（防跨計畫讀取）。
 ///
 /// 一律先驗動物存在（查無此豬 → 404）。亦用於基礎紀錄（體重 / 疫苗 / 血檢 / 觀察 / 猝死）的
-/// 寫入端點——EXPERIMENT_STAFF 具 `animal.animal.view_all`，故對未指派計畫的動物亦可登錄
+/// 寫入端點——具 `animal.animal.view_all` 者（含 EXPERIMENT_STAFF）對未指派計畫的動物亦可登錄
 /// 基礎紀錄（R70-3 免計畫紀錄放寬）。呼叫前需先通過 `require_permission!()` 把關角色讀寫權。
 pub async fn require_animal_read_access(
     pool: &PgPool,
