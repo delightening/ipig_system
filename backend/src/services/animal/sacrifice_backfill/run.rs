@@ -96,7 +96,9 @@ pub fn read_legacy_csv<R: std::io::Read>(reader: R) -> Result<Vec<LegacySacRow>>
         let rec =
             rec.map_err(|e| AppError::BadRequest(format!("CSV 第 {line} 筆解析失敗：{e}")))?;
         let get = |i: usize| rec.get(i).unwrap_or_default();
-        if get(i_ear).trim().is_empty() {
+        // 只略過「整列皆空」的列（試算表尾端常見）。不能只看耳號：有犧牲資料卻漏填耳號的列
+        // 若被靜默丟掉，不會出現在報告的「待人工」，操作者會誤以為整份 CSV 都評估過。
+        if rec.iter().all(|c| c.trim().is_empty()) {
             continue;
         }
         // 欄位數必須等於標頭：備註欄若有沒加引號的逗號會讓後面欄位整體位移，
@@ -106,6 +108,11 @@ pub fn read_legacy_csv<R: std::io::Read>(reader: R) -> Result<Vec<LegacySacRow>>
                 "CSV 第 {line} 筆欄位數 {} 與標頭 {} 不符（含逗號的欄位需加引號）",
                 rec.len(),
                 headers.len()
+            )));
+        }
+        if get(i_ear).trim().is_empty() {
+            return Err(AppError::BadRequest(format!(
+                "CSV 第 {line} 筆缺 ear（有資料但耳號為空）"
             )));
         }
         let birth = date(get(i_birth), "birth", line)?
@@ -367,11 +374,30 @@ mod tests {
         // 短列
         let short = format!("{head}AAA,1,2025-01-01,P,2026-01-02\n");
         assert!(read_legacy_csv(short.as_bytes()).is_err());
-        // 耳號為空的尾端空列照舊略過
+        // 整列皆空的尾端空列照舊略過
         let blank = format!("{head},,,,,,,,,,,\n,\n");
         assert!(read_legacy_csv(blank.as_bytes())
             .expect("blank rows")
             .is_empty());
+    }
+
+    #[test]
+    fn csv_row_with_data_but_empty_ear_is_rejected_not_dropped() {
+        let head = "ear,legacy_id,birth,iacuc,sac_date,zoletil,electro,bleed,other,sampling,sampling_other,blood_ml\n";
+        // 有犧牲資料、漏填耳號 → 必須報錯，不能靜默略過
+        let no_ear = format!("{head},9,2025-01-01,P,2026-01-02,4,0,1,KCl,,,\n");
+        let err = read_legacy_csv(no_ear.as_bytes()).expect_err("empty ear with data");
+        assert!(err.to_string().contains("ear"), "{err}");
+        assert!(err.to_string().contains("第 1 筆"), "{err}");
+        // 僅空白的耳號同樣算空
+        let blank_ear = format!("{head}  ,9,2025-01-01,P,2026-01-02,4,0,1,KCl,,,\n");
+        assert!(read_legacy_csv(blank_ear.as_bytes()).is_err());
+        // 好列在前、壞列在後：整份拒收並指出壞列的行號
+        let mixed = format!(
+            "{head}AAA,1,2025-01-01,P,2026-01-02,4,0,1,KCl,,,\n,9,2025-01-01,P,2026-01-02,4,0,1,KCl,,,\n"
+        );
+        let err = read_legacy_csv(mixed.as_bytes()).expect_err("second row bad");
+        assert!(err.to_string().contains("第 2 筆"), "{err}");
     }
 
     #[test]
