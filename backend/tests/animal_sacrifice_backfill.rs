@@ -301,4 +301,42 @@ async fn backfill_writes_sacrifice_via_service_path_and_is_idempotent() {
     let out2 = apply(pool, &actor, &items2).await;
     assert!(out2.iter().all(|o| matches!(o, RowOutcome::Skipped)));
     assert_eq!(audit_count(pool, "SACRIFICE_UPSERT", &sac_ids).await, 2);
+
+    // 回歸：上一輪若在犧牲紀錄 commit 之後、重算之前失敗，欄位快取會過期；
+    // 這些動物重跑時是 AlreadyDone，必須在授權後被修復，不能永遠略過。
+    sqlx::query("UPDATE pens SET current_count = 5 WHERE id = $1")
+        .bind(pen)
+        .execute(pool)
+        .await
+        .expect("make count stale");
+
+    // 無權限者重跑：授權在重算之前 → 兩列都被拒、快取原封不動
+    let nobody = seed_roleless_user(pool).await;
+    let stranger = load_actor(pool, &nobody).await.expect("roleless actor");
+    let denied = apply(pool, &stranger, &items2).await;
+    assert!(
+        matches!(denied[0], RowOutcome::Failed(_)),
+        "{:?}",
+        denied[0]
+    );
+    assert!(
+        matches!(denied[1], RowOutcome::Failed(_)),
+        "{:?}",
+        denied[1]
+    );
+    assert_eq!(pen_current_count(pool, pen).await, 5);
+
+    // 有權限者重跑：修復為實際頭數，列仍回報略過（沒有新寫入犧牲紀錄）
+    let repaired = apply(pool, &actor, &items2).await;
+    assert!(repaired.iter().all(|o| matches!(o, RowOutcome::Skipped)));
+    assert_eq!(pen_current_count(pool, pen).await, 0);
+    assert_eq!(audit_count(pool, "SACRIFICE_UPSERT", &sac_ids).await, 2);
+}
+
+async fn pen_current_count(pool: &PgPool, pen: Uuid) -> i32 {
+    sqlx::query_scalar("SELECT current_count FROM pens WHERE id = $1")
+        .bind(pen)
+        .fetch_one(pool)
+        .await
+        .expect("current_count")
 }

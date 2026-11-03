@@ -41,8 +41,11 @@ pub enum Decision {
         from_status: String,
     },
     /// 已有犧牲紀錄且狀態已是 euthanized：不重複寫。
+    /// 帶著 `pen_id` 是為了重跑時能（在授權後）重算欄位的目前頭數：上一輪若在犧牲紀錄
+    /// commit 之後、重算之前失敗，快取會停在過期值，而這隻動物之後永遠判成 `AlreadyDone`。
     AlreadyDone {
         animal_id: Uuid,
+        pen_id: Option<Uuid>,
     },
     Manual(String),
 }
@@ -66,7 +69,10 @@ pub fn decide(row: &LegacySacRow, cands: &[AnimalCandidate]) -> Decision {
     };
 
     if cand.status == "euthanized" && cand.has_sacrifice {
-        return Decision::AlreadyDone { animal_id: cand.id };
+        return Decision::AlreadyDone {
+            animal_id: cand.id,
+            pen_id: cand.pen_id,
+        };
     }
     if !ELIGIBLE_STATUS.contains(&cand.status.as_str()) {
         return Decision::Manual(format!("新系統狀態為 {}，不能補登犧牲", cand.status));
@@ -249,7 +255,23 @@ mod tests {
         assert_eq!(
             d,
             Decision::AlreadyDone {
-                animal_id: Uuid::nil()
+                animal_id: Uuid::nil(),
+                pen_id: None
+            }
+        );
+    }
+
+    #[test]
+    fn already_done_carries_the_pen_for_a_post_commit_recount_repair() {
+        let pen = Uuid::from_u128(7);
+        let mut c = cand("euthanized", Some("P1"), true);
+        c.pen_id = Some(pen);
+        let d = decide(&row(Some("P1"), true), &[c]);
+        assert_eq!(
+            d,
+            Decision::AlreadyDone {
+                animal_id: Uuid::nil(),
+                pen_id: Some(pen)
             }
         );
     }

@@ -225,8 +225,26 @@ async fn apply_one(
     Ok(())
 }
 
+/// 已補登的列：授權後重算欄位的目前頭數。
+///
+/// 犧牲紀錄 commit 之後、`recount_pen` 之前若失敗，欄位快取會停在過期值，而該動物
+/// 重跑時已是 euthanized、被判成 `AlreadyDone` 而略過，快取永遠不會被修。
+/// 重算是整欄位的重新統計，重複執行不會累加（冪等）。
+/// 授權仍在任何寫入之前（同 `apply_one`）：`recount_pen` 本身不驗操作者。
+async fn recount_already_done(
+    pool: &PgPool,
+    actor: &ActorContext,
+    animal_id: Uuid,
+    pen_id: Uuid,
+) -> Result<()> {
+    let user = actor.require_user()?;
+    let _scope = Scoped::<AnimalWrite>::authorize(pool, user, animal_id).await?;
+    SacrificeBackfillRepository::recount_pen(pool, pen_id).await
+}
+
 /// 逐隻補登；單隻失敗不中止。IACUC 補寫與犧牲補登是兩個交易，
 /// 若中途失敗，重跑即可（IACUC 已補上、判斷仍為 Ready，冪等）。
+/// 已補登但欄位快取可能過期的列（`AlreadyDone` 帶 `pen_id`），重跑時會在授權後重算。
 pub async fn apply(pool: &PgPool, actor: &ActorContext, items: &[Evaluated]) -> Vec<RowOutcome> {
     let mut out = Vec::with_capacity(items.len());
     for it in items {
@@ -253,7 +271,14 @@ pub async fn apply(pool: &PgPool, actor: &ActorContext, items: &[Evaluated]) -> 
                     Err(e) => RowOutcome::Failed(e.to_string()),
                 }
             }
-            Decision::AlreadyDone { .. } | Decision::Manual(_) => RowOutcome::Skipped,
+            Decision::AlreadyDone {
+                animal_id,
+                pen_id: Some(pid),
+            } => match recount_already_done(pool, actor, *animal_id, *pid).await {
+                Ok(()) => RowOutcome::Skipped,
+                Err(e) => RowOutcome::Failed(e.to_string()),
+            },
+            Decision::AlreadyDone { pen_id: None, .. } | Decision::Manual(_) => RowOutcome::Skipped,
         };
         out.push(r);
     }
