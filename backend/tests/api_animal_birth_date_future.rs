@@ -57,12 +57,15 @@ async fn create_animal_with_today_birth_date_is_allowed() {
     let token = app.login_as_admin().await;
 
     let today = erp_backend::time::today_taiwan_naive();
-    let body = animal_body(&rand_ear_tag(), &today.to_string());
-    let res = app.auth_post("/api/v1/animals", &body, &token).await;
+    // 共用測試庫上隨機耳號可能撞到既有動物（同耳號＋同生日會回 409，連 force_create 也擋），
+    // 故用會在「耳號重複」時換號重試的 helper；非耳號衝突的失敗仍會直接讓測試紅燈。
+    let created = common::create_animal_with_free_ear_tag(&app, &token, |ear_tag| {
+        animal_body(ear_tag, &today.to_string())
+    })
+    .await;
 
     assert!(
-        res.status() == 200 || res.status() == 201,
-        "當天出生日期應可建立，實際 {}",
-        res.status()
+        created.is_object(),
+        "當天出生日期應可建立，實際回應 {created}"
     );
 }

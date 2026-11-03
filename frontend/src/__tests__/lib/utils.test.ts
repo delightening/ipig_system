@@ -13,8 +13,26 @@ import {
   formatUnitPrice,
   formatUom,
   INVALID_DATE_FALLBACK,
+  taipeiTodayIso,
   UOM_MAP,
 } from '@/lib/utils'
+
+describe('taipeiTodayIso', () => {
+  it('以台灣時間為界、固定輸出 YYYY-MM-DD', () => {
+    // UTC 16:30 = 台灣隔天 00:30：必須取台灣日期，不是 UTC 日期
+    expect(taipeiTodayIso(new Date('2026-01-31T16:30:00Z'))).toBe('2026-02-01')
+    // UTC 15:59 = 台灣當天 23:59
+    expect(taipeiTodayIso(new Date('2026-01-31T15:59:00Z'))).toBe('2026-01-31')
+  })
+
+  it('月、日補零，輸出可直接字串比較', () => {
+    const today = taipeiTodayIso(new Date('2026-03-05T04:00:00Z'))
+    expect(today).toBe('2026-03-05')
+    expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect('2026-03-06' > today).toBe(true)
+    expect('2026-03-05' > today).toBe(false)
+  })
+})
 
 describe('cn (classname merge)', () => {
   it('merges class names', () => {

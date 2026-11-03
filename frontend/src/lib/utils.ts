@@ -36,6 +36,24 @@ export function formatEarTag(earTag: string): string {
 /** 系統統一使用台灣時間 (Asia/Taipei) 顯示，可供元件內聯日期格式使用 */
 export const TAIWAN_TIMEZONE = 'Asia/Taipei'
 
+/**
+ * 台灣時間的「今日」，固定為 `YYYY-MM-DD`（可直接字串比較，也可當 `<input type="date">` 的 `max`）。
+ *
+ * 不用 `toLocaleDateString('en-CA')` 直接取：該 locale 的輸出格式並不保證是 ISO
+ * （舊版 Firefox 曾回 `M/d/yyyy`），格式一旦不同，字串比較會把合法日期判成未來日期，
+ * `max` 也不是合法的 date-input 值。改由 `formatToParts()` 取年月日自行組裝，與 locale 的排列無關。
+ */
+export function taipeiTodayIso(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TAIWAN_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const pick = (type: 'year' | 'month' | 'day') => parts.find((p) => p.type === type)?.value ?? ''
+  return `${pick('year')}-${pick('month')}-${pick('day')}`
+}
+
 /** 日期類格式化函式在輸入無效時的預設顯示值 */
 export const INVALID_DATE_FALLBACK = '-'
 

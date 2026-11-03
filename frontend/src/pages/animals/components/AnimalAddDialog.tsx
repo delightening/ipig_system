@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Loader2 } from 'lucide-react'
-import { sanitizeDecimalInput } from '@/lib/utils'
+import { sanitizeDecimalInput, taipeiTodayIso } from '@/lib/utils'
 import { useFacilityLayout } from '../hooks/useFacilityLayout'
 import { useBreedSpecies } from '../hooks/useBreedSpecies'
 
@@ -89,7 +89,7 @@ export function AnimalAddDialog({
   const pensForZone = selectedZone ? (pensByZone[selectedZone.id] ?? []) : []
 
   // 台灣時間的今日（YYYY-MM-DD，可直接字串比較）；出生日期不可晚於今日
-  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' })
+  const todayStr = taipeiTodayIso()
   const birthDateInFuture = !!newAnimal.birth_date && newAnimal.birth_date > todayStr
 
   const isDisabled =
