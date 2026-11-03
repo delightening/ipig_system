@@ -5,6 +5,7 @@
 //! 唯一的直接寫入是補登後對 `pens.current_count` 的重算（見 repository）。
 //! 報告含耳號等營運資料：只印到 stdout，請勿存進 repo。
 
+use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::str::FromStr;
 
@@ -292,6 +293,25 @@ pub async fn apply(pool: &PgPool, actor: &ActorContext, items: &[Evaluated]) -> 
     out
 }
 
+/// 對帳報告要涵蓋的欄位：`apply` 會寫入或重算 `pens.current_count` 的那些欄（去重、排序）。
+///
+/// - `Ready`：補登後該動物離場，欄位頭數會變。
+/// - `AlreadyDone`：重跑時會（授權後）重算欄位，修復上一輪在重算前失敗而過期的快取。
+///   若不納入，這個修復在 dry-run 的預測與 apply 的改前／改後對帳都看不到，
+///   操作者無從得知有欄位的快取被修正過。
+///
+/// 回傳排序過的清單，讓報告的欄位順序穩定、可比對。
+pub fn affected_pen_ids(items: &[Evaluated]) -> Vec<Uuid> {
+    let pens: BTreeSet<Uuid> = items
+        .iter()
+        .filter_map(|it| match &it.decision {
+            Decision::Ready { pen_id, .. } | Decision::AlreadyDone { pen_id, .. } => *pen_id,
+            Decision::Manual(_) => None,
+        })
+        .collect();
+    pens.into_iter().collect()
+}
+
 /// 報告：每隻一行 + 彙總。`outcomes` 為 `None` 表示 dry-run。
 pub fn render_report(items: &[Evaluated], outcomes: Option<&[RowOutcome]>) -> String {
     let mut s = String::new();
@@ -398,6 +418,70 @@ mod tests {
         );
         let err = read_legacy_csv(mixed.as_bytes()).expect_err("second row bad");
         assert!(err.to_string().contains("第 2 筆"), "{err}");
+    }
+
+    fn sample_row() -> LegacySacRow {
+        LegacySacRow {
+            ear: "A1".into(),
+            legacy_id: "1".into(),
+            birth: NaiveDate::from_ymd_opt(2025, 1, 1).expect("date"),
+            iacuc: None,
+            sac_date: None,
+            zoletil: None,
+            electro: false,
+            bleed: false,
+            other: None,
+            sampling: None,
+            sampling_other: None,
+            blood_ml: None,
+        }
+    }
+
+    fn item(decision: Decision) -> Evaluated {
+        Evaluated {
+            row: sample_row(),
+            decision,
+        }
+    }
+
+    fn ready(pen_id: Option<Uuid>) -> Decision {
+        Decision::Ready {
+            animal_id: Uuid::nil(),
+            version: 1,
+            pen_id,
+            set_iacuc: None,
+            from_status: "in_experiment".into(),
+        }
+    }
+
+    fn done(pen_id: Option<Uuid>) -> Decision {
+        Decision::AlreadyDone {
+            animal_id: Uuid::nil(),
+            pen_id,
+        }
+    }
+
+    #[test]
+    fn reconciliation_pens_cover_ready_and_already_done_deduped_and_sorted() {
+        let (p1, p2, p3) = (Uuid::from_u128(1), Uuid::from_u128(2), Uuid::from_u128(3));
+        let items = vec![
+            item(ready(Some(p3))),
+            item(done(Some(p1))),
+            item(done(Some(p3))), // 與 Ready 同一欄：只算一次
+            item(ready(None)),    // 沒有欄位：略過
+            item(done(None)),
+            item(Decision::Manual("人工".into())), // 不寫入：不算
+            item(ready(Some(p2))),
+        ];
+        assert_eq!(affected_pen_ids(&items), vec![p1, p2, p3]);
+    }
+
+    /// 回歸：只有 AlreadyDone 指向的欄位，過去不會出現在對帳集合，修復快取的動作就看不見。
+    #[test]
+    fn pen_referenced_only_by_already_done_is_still_reconciled() {
+        let pen = Uuid::from_u128(7);
+        assert_eq!(affected_pen_ids(&[item(done(Some(pen)))]), vec![pen]);
+        assert!(affected_pen_ids(&[item(Decision::Manual("x".into()))]).is_empty());
     }
 
     #[test]

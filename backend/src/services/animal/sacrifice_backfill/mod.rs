@@ -14,4 +14,7 @@ pub mod plan;
 pub mod run;
 
 pub use plan::{decide, Decision, LegacySacRow};
-pub use run::{apply, evaluate, load_actor, read_legacy_csv, render_report, Evaluated, RowOutcome};
+pub use run::{
+    affected_pen_ids, apply, evaluate, load_actor, read_legacy_csv, render_report, Evaluated,
+    RowOutcome,
+};

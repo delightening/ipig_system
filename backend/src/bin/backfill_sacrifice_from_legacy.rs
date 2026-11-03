@@ -10,16 +10,14 @@
 //! actor 必須是啟用中、且具 IACUC 類 view_all 角色或系統管理員的使用者（授權檢查用其真實角色）。
 //! 報告含耳號（營運資料）：只印到 stdout，請勿存進 repo。
 
-use std::collections::HashSet;
-
 use clap::Parser;
 use erp_backend::repositories::pen_alignment::PenAlignmentRepository;
 use erp_backend::services::pen_alignment::render_reconciliation;
 use erp_backend::services::sacrifice_backfill::{
-    apply, evaluate, load_actor, read_legacy_csv, render_report, Decision, RowOutcome,
+    affected_pen_ids, apply, evaluate, load_actor, read_legacy_csv, render_report, Decision,
+    RowOutcome,
 };
 use sqlx::PgPool;
-use uuid::Uuid;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -59,15 +57,8 @@ async fn main() -> anyhow::Result<()> {
         .await
         .map_err(|e| anyhow::anyhow!("{e}"))?;
 
-    let pen_ids: Vec<Uuid> = items
-        .iter()
-        .filter_map(|it| match &it.decision {
-            Decision::Ready { pen_id, .. } => *pen_id,
-            _ => None,
-        })
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .collect();
+    // 對帳要涵蓋所有會被重算 current_count 的欄：Ready（動物離場）與 AlreadyDone（重跑時修復過期快取）
+    let pen_ids = affected_pen_ids(&items);
     let before = PenAlignmentRepository::list_pens(&pool, Some(&pen_ids))
         .await
         .map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -75,7 +66,9 @@ async fn main() -> anyhow::Result<()> {
     if !args.apply {
         println!("== dry-run（未寫入）==");
         println!("{}", render_report(&items, None));
-        // 預測：每個 Ready 動物離場 → 該欄在場數 -1
+        // 預測：每個 Ready 動物離場 → 該欄在場數 -1。
+        // 只被 AlreadyDone 指到的欄沒有動物離場，預測值就是「重算後的實際在場數」，
+        // 對照「改前」即可看出過期的快取將被修正。
         let predicted: Vec<_> = before
             .iter()
             .map(|b| {
