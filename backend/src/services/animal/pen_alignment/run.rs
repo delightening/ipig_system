@@ -46,11 +46,14 @@ pub fn read_legacy_csv<R: std::io::Read>(reader: R) -> Result<Vec<LegacyRow>> {
     for (i, rec) in rdr.records().enumerate() {
         let rec = rec
             .map_err(|e| AppError::BadRequest(format!("CSV 第 {} 筆資料列解析失敗：{e}", i + 1)))?;
-        let ear = rec.get(ear_idx).unwrap_or_default().trim().to_string();
-        let old_pen = rec.get(pen_idx).unwrap_or_default().trim().to_string();
-        if ear.is_empty() && old_pen.is_empty() {
+        // 只略過「整列皆空」的列（試算表尾端常見）。不能只看耳號與舊欄位：有出生日期等其他資料、
+        // 卻漏填耳號與舊欄位的列若被靜默丟掉，不會出現在報告的「待人工」，操作者會誤以為整份
+        // 清單都評估過。這類列照常進入計畫，因對不到動物而列為待人工。
+        if rec.iter().all(|cell| cell.trim().is_empty()) {
             continue;
         }
+        let ear = rec.get(ear_idx).unwrap_or_default().trim().to_string();
+        let old_pen = rec.get(pen_idx).unwrap_or_default().trim().to_string();
         let birth_raw = rec.get(birth_idx).unwrap_or_default().trim();
         if birth_raw.is_empty() {
             return Err(AppError::BadRequest(format!(
@@ -157,6 +160,34 @@ mod tests {
         let bad = read_legacy_csv("old_pen,ear,birth\nA03,010,2025/01/31\n".as_bytes())
             .expect_err("bad date");
         assert!(bad.to_string().contains("birth"));
+    }
+
+    /// 回歸：有資料卻漏填耳號與舊欄位的列，過去因「耳號與舊欄位同時為空」被靜默丟掉，
+    /// 不會出現在報告的待人工。現在只略過整列皆空的列。
+    #[test]
+    fn row_with_data_but_no_ear_and_no_pen_is_kept_not_dropped() {
+        let head = "old_pen,ear,birth,old_system_id,new_pen_location\n";
+        // 只有生日與其他欄 → 保留（耳號與舊欄位為空），交給計畫階段列為待人工
+        let kept =
+            read_legacy_csv(format!("{head},,2025-01-31,x1,B01\n").as_bytes()).expect("keep");
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].ear, "");
+        assert_eq!(kept[0].old_pen, "");
+        assert_eq!(kept[0].birth.to_string(), "2025-01-31");
+        // 整列皆空（含只有空白）仍照舊略過
+        let blank = read_legacy_csv(format!("{head},,,,\n , ,  ,,\n").as_bytes()).expect("blank");
+        assert!(blank.is_empty());
+    }
+
+    /// 有其他資料卻缺出生日期的列：整份拒收並指出是哪一筆，而不是靜默略過。
+    #[test]
+    fn row_with_other_data_but_no_birth_is_rejected_with_line_number() {
+        let head = "old_pen,ear,birth,old_system_id,new_pen_location\n";
+        let err = read_legacy_csv(format!("{head}A03,010,2025-01-31,x1,\n,,,x9,\n").as_bytes())
+            .expect_err("second row has data but no birth");
+        let msg = err.to_string();
+        assert!(msg.contains("第 2 筆"), "{msg}");
+        assert!(msg.contains("birth"), "{msg}");
     }
 
     #[test]
