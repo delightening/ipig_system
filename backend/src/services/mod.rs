@@ -72,6 +72,8 @@ pub use animal::care_record::{
     CareRecord, CareRecordService, CareVetRecordType, CreateCareRecordRequest,
     UpdateCareRecordRequest,
 };
+pub use animal::pen_alignment;
+pub use animal::sacrifice_backfill;
 pub use animal::vet_advice::{
     AnimalVetAdvice, UpsertVetAdviceRequest, VetAdviceRecord, VetAdviceRecordService,
 };
