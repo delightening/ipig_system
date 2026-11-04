@@ -36,6 +36,40 @@ export function formatEarTag(earTag: string): string {
 /** 系統統一使用台灣時間 (Asia/Taipei) 顯示，可供元件內聯日期格式使用 */
 export const TAIWAN_TIMEZONE = 'Asia/Taipei'
 
+/**
+ * 台灣時間的「今日」，固定為 `YYYY-MM-DD`（可直接字串比較，也可當 `<input type="date">` 的 `max`）。
+ *
+ * 不用 `toLocaleDateString('en-CA')` 直接取：該 locale 的輸出格式並不保證是 ISO
+ * （舊版 Firefox 曾回 `M/d/yyyy`），格式一旦不同，字串比較會把合法日期判成未來日期，
+ * `max` 也不是合法的 date-input 值。改由 `formatToParts()` 取年月日自行組裝，與 locale 的排列無關。
+ */
+export function taipeiTodayIso(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TAIWAN_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const pick = (type: 'year' | 'month' | 'day') => parts.find((p) => p.type === type)?.value ?? ''
+  return `${pick('year')}-${pick('month')}-${pick('day')}`
+}
+
+/**
+ * `value` 的日期是否晚於 `todayIso`（兩者皆為 `YYYY-MM-DD`）。
+ *
+ * 不能直接用字串比較：`<input type="date">` 允許超過四位數的年份（例如 `10000-01-01`），
+ * 字串比較時 `'1' < '2'`，會把遙遠的未來判成「不晚於今日」。這裡把年份補到固定寬度再比。
+ * 格式不符（含空字串）一律回 false，交給欄位本身的必填與格式檢查處理。
+ */
+export function isIsoDateAfter(value: string, todayIso: string): boolean {
+  const pattern = /^(\d{4,6})-(\d{2})-(\d{2})$/
+  const v = pattern.exec(value)
+  const t = pattern.exec(todayIso)
+  if (!v || !t) return false
+  const key = (m: RegExpExecArray) => `${m[1].padStart(6, '0')}-${m[2]}-${m[3]}`
+  return key(v) > key(t)
+}
+
 /** 日期類格式化函式在輸入無效時的預設顯示值 */
 export const INVALID_DATE_FALLBACK = '-'
 

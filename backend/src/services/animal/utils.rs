@@ -1,9 +1,26 @@
-use crate::models::AnimalBreed;
+use chrono::NaiveDate;
+
+use crate::{models::AnimalBreed, AppError, Result};
 
 /// 動物相關工具函數
 pub struct AnimalUtils;
 
 impl AnimalUtils {
+    /// 出生日期不可晚於「今日」（台灣時間）；當天允許。
+    ///
+    /// 只用於新寫入（建立、Excel 匯入、欄位更正申請），不回頭檢查既有資料。
+    /// `today` 由呼叫端傳入（正式路徑用 `crate::time::today_taiwan_naive()`），
+    /// 讓邊界可以在單元測試中釘死。
+    pub fn ensure_birth_date_not_future(birth_date: NaiveDate, today: NaiveDate) -> Result<()> {
+        if birth_date > today {
+            return Err(AppError::Validation(format!(
+                "出生日期不可晚於今日（{}），請確認輸入的日期",
+                today
+            )));
+        }
+        Ok(())
+    }
+
     /// 格式化耳號：如果是數字且 < 100，則補零至三位數
     pub fn format_ear_tag(ear_tag: &str) -> String {
         if let Ok(num) = ear_tag.parse::<u32>() {
@@ -168,6 +185,27 @@ mod tests {
         assert_eq!(AnimalUtils::format_pen_location("Q01"), "Q01");
         // 不會被補零，因為只有 A–G 會正規化
         assert_eq!(AnimalUtils::format_pen_location("S1"), "S1");
+    }
+
+    // ── ensure_birth_date_not_future ──
+
+    fn ymd(y: i32, m: u32, d: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(y, m, d).expect("測試用日期必須合法")
+    }
+
+    #[test]
+    fn test_birth_date_future_rejected() {
+        let today = ymd(2026, 11, 2);
+        let tomorrow = ymd(2026, 11, 3);
+        assert!(AnimalUtils::ensure_birth_date_not_future(tomorrow, today).is_err());
+    }
+
+    #[test]
+    fn test_birth_date_today_and_past_allowed() {
+        let today = ymd(2026, 11, 2);
+        assert!(AnimalUtils::ensure_birth_date_not_future(today, today).is_ok());
+        let past = ymd(2025, 1, 15);
+        assert!(AnimalUtils::ensure_birth_date_not_future(past, today).is_ok());
     }
 
     // ── breed_to_db_value ──

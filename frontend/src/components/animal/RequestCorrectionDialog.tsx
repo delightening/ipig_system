@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CORRECTABLE_FIELDS, type CorrectableField } from '@/lib/api'
+import { isIsoDateAfter, taipeiTodayIso } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 import type { Animal } from '@/lib/api'
 
@@ -66,9 +67,13 @@ export function RequestCorrectionDialog({
     }
   }
 
+  // 台灣時間的今日（YYYY-MM-DD）；出生日期不可晚於今日（比較需容許超過四位數的年份）
+  const todayStr = taipeiTodayIso()
+  const birthDateInFuture = field === 'birth_date' && isIsoDateAfter(newValue, todayStr)
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newValue.trim() || !reason.trim()) return
+    if (!newValue.trim() || !reason.trim() || birthDateInFuture) return
     setIsPending(true)
     try {
       await onSubmit({
@@ -107,11 +112,17 @@ export function RequestCorrectionDialog({
         )
       case 'birth_date':
         return (
-          <Input
-            type="date"
-            value={newValue}
-            onChange={(e) => setNewValue(e.target.value)}
-          />
+          <>
+            <Input
+              type="date"
+              value={newValue}
+              max={todayStr}
+              onChange={(e) => setNewValue(e.target.value)}
+            />
+            {birthDateInFuture && (
+              <p className="text-sm text-destructive" role="alert">{t('animals.birthDateFuture')}</p>
+            )}
+          </>
         )
       case 'gender':
         return (
@@ -216,7 +227,7 @@ export function RequestCorrectionDialog({
             </Button>
             <Button
               type="submit"
-              disabled={isPending || !newValue.trim() || !reason.trim()}
+              disabled={isPending || !newValue.trim() || !reason.trim() || birthDateInFuture}
               className="bg-status-purple-solid hover:bg-status-purple-solid/90"
             >
               {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
