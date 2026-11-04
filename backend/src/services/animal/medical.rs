@@ -317,9 +317,6 @@ impl AnimalMedicalService {
         let user = actor.require_user()?;
         let created_by = user.id;
 
-        // 計畫前置需求：犧牲採樣為 AUP 管制的動物終點，須先指派計畫
-        access::require_animal_has_protocol(pool, animal_id).await?;
-
         let mut tx = pool.begin().await?;
 
         // Gemini PR #183 HIGH：animal + before 都在 tx 內讀，animal 加 FOR UPDATE
@@ -330,6 +327,27 @@ impl AnimalMedicalService {
                 .fetch_optional(&mut *tx)
                 .await?
                 .ok_or_else(|| AppError::NotFound("動物不存在".to_string()))?;
+
+        // 無計畫動物的犧牲紀錄：非計畫內死亡（因病安樂死、年限死亡、出售後視同場內犧牲）
+        // 本來就沒有 AUP，不能因為沒有計畫就無法登記犧牲、也就無法轉為 euthanized。
+        // 與其他「須先有計畫」的紀錄（手術 / 病理 / 觀察 / 照護）不同，這裡改為條件放行：
+        // - 僅限 view_all 類角色（`aup.protocol.view_all` 權限或審查／獸醫類角色）；
+        //   handler 的 `AnimalWrite` 已先擋掉其他人，這裡於 service 層再驗一次作為縱深防禦。
+        // - 確認犧牲（會轉為 euthanized）時，犧牲日期必填：沒有計畫可回溯，日期是唯一的時間依據。
+        // 判斷用 tx 內鎖定的 `animal.iacuc_no`，與狀態轉換在同一個一致視圖。
+        // 有計畫的動物行為完全不變。
+        if animal.iacuc_no.is_none() {
+            if !access::has_protocol_view_all(user) {
+                return Err(AppError::BusinessRule(
+                    "此動物尚未指派計畫（AUP），僅審查或獸醫類角色可登記其犧牲紀錄".into(),
+                ));
+            }
+            if req.confirmed_sacrifice && req.sacrifice_date.is_none() {
+                return Err(AppError::BusinessRule(
+                    "此動物未指派計畫，確認犧牲時必須填寫犧牲日期".into(),
+                ));
+            }
+        }
 
         // Gemini PR #183 HIGH：confirmed_sacrifice + 無法轉換時明確拒絕，避免
         // 產生「犧牲紀錄已確認但動物狀態未變更」的不一致（比照 sudden_death）。
