@@ -219,6 +219,27 @@ pub fn maybe_alert_pdf_service_down(
     });
 }
 
+/// 告警信的收件者：最早建立的啟用中管理員 email。
+///
+/// 角色存在 `user_roles`／`roles`，`users` 表沒有 `role` 欄位；管理員以角色代碼
+/// `admin`（資料庫實際存在的代碼）或 `SYSTEM_ADMIN`（常數保留的代碼）判定，與
+/// `repositories/hr.rs` 的判法一致。
+pub async fn find_alert_admin_email(pool: &sqlx::PgPool) -> Result<Option<String>, sqlx::Error> {
+    sqlx::query_scalar(
+        r#"SELECT u.email FROM users u
+           WHERE u.is_active = true AND u.deleted_at IS NULL
+             AND EXISTS (
+                 SELECT 1 FROM user_roles ur
+                 INNER JOIN roles r ON r.id = ur.role_id
+                 WHERE ur.user_id = u.id AND r.is_active = true
+                   AND r.code IN ('admin', 'SYSTEM_ADMIN')
+             )
+           ORDER BY u.created_at LIMIT 1"#,
+    )
+    .fetch_optional(pool)
+    .await
+}
+
 /// 寫「print-pdf 服務未上線」警告 email 進 outbox。收件者：第一個 active admin 的 email。
 async fn send_pdf_service_down_alert(
     state: &AppState,
@@ -226,12 +247,9 @@ async fn send_pdf_service_down_alert(
     source: &str,
 ) -> Result<(), crate::error::AppError> {
     // 找第一個 active admin email
-    let admin_email: Option<String> = sqlx::query_scalar(
-        "SELECT email FROM users WHERE role = 'ADMIN' AND is_active = true AND deleted_at IS NULL ORDER BY created_at LIMIT 1",
-    )
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|e| crate::error::AppError::Internal(format!("query admin: {e}")))?;
+    let admin_email = find_alert_admin_email(&state.db)
+        .await
+        .map_err(|e| crate::error::AppError::Internal(format!("query admin: {e}")))?;
 
     let Some(to) = admin_email else {
         tracing::warn!("no active admin found; daemon-down alert dropped");
