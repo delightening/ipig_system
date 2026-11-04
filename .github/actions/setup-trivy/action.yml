@@ -1,0 +1,44 @@
+name: "Setup Trivy (GitHub release, SHA256 verified)"
+description: >
+  從 GitHub 發行頁下載 Trivy 並以寫死的 SHA256 驗證後才安裝。
+  取代 aquasecurity/trivy-action 內建的 setup-trivy：它的安裝腳本會把發行檔改從
+  get.trivy.dev 下載，而該網域在 2026-11-04 起解析不到（NXDOMAIN，疑似過期），
+  導致所有 Trivy job 在「Install Trivy」一步以 exit 6（curl: 無法解析主機）中止。
+  本 action 只連 github.com，不依賴那個網域。
+
+inputs:
+  version:
+    description: "Trivy 版本（不含 v 前綴）。升版時 version 與 sha256 必須一起改。"
+    required: false
+    default: "0.70.0"
+  sha256:
+    description: >
+      trivy_<version>_Linux-64bit.tar.gz 的 SHA256。取自該版本發行頁的
+      trivy_<version>_checksums.txt。與 version 成對，不可只改一邊。
+    required: false
+    default: "8b4376d5d6befe5c24d503f10ff136d9e0c49f9127a4279fd110b727929a5aa9"
+
+runs:
+  using: composite
+  steps:
+    - name: 下載 Trivy 並驗證 SHA256
+      shell: bash
+      env:
+        TRIVY_VERSION: ${{ inputs.version }}
+        TRIVY_SHA256: ${{ inputs.sha256 }}
+      run: |
+        # set -e 是安全關鍵：校驗失敗直接讓 job 紅，絕不能把未驗證的 binary 裝進 PATH。
+        set -euo pipefail
+        tmp="$(mktemp -d)"
+        asset="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+        url="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${asset}"
+
+        # -f：HTTP 4xx/5xx 時讓 curl 回非 0，否則會把錯誤頁面存成「binary」
+        curl -sSLf --retry 3 --retry-delay 2 -o "${tmp}/${asset}" "${url}"
+
+        # 雜湊寫死在 repo 內（而非執行時再下載 checksums.txt）：發行頁被竄改時也驗得出來。
+        echo "${TRIVY_SHA256}  ${tmp}/${asset}" | sha256sum -c -
+
+        tar -xzf "${tmp}/${asset}" -C "${tmp}" trivy
+        sudo install -m 0755 "${tmp}/trivy" /usr/local/bin/trivy
+        trivy --version

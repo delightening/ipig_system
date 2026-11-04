@@ -1225,6 +1225,11 @@ jobs:
         with:
           persist-credentials: false
 
+      # 2026-11-04：trivy-action 內建的安裝改從 get.trivy.dev 下載，該網域已解析不到
+      # （NXDOMAIN），所有 Trivy job 在安裝一步 exit 6。改由本地 action 從 GitHub 發行頁
+      # 下載並驗 SHA256，下方每個 trivy-action 都要帶 skip-setup-trivy: true。
+      - uses: ./.github/actions/setup-trivy
+
       - name: Build backend image
         run: docker build --no-cache --progress=plain -t ipig-api:ci ./backend
 
@@ -1232,6 +1237,7 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: "ipig-api:ci"
+          skip-setup-trivy: true
           format: "table"
           severity: "CRITICAL,HIGH"
           exit-code: "1"
@@ -1244,6 +1250,7 @@ jobs:
         if: always()
         with:
           image-ref: "ipig-api:ci"
+          skip-setup-trivy: true
           format: "sarif"
           output: "trivy-backend.sarif"
           severity: "CRITICAL,HIGH"
@@ -1270,6 +1277,7 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: "ipig-web:ci"
+          skip-setup-trivy: true
           format: "table"
           severity: "CRITICAL,HIGH"
           exit-code: "1"
@@ -1282,6 +1290,7 @@ jobs:
         if: always()
         with:
           image-ref: "ipig-web:ci"
+          skip-setup-trivy: true
           format: "sarif"
           output: "trivy-frontend.sarif"
           severity: "CRITICAL,HIGH"
@@ -1345,6 +1354,9 @@ jobs:
         with:
           persist-credentials: false
 
+      # 安裝方式與原因見 trivy-scan job 同位置的註解（get.trivy.dev 失效）。
+      - uses: ./.github/actions/setup-trivy
+
       # context 與 dockerfile 路徑與 cd.yml 的 ipig-db-backup 一致（該檔 L145-147）,
       # 否則 CI 掃的與實際部署的不是同一支映像。
       - name: Build backup image
@@ -1356,6 +1368,7 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: "ipig-db-backup:ci"
+          skip-setup-trivy: true
           format: "table"
           severity: "CRITICAL,HIGH"
           exit-code: "0"
@@ -1368,6 +1381,7 @@ jobs:
         if: always()
         with:
           image-ref: "ipig-db-backup:ci"
+          skip-setup-trivy: true
           format: "sarif"
           output: "trivy-backup.sarif"
           severity: "CRITICAL,HIGH"
