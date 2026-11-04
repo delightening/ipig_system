@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CORRECTABLE_FIELDS, type CorrectableField } from '@/lib/api'
-import { taipeiTodayIso } from '@/lib/utils'
+import { isIsoDateAfter, taipeiTodayIso } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 import type { Animal } from '@/lib/api'
 
@@ -67,9 +67,9 @@ export function RequestCorrectionDialog({
     }
   }
 
-  // 台灣時間的今日（YYYY-MM-DD，可直接字串比較）；出生日期不可晚於今日
+  // 台灣時間的今日（YYYY-MM-DD）；出生日期不可晚於今日（比較需容許超過四位數的年份）
   const todayStr = taipeiTodayIso()
-  const birthDateInFuture = field === 'birth_date' && !!newValue && newValue > todayStr
+  const birthDateInFuture = field === 'birth_date' && isIsoDateAfter(newValue, todayStr)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

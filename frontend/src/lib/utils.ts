@@ -54,6 +54,22 @@ export function taipeiTodayIso(now: Date = new Date()): string {
   return `${pick('year')}-${pick('month')}-${pick('day')}`
 }
 
+/**
+ * `value` 的日期是否晚於 `todayIso`（兩者皆為 `YYYY-MM-DD`）。
+ *
+ * 不能直接用字串比較：`<input type="date">` 允許超過四位數的年份（例如 `10000-01-01`），
+ * 字串比較時 `'1' < '2'`，會把遙遠的未來判成「不晚於今日」。這裡把年份補到固定寬度再比。
+ * 格式不符（含空字串）一律回 false，交給欄位本身的必填與格式檢查處理。
+ */
+export function isIsoDateAfter(value: string, todayIso: string): boolean {
+  const pattern = /^(\d{4,6})-(\d{2})-(\d{2})$/
+  const v = pattern.exec(value)
+  const t = pattern.exec(todayIso)
+  if (!v || !t) return false
+  const key = (m: RegExpExecArray) => `${m[1].padStart(6, '0')}-${m[2]}-${m[3]}`
+  return key(v) > key(t)
+}
+
 /** 日期類格式化函式在輸入無效時的預設顯示值 */
 export const INVALID_DATE_FALLBACK = '-'
 

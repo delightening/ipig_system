@@ -268,6 +268,18 @@ impl AnimalFieldCorrectionService {
         Ok(())
     }
 
+    /// 核准時解析並重驗出生日期。
+    ///
+    /// 建立申請時已擋未來日期（`validate_new_value`），但核准另有一條寫入路徑：
+    /// 「禁止未來日期」上線前建立、仍在待審的申請可能帶著未來日期，核准時若不重驗，
+    /// 仍會把它寫進動物資料。`today` 由呼叫端傳入（台灣今日），好讓單元測試不依賴時鐘。
+    fn parse_birth_date_for_apply(new_value: &str, today: NaiveDate) -> Result<NaiveDate> {
+        let d = NaiveDate::parse_from_str(new_value, "%Y-%m-%d")
+            .map_err(|_| AppError::Validation("日期格式錯誤".to_string()))?;
+        super::utils::AnimalUtils::ensure_birth_date_not_future(d, today)?;
+        Ok(d)
+    }
+
     async fn apply_correction(
         tx: &mut Transaction<'_, Postgres>,
         animal_id: Uuid,
@@ -284,8 +296,8 @@ impl AnimalFieldCorrectionService {
                     .await?;
             }
             "birth_date" => {
-                let d = NaiveDate::parse_from_str(new_value, "%Y-%m-%d")
-                    .map_err(|_| AppError::Validation("日期格式錯誤".to_string()))?;
+                let d =
+                    Self::parse_birth_date_for_apply(new_value, crate::time::today_taiwan_naive())?;
                 sqlx::query("UPDATE animals SET birth_date = $2, updated_at = NOW() WHERE id = $1")
                     .bind(animal_id)
                     .bind(d)
@@ -421,6 +433,41 @@ mod tests {
     fn test_birth_date_invalid_date() {
         assert!(
             AnimalFieldCorrectionService::validate_new_value("birth_date", "2025-13-01").is_err()
+        );
+    }
+
+    // ── parse_birth_date_for_apply：核准時重驗（回歸：舊的待審申請不可繞過未來日期限制）──
+
+    fn ymd(y: i32, m: u32, d: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(y, m, d).expect("測試用日期必須合法")
+    }
+
+    #[test]
+    fn apply_rejects_future_birth_date_from_older_pending_request() {
+        let today = ymd(2026, 11, 2);
+        let err = AnimalFieldCorrectionService::parse_birth_date_for_apply("2026-11-03", today)
+            .expect_err("明天起的日期核准時也要擋下");
+        assert!(err.to_string().contains("出生日期不可晚於今日"), "{err}");
+    }
+
+    #[test]
+    fn apply_allows_today_and_past_birth_date() {
+        let today = ymd(2026, 11, 2);
+        assert_eq!(
+            AnimalFieldCorrectionService::parse_birth_date_for_apply("2026-11-02", today)
+                .expect("當天可核准"),
+            today
+        );
+        assert!(
+            AnimalFieldCorrectionService::parse_birth_date_for_apply("2025-01-15", today).is_ok()
+        );
+    }
+
+    #[test]
+    fn apply_rejects_unparseable_birth_date() {
+        let today = ymd(2026, 11, 2);
+        assert!(
+            AnimalFieldCorrectionService::parse_birth_date_for_apply("01/15/2025", today).is_err()
         );
     }
 

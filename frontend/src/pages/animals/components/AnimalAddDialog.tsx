@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Loader2 } from 'lucide-react'
-import { sanitizeDecimalInput, taipeiTodayIso } from '@/lib/utils'
+import { isIsoDateAfter, sanitizeDecimalInput, taipeiTodayIso } from '@/lib/utils'
 import { useFacilityLayout } from '../hooks/useFacilityLayout'
 import { useBreedSpecies } from '../hooks/useBreedSpecies'
 
@@ -88,9 +88,9 @@ export function AnimalAddDialog({
   const selectedZone = zonesForBuilding.find(z => z.code === penZone)
   const pensForZone = selectedZone ? (pensByZone[selectedZone.id] ?? []) : []
 
-  // 台灣時間的今日（YYYY-MM-DD，可直接字串比較）；出生日期不可晚於今日
+  // 台灣時間的今日（YYYY-MM-DD）；出生日期不可晚於今日（比較需容許超過四位數的年份）
   const todayStr = taipeiTodayIso()
-  const birthDateInFuture = !!newAnimal.birth_date && newAnimal.birth_date > todayStr
+  const birthDateInFuture = isIsoDateAfter(newAnimal.birth_date, todayStr)
 
   const isDisabled =
     isPending ||
