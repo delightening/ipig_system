@@ -241,6 +241,14 @@ const exactRoutes: Record<string, unknown> = {
   '/permissions': DEMO_PERMISSIONS,
   // /admin/system-settings returns Record<string, string> object
   '/admin/system-settings': EMPTY_OBJECT,
+  // 系統版本資訊帶（SystemVersionStrip）：訪客看到的是「虛構」的示範值，絕不回真實 SHA／建置時間。
+  // 值刻意取一眼可辨的假資料（連號 hex、整點日期），避免被誤認為線上實際版本。
+  '/admin/internal/version': {
+    git_sha: '0123456789abcdef0123456789abcdef01234567',
+    build_time: '2026-01-01T00:00:00Z',
+    migration_max_version: 1,
+    rust_version: 'demo',
+  },
   // 操作日誌頁（AuditLogsPage）打 /admin/audit/activities（PaginatedResponse<UserActivityLog>）
   '/admin/audit/activities': DEMO_AUDIT_LOGS,
   // 安全審計頁子分頁：登入端點實為 /admin/audit/logins（非 /login-events）

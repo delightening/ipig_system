@@ -60,6 +60,12 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      # 版本資訊（handlers/version.rs 回報給 /admin/settings 的「系統版本」）：
+      # 本機 build 前先 export GIT_SHA／BUILD_TIME（見 docs/ops/COMPOSE.md）。
+      # 沒設定時為空字串，build.rs 會 fallback（SHA→"unknown"、時間→build 當下），build 不會失敗。
+      args:
+        GIT_SHA: ${GIT_SHA:-}
+        BUILD_TIME: ${BUILD_TIME:-}
     image: ipig-api
     container_name: ipig-api
     env_file:
@@ -224,6 +230,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.outbox-worker
+      # 與 api 相同：版本資訊由 build 前 export 的 GIT_SHA／BUILD_TIME 注入，沒設定時 fallback。
+      args:
+        GIT_SHA: ${GIT_SHA:-}
+        BUILD_TIME: ${BUILD_TIME:-}
     image: ipig-outbox-worker
     # 不設 container_name：保留 docker compose --scale outbox-worker=N 多副本能力
     # （多 worker 互斥靠 claim_batch FOR UPDATE SKIP LOCKED）

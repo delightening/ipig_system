@@ -3116,6 +3116,15 @@
         "unrepairable": "Unrepairable"
       }
     },
+    "systemVersion": {
+      "title": "System version",
+      "sha": "Git SHA",
+      "buildTime": "Build time",
+      "buildTimeValue": "{{time}} (GMT+8)",
+      "migration": "Migration version",
+      "unknown": "Unknown",
+      "loadError": "Unable to load system version"
+    },
     "systemSettingsCards": {
       "basicTitle": "Basic Settings",
       "basicDescription": "Configure basic system information",

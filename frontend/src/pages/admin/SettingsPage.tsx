@@ -18,6 +18,7 @@ import { SystemSettingsCards } from './components/SystemSettingsCards'
 import { NotificationPreferencesSection } from './components/NotificationPreferencesSection'
 import { DataExportImportCard } from './components/DataExportImportCard'
 import { AiApiKeySection } from './components/AiApiKeySection'
+import { SystemVersionStrip } from './components/SystemVersionStrip'
 
 type SystemSettings = Record<string, string>
 
@@ -127,6 +128,8 @@ export function SettingsPage() {
         title={t('nav.adminSettings')}
         description={t('adminUsers.settings.description')}
       />
+
+      <SystemVersionStrip />
 
       {isLoadingSys && (
         <div className="flex items-center justify-center py-12">
