@@ -28,7 +28,9 @@ export function SystemVersionStrip() {
       const res = await api.get<SystemVersionInfo>('/admin/internal/version')
       return res.data
     },
-    staleTime: 300_000,
+    // 刻意不快取：部署驗收要比對「頁面 SHA」與部署的 HEAD，若沿用部署前的舊結果會出現假的不一致。
+    // 每次進頁面重新查一次（管理員專用、唯讀、很小的請求）。
+    staleTime: 0,
   })
 
   if (isLoading) return null

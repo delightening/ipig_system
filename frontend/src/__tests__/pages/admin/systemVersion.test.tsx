@@ -123,6 +123,31 @@ describe('SystemVersionStrip', () => {
     expect(screen.queryByText('unknown')).toBeNull()
   })
 
+  it('重新進入頁面時會重新查詢，不沿用部署前的舊 SHA', async () => {
+    apiGet
+      .mockResolvedValueOnce({
+        data: { git_sha: 'aaaaaaaaaaaa', build_time: '2026-11-04T14:30:00Z', migration_max_version: 1, rust_version: 'r' },
+      })
+      .mockResolvedValueOnce({
+        data: { git_sha: 'bbbbbbbbbbbb', build_time: '2026-11-05T14:30:00Z', migration_max_version: 2, rust_version: 'r' },
+      })
+    // 同一個 QueryClient：模擬同一個瀏覽器分頁內離開設定頁再回來
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const ui = (
+      <QueryClientProvider client={client}>
+        <SystemVersionStrip />
+      </QueryClientProvider>
+    )
+
+    const first = render(ui)
+    expect(await screen.findByText('aaaaaaaaaaaa')).toBeTruthy()
+    first.unmount()
+
+    render(ui)
+    expect(await screen.findByText('bbbbbbbbbbbb')).toBeTruthy()
+    expect(apiGet).toHaveBeenCalledTimes(2)
+  })
+
   it('查詢失敗時顯示錯誤文案，且不假裝成「未知」', async () => {
     apiGet.mockRejectedValue(new Error('403'))
     renderStrip()
