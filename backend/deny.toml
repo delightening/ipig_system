@@ -29,6 +29,11 @@ ignore = [
     # 為最新、所有 0.19+ 版皆依賴它、無版本可擺脫）。build-time proc-macro、零執行期
     # 攻擊面、僅 unmaintained 標記、非漏洞。
     "RUSTSEC-2026-0173",
+    # pin-utils 不維護（RUSTSEC-2026-0441，上游 repo 於 2026-10-01 封存；2026-11-05 CI 首次偵測到）。
+    # hyper 1.x 經由 axum / reqwest / hyper-util 間接引入，本專案無法自行移除，
+    # 公告本身也標明「無可升級的安全版本」。僅 unmaintained 標記，非漏洞。
+    # 日後 hyper 不再依賴 pin-utils，cargo-deny 會回報 advisory-not-detected，屆時移除此行。
+    "RUSTSEC-2026-0441",
     # RUSTSEC-2026-0190（anyhow downcast_mut unsound）已移除（2026-09-20）：
     # 依賴樹中已無受影響版本，cargo-deny 回報 advisory-not-detected。
 ]
