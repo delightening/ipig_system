@@ -53,7 +53,7 @@ ARG BUILD_TIME=""
 ENV GIT_SHA=${GIT_SHA}
 ENV BUILD_TIME=${BUILD_TIME}
 
-RUN cargo build --release --bin erp-backend --bin healthcheck --bin create_admin --bin create_guest --bin provision_legacy_pi_accounts
+RUN cargo build --release --bin erp-backend --bin healthcheck --bin create_admin --bin create_guest --bin provision_legacy_pi_accounts --bin align_pens_to_legacy --bin backfill_sacrifice_from_legacy
 
 # Stage 4: Runtime — minimal Debian for user setup
 FROM debian:bookworm-slim AS runtime
@@ -75,6 +75,9 @@ COPY --from=builder /app/target/release/healthcheck /app/healthcheck
 COPY --from=builder /app/target/release/create_admin /app/create_admin
 COPY --from=builder /app/target/release/create_guest /app/create_guest
 COPY --from=builder /app/target/release/provision_legacy_pi_accounts /app/provision_legacy_pi_accounts
+# 一次性補登工具（預設 dry-run，--apply 才寫入）；與 provision_legacy_pi_accounts 同類
+COPY --from=builder /app/target/release/align_pens_to_legacy /app/align_pens_to_legacy
+COPY --from=builder /app/target/release/backfill_sacrifice_from_legacy /app/backfill_sacrifice_from_legacy
 COPY --from=builder /app/migrations /app/migrations
 COPY --from=builder /app/resources /app/resources
 

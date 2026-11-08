@@ -2,7 +2,7 @@
 //!
 //! 斷言：缺 IACUC 者先經 update 補上；經 `upsert_sacrifice` 寫入犧牲紀錄並轉 euthanized
 //! （稽核 SACRIFICE_UPSERT／IACUC_CHANGE）；補登後重算 pens.current_count；
-//! 無法判定者（新舊皆無 IACUC）不動；重跑冪等。
+//! 新舊皆無 IACUC 者（非計畫死亡）直接補登、不補 IACUC；無犧牲日期者不動；重跑冪等。
 
 mod common;
 
@@ -189,6 +189,55 @@ async fn unauthorized_actor_is_rejected_before_any_write() {
     assert_eq!(audit_count(pool, "IACUC_CHANGE", &[a]).await, 0);
 }
 
+/// 非計畫死亡（新舊系統都沒有 IACUC）：直接補登犧牲並轉 euthanized，不補 IACUC、
+/// 不產生 IACUC_CHANGE 稽核；重跑冪等。
+#[tokio::test]
+#[serial]
+async fn animal_without_any_iacuc_is_backfilled_without_filling_iacuc() {
+    let app = TestApp::spawn().await;
+    let pool = &app.db_pool;
+    let email = seed_chair(pool).await;
+    let actor = load_actor(pool, &email).await.expect("actor");
+    let uid = actor.require_user().expect("user").id;
+
+    let suffix = Uuid::new_v4().to_string()[..4].to_uppercase();
+    let ear = format!("NI{suffix}1");
+    let a = seed_animal(pool, &ear, "unassigned", None, None, uid).await;
+
+    let csv = format!(
+        "ear,legacy_id,birth,iacuc,sac_date,zoletil,electro,bleed,other,sampling,sampling_other,blood_ml\n\
+         {ear},1,2025-03-03,,2026-07-03,-,0,0,,,,\n"
+    );
+    let rows = read_legacy_csv(csv.as_bytes()).expect("csv");
+    let items = evaluate(pool, rows).await.expect("evaluate");
+    assert!(matches!(
+        &items[0].decision,
+        Decision::Ready {
+            set_iacuc: None,
+            ..
+        }
+    ));
+
+    let out = apply(pool, &actor, &items).await;
+    assert!(matches!(out[0], RowOutcome::Done), "{:?}", out[0]);
+
+    let (status, iacuc) = status_iacuc(pool, a).await;
+    assert_eq!(status, "euthanized");
+    assert_eq!(iacuc, None, "無計畫動物不得被補上 IACUC");
+    let sac_ids = sacrifice_ids(pool, &[a]).await;
+    assert_eq!(sac_ids.len(), 1);
+    assert_eq!(audit_count(pool, "SACRIFICE_UPSERT", &sac_ids).await, 1);
+    assert_eq!(audit_count(pool, "IACUC_CHANGE", &[a]).await, 0);
+
+    // 冪等：重跑 → AlreadyDone，不再寫入
+    let rows2 = read_legacy_csv(csv.as_bytes()).expect("csv 2");
+    let items2 = evaluate(pool, rows2).await.expect("evaluate 2");
+    assert!(matches!(items2[0].decision, Decision::AlreadyDone { .. }));
+    let out2 = apply(pool, &actor, &items2).await;
+    assert!(out2.iter().all(|o| matches!(o, RowOutcome::Skipped)));
+    assert_eq!(audit_count(pool, "SACRIFICE_UPSERT", &sac_ids).await, 1);
+}
+
 #[tokio::test]
 #[serial]
 async fn backfill_writes_sacrifice_via_service_path_and_is_idempotent() {
@@ -218,7 +267,7 @@ async fn backfill_writes_sacrifice_via_service_path_and_is_idempotent() {
         uid,
     )
     .await;
-    // a3：新舊都沒有 IACUC → 待人工，不動
+    // a3：舊系統沒有犧牲日期 → 待人工，不動
     let a3 = seed_animal(pool, &e3, "unassigned", None, None, uid).await;
     sqlx::query("UPDATE pens SET current_count = 2 WHERE id = $1")
         .bind(pen)
@@ -230,7 +279,7 @@ async fn backfill_writes_sacrifice_via_service_path_and_is_idempotent() {
         "ear,legacy_id,birth,iacuc,sac_date,zoletil,electro,bleed,other,sampling,sampling_other,blood_ml\n\
          {e1},1,2025-03-03,PIG-TEST-1,2026-06-01,4,0,1,KCl,\"心, 脾\",,\n\
          {e2},2,2025-03-03,PIG-TEST-1,2026-06-02,,0,0,KCl,,,\n\
-         {e3},3,2025-03-03,,2026-06-03,,0,0,KCl,,,\n"
+         {e3},3,2025-03-03,,,,0,0,KCl,,,\n"
     );
     let rows = read_legacy_csv(csv.as_bytes()).expect("csv");
     let items = evaluate(pool, rows).await.expect("evaluate");
