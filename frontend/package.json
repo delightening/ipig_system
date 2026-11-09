@@ -58,7 +58,7 @@
     "dompurify": "^3.4.17",
     "html2canvas": "^1.4.1",
     "i18next": "^26.4.0",
-    "i18next-browser-languagedetector": "^8.2.2",
+    "i18next-browser-languagedetector": "^8.3.0",
     "jspdf": "^4.0.0",
     "libheif-js": "^1.23.5",
     "lucide-react": "^1.66.0",
