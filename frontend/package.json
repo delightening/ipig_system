@@ -69,7 +69,7 @@
     "react-hook-form": "^7.91.0",
     "react-i18next": "^17.0.12",
     "react-resizable": "^4.0.2",
-    "react-router-dom": "^7.18.4",
+    "react-router-dom": "^7.18.5",
     "recharts": "^3.10.1",
     "signature_pad": "^5.1.4",
     "tailwind-merge": "^3.6.0",
