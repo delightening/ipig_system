@@ -97,11 +97,9 @@ pub fn decide(row: &LegacySacRow, cands: &[AnimalCandidate]) -> Decision {
         }
         (Some(_), _) => None,
         (None, Some(legacy)) => Some(legacy.to_string()),
-        (None, None) => {
-            return Decision::Manual(
-                "新舊系統都沒有 IACUC No.，犧牲紀錄需要計畫，無法補".to_string(),
-            );
-        }
+        // 新舊都沒有 IACUC：非計畫內死亡（屆齡淘汰、病死等）。犧牲紀錄服務層已允許無計畫動物
+        // （限具 view_all 的身分，且須有犧牲日期；上方已先檢查 sac_date）。不補 IACUC，直接補登。
+        (None, None) => None,
     };
 
     Decision::Ready {
@@ -224,8 +222,17 @@ mod tests {
             &[cand("in_experiment", Some("P2"), false)],
         );
         assert!(matches!(d, Decision::Manual(_)));
-        // 新舊都沒有 → 人工
+        // 新舊都沒有 → 非計畫死亡，直接補登犧牲、不補 IACUC
         let d = decide(&row(None, true), &[cand("unassigned", None, false)]);
+        assert!(matches!(
+            d,
+            Decision::Ready {
+                set_iacuc: None,
+                ..
+            }
+        ));
+        // 但沒有犧牲日期仍須人工
+        let d = decide(&row(None, false), &[cand("unassigned", None, false)]);
         assert!(matches!(d, Decision::Manual(_)));
         // 新系統有、舊系統沒有 → 照新系統的，不動
         let d = decide(&row(None, true), &[cand("unassigned", Some("P2"), false)]);
