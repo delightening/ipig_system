@@ -71,7 +71,8 @@ if (-not $SkipSecurity) {
         # （該 advisory 已於 2026-08-06 因 proc-macro-error 不在依賴樹而從 CI 移除），
         # 卻少了 CI 已加入的 RUSTSEC-2026-0173 與 RUSTSEC-2026-0235。
         # ⚠️ 改動任一邊都要同步另一邊；ci.yml 是權威來源，理由見該檔同段註解。
-        cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0173 --ignore RUSTSEC-2026-0235 2>&1 | Out-Null
+        # 2026-11-09 再對齊：移除 CI 已於 2026-10-26 拿掉的 RUSTSEC-2023-0071，補上 RUSTSEC-2026-0459。
+        cargo audit --ignore RUSTSEC-2026-0173 --ignore RUSTSEC-2026-0235 --ignore RUSTSEC-2026-0459 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "cargo audit exited with $LASTEXITCODE" }
         Set-Location $ProjectRoot
     }

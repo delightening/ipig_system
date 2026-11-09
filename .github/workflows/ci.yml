@@ -177,6 +177,11 @@ jobs:
         # RUSTSEC-2026-0173: proc-macro-error2 不維護（validator_derive，純編譯期無攻擊面）
         # RUSTSEC-2026-0235: rkyv 0.7.46 越界讀。rust_decimal 的 optional dep，本專案只啟用
         #   features=["serde"]（`cargo tree -i rkyv` 反查為空），僅存在於 lockfile → 誤報
+        # RUSTSEC-2026-0459: libsqlite3-sys（C SQLite CVE）。sqlx-sqlite 的 optional dep，本專案
+        #   sqlx 為 default-features=false、只啟用 postgres（`cargo tree -i libsqlite3-sys` 與
+        #   `-i sqlx-sqlite` 反查皆為空，2026-11-09），僅存在於 lockfile → 誤報。
+        #   無法以升級解：sqlx 0.9.0 為最新版，sqlx-sqlite 約束 libsqlite3-sys <0.38，修補版需 >=0.39。
+        #   若日後啟用 sqlx 的 sqlite feature，cargo-deny（走依賴圖、未 ignore 此條）會轉紅。
         # 註：deny.toml 另有 RUSTSEC-2026-0190（anyhow）而此處沒有，因為它是 unsound 類
         # warning，不計入 cargo audit 的 exit code（2026-08-06 本機實測不加也 EXIT=0），
         # 加了只會是第二條死 ignore。
@@ -184,6 +189,7 @@ jobs:
           cargo audit
           --ignore RUSTSEC-2026-0173
           --ignore RUSTSEC-2026-0235
+          --ignore RUSTSEC-2026-0459
 
   # =========================
   # 🛡️ 供應鏈檢查 (授權/漏洞/來源)
