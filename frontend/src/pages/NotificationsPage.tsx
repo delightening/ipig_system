@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/use-toast'
 import {
     Bell, CircleAlert, CheckCheck, CheckCircle2, ExternalLink, Loader2,
-    ChevronLeft, ChevronRight,
+    ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
 } from 'lucide-react'
 
 const PER_PAGE = 20
@@ -29,6 +29,8 @@ export default function NotificationsPage() {
     const queryClient = useQueryClient()
     const [searchParams, setSearchParams] = useSearchParams()
     const [page, setPage] = useState(1)
+    // 沒有落點的通知：目前展開全文的那一則（一次只展開一則）
+    const [expandedId, setExpandedId] = useState<string | null>(null)
 
     // 分頁狀態放網址：驚嘆號下拉的「查看全部」要能直接連到待處理分頁，
     // 使用者也才能把「我的待辦」這個畫面加書籤 / 貼給別人。
@@ -82,7 +84,13 @@ export default function NotificationsPage() {
         // 待辦不因為「看過」而改變狀態，只有系統偵測到動作完成才會消失
         if (!isTodo && !n.is_read) markReadMutation.mutate([n.id])
         const path = notificationTargetPath(n)
-        if (path) navigate(path)
+        if (path) {
+            navigate(path)
+        } else if (n.content) {
+            // 沒有可跳轉的頁面（例如備份月度檢查：Grafana／R2 都在系統外），
+            // 內文是唯一的資訊，列表只顯示兩行 → 點擊改為展開／收合全文
+            setExpandedId(prev => (prev === n.id ? null : n.id))
+        }
     }
 
     const formatTime = (dateStr: string) => {
@@ -183,6 +191,10 @@ export default function NotificationsPage() {
                     // 待處理分頁上每列都是未完成待辦；鈴鐺分頁上 kind='action' 者＝已完成的歷史
                     const isResolvedAction = !isTodo && n.kind === 'action'
                     const days = waitedDays(n.created_at)
+                    const hasTarget = notificationTargetPath(n) !== null
+                    // 沒落點又有內文 → 可展開看全文；有落點的通知行為不變
+                    const expandable = !hasTarget && !!n.content
+                    const expanded = expandable && expandedId === n.id
                     return (
                     // 用 <button> 而非 <div onClick>：div 不可聚焦也不吃 Enter/Space，
                     // 鍵盤與螢幕閱讀器使用者打不開任何一則通知／待辦
@@ -190,6 +202,7 @@ export default function NotificationsPage() {
                         key={n.id}
                         type="button"
                         onClick={() => handleClick(n)}
+                        aria-expanded={expandable ? expanded : undefined}
                         className={cn(
                             'w-full text-left px-4 py-3 cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset transition-colors flex items-start gap-3',
                             isTodo
@@ -215,7 +228,11 @@ export default function NotificationsPage() {
                                 {n.title}
                             </p>
                             {n.content && (
-                                <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
+                                // 展開時保留內文的換行（後端以 \n 分項），收合時維持原本的兩行摘要
+                                <p className={cn(
+                                    'text-sm text-muted-foreground mt-0.5',
+                                    expanded ? 'whitespace-pre-line' : 'line-clamp-2',
+                                )}>
                                     {n.content}
                                 </p>
                             )}
@@ -229,8 +246,13 @@ export default function NotificationsPage() {
                                 </span>
                             </div>
                         </div>
-                        {notificationTargetPath(n) && (
+                        {hasTarget && (
                             <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+                        )}
+                        {expandable && (
+                            expanded
+                                ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0 mt-1" aria-hidden="true" />
+                                : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 mt-1" aria-hidden="true" />
                         )}
                     </button>
                     )
