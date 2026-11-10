@@ -116,6 +116,10 @@ playwright、空 updateType、舊版未知、`v` 前綴 0.x、空陣列、全 pa
 6. **CODEOWNERS 的擁有者字串要和實際帳號對得上。** 目前檔案寫的是 `@jasonwang`，而合併 PR 的
    帳號是 `delightening`。若日後在 ruleset 加上 "Require review from Code Owners"，
    帳號不符會讓 `.github/` 相關 PR 永遠等不到審查。本機制**沒有**啟用該選項。
+   **後果（2026-11-10 補記）：** workflow 的政策旋鈕（生態系白名單、人工清單）過去註解寫「由
+   CODEOWNERS 把關」，實際沒有強制力——修改它們只受 PR 流程與 required checks 約束，
+   沒有強制的人工審查。單人維護的 repo 啟用 Code Owners 審查會讓自己的 PR 無人能核准（見 §9），
+   所以目前選擇只修正說明、不改權限；日後若有第二位維護者，再重新評估。
 7. **供應鏈風險無法歸零。** 冷卻期、major 手動、CI 掃描（cargo audit / deny、OSV、gitleaks、
    Trivy）降低風險，但新版本的惡意程式若不會被這些掃描抓到，仍會進 main。維護期的
    Rust 後端若不再需要新版本，更保守的做法見〈§6〉。

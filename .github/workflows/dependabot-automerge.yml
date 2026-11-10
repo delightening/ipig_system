@@ -60,7 +60,10 @@ jobs:
         env:
           # fetch-metadata 輸出：PR 內每個被更新套件的 JSON 陣列（group PR 也逐一列出）
           DEPS_JSON: ${{ steps.meta.outputs.updated-dependencies-json }}
-          # ── 政策旋鈕（改這裡要走 PR，由 CODEOWNERS 把關）──────────────────────
+          # ── 政策旋鈕（改這裡要走 PR）──────────────────────────────────────────
+          # ⚠️ 目前 CODEOWNERS **沒有強制力**：擁有者字串與合併帳號不符，ruleset 也未啟用
+          #   "Require review from Code Owners"（見 .github/DEPENDABOT_AUTOMERGE.md §5-6）。
+          #   所以改這裡實際只受 PR 流程與 required checks 約束，沒有強制的人工審查。
           # 可自動合併的生態系（Dependabot 的 package-ecosystem 名稱；pnpm 屬 npm_and_yarn）。
           #   不含 github_actions：Actions 在 CD 裡持有 packages:write 等權限，
           #     被 SHA pin 住正是為了「版本更新要經人眼」；月更一次，量小，人工看比較划算。
