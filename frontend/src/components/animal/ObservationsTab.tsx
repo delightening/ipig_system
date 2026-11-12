@@ -156,9 +156,14 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
           {/* @container wraps both table and card views */}
           <div className="@container">
 
-            {/* ── Table view: container ≥ 600px ── */}
-            <div className="hidden @[600px]:block overflow-x-auto">
-              <Table className="w-full" style={{ minWidth: '570px' }}>
+            {/* ── Table view: container ≥ 680px ──
+                欄寬規劃（2026-11-13 使用者裁定，預覽：docs/design/table-previews/table-preview-ObservationsTab-widths.html）：
+                窄欄表頭不換行、寬度剛好放得下欄名，剩餘寬度全給「內容」；
+                唯獨「獸醫師讀取」固定 80px，讓表頭斷成「獸醫師／讀取」。
+                必顯欄（中英文較寬者）合計約 640px，故表格門檻 680px；
+                加上「停止用藥」「記錄者」全欄約 870px，故 Tertiary 門檻 900px。 */}
+            <div className="hidden @[680px]:block overflow-x-auto">
+              <Table className="w-full" style={{ minWidth: '640px' }}>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead style={{ width: 40 }} />
@@ -167,8 +172,8 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                       currentSort={sort.column}
                       currentDirection={sort.direction}
                       onSort={toggleSort}
-                      style={{ width: 100 }}
-                      className="text-center"
+                      style={{ width: 120 }}
+                      className="text-center whitespace-nowrap"
                     >
                       {t('animalRecords.observations.eventDate')}
                     </SortableTableHead>
@@ -177,17 +182,19 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                       currentSort={sort.column}
                       currentDirection={sort.direction}
                       onSort={toggleSort}
-                      style={{ width: 100 }}
+                      style={{ width: 150 }}
+                      className="whitespace-nowrap"
                     >
                       {t('animalRecords.observations.recordNature')}
                     </SortableTableHead>
                     <TableHead style={{ minWidth: 150 }}>{t('animalRecords.observations.content')}</TableHead>
-                    {/* Tertiary: hidden below 720px */}
-                    <TableHead style={{ width: 60 }} className="text-center hidden @[720px]:table-cell">{t('animalRecords.shared.stopMedication')}</TableHead>
-                    <TableHead style={{ width: 100 }} className="text-center">{t('animalRecords.shared.vetReadHeader')}</TableHead>
-                    {/* Tertiary: hidden below 720px */}
-                    <TableHead style={{ width: 90 }} className="hidden @[720px]:table-cell">{t('animalRecords.shared.recorder')}</TableHead>
-                    <TableHead style={{ width: 80, minWidth: 80 }} className="sticky right-0 bg-card border-l text-center px-1 py-2">{t('common.actions')}</TableHead>
+                    {/* Tertiary: hidden below 900px；表頭不換行，英文版最寬約 130px */}
+                    <TableHead style={{ width: 130 }} className="text-center whitespace-nowrap hidden @[900px]:table-cell">{t('animalRecords.shared.stopMedication')}</TableHead>
+                    {/* 唯一允許換行的表頭：80px 讓「獸醫師讀取」斷成「獸醫師／讀取」 */}
+                    <TableHead style={{ width: 80 }} className="text-center whitespace-normal leading-tight">{t('animalRecords.shared.vetReadHeader')}</TableHead>
+                    {/* Tertiary: hidden below 900px */}
+                    <TableHead style={{ width: 100 }} className="whitespace-nowrap hidden @[900px]:table-cell">{t('animalRecords.shared.recorder')}</TableHead>
+                    <TableHead style={{ width: 100, minWidth: 100 }} className="sticky right-0 bg-card border-l text-center px-1 py-2">{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -206,10 +213,10 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                               <ChevronDown className={cn('h-4 w-4 transition-transform', expandedId === obs.id && 'rotate-180')} />
                             </button>
                           </TableCell>
-                          <TableCell style={{ width: 100 }} className="px-3 py-3 text-sm text-center whitespace-nowrap">
+                          <TableCell style={{ width: 120 }} className="px-3 py-3 text-sm text-center whitespace-nowrap">
                             {formatDate(obs.event_date)}
                           </TableCell>
-                          <TableCell style={{ width: 100 }} className="px-3 py-3">
+                          <TableCell style={{ width: 150 }} className="px-3 py-3">
                             <Badge className={getRecordTypeBadgeClass(obs.record_type as RecordType)}>
                               {t(`animalRecords.observations.recordType.${obs.record_type as RecordType}`)}
                             </Badge>
@@ -218,21 +225,21 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                             {obs.content}
                           </TableCell>
                           {/* Tertiary */}
-                          <TableCell style={{ width: 60 }} className="px-3 py-3 text-center hidden @[720px]:table-cell">
+                          <TableCell style={{ width: 130 }} className="px-3 py-3 text-center hidden @[900px]:table-cell">
                             {obs.no_medication_needed
                               ? <CheckCircle2 className="h-4 w-4 text-status-success-solid inline-block" />
                               : <span className="text-muted-foreground">-</span>}
                           </TableCell>
-                          <TableCell style={{ width: 100 }} className="px-3 py-3 text-center">
+                          <TableCell style={{ width: 80 }} className="px-3 py-3 text-center">
                             {obs.vet_read
                               ? <Badge className="bg-status-success-bg text-status-success-text">{t('animalRecords.shared.read')}</Badge>
                               : <Badge variant="outline" className="text-muted-foreground">{t('animalRecords.shared.unread')}</Badge>}
                           </TableCell>
                           {/* Tertiary */}
-                          <TableCell style={{ width: 90 }} className="px-3 py-3 whitespace-normal break-words hidden @[720px]:table-cell">
+                          <TableCell style={{ width: 100 }} className="px-3 py-3 whitespace-normal break-words hidden @[900px]:table-cell">
                             {obs.created_by_name || '-'}
                           </TableCell>
-                          <TableCell style={{ width: 80, minWidth: 80 }} className="px-1 py-1 sticky right-0 bg-card group-hover:bg-muted border-l">
+                          <TableCell style={{ width: 100, minWidth: 100 }} className="px-1 py-1 sticky right-0 bg-card group-hover:bg-muted border-l">
                             <ActionButtons obs={obs} />
                           </TableCell>
                         </TableRow>
@@ -288,8 +295,8 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
               </Table>
             </div>
 
-            {/* ── Card view: container < 600px ── */}
-            <div className="@[600px]:hidden space-y-3 py-1">
+            {/* ── Card view: container < 680px ── */}
+            <div className="@[680px]:hidden space-y-3 py-1">
               {!observations || observations.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                   <ClipboardList className="h-8 w-8" />
