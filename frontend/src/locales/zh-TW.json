@@ -9324,6 +9324,7 @@
         "animalUpdate": "更新動物",
         "animalDelete": "刪除動物",
         "animalBatchAssign": "批次分配",
+        "animalBatchCreate": "批次新增動物",
         "observationCreate": "建立觀察",
         "observationUpdate": "更新觀察",
         "observationDelete": "刪除觀察",

@@ -9324,6 +9324,7 @@
         "animalUpdate": "Update Animal",
         "animalDelete": "Delete Animal",
         "animalBatchAssign": "Batch Assign",
+        "animalBatchCreate": "Batch Add Animals",
         "observationCreate": "Create Observation",
         "observationUpdate": "Update Observation",
         "observationDelete": "Delete Observation",

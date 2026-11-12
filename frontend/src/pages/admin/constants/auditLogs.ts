@@ -57,6 +57,7 @@ const EVENT_TYPE_CONFIG: Record<string, { labelKey: string; color: string }> = {
   ANIMAL_UPDATE: { labelKey: 'adminUsers.audit.eventType.animalUpdate', color: 'bg-status-info-text' },
   ANIMAL_DELETE: { labelKey: 'adminUsers.audit.eventType.animalDelete', color: 'bg-status-error-text' },
   ANIMAL_BATCH_ASSIGN: { labelKey: 'adminUsers.audit.eventType.animalBatchAssign', color: 'bg-status-purple-text' },
+  ANIMAL_BATCH_CREATE: { labelKey: 'adminUsers.audit.eventType.animalBatchCreate', color: 'bg-status-success-text' },
   OBSERVATION_CREATE: { labelKey: 'adminUsers.audit.eventType.observationCreate', color: 'bg-status-success-text' },
   OBSERVATION_UPDATE: { labelKey: 'adminUsers.audit.eventType.observationUpdate', color: 'bg-status-info-text' },
   OBSERVATION_DELETE: { labelKey: 'adminUsers.audit.eventType.observationDelete', color: 'bg-status-error-text' },
