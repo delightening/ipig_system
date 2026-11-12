@@ -60,7 +60,11 @@ async fn free_ear_tags(pool: &PgPool, n: i64) -> Vec<String> {
 
 async fn post_batch(app: &TestApp, token: &str, animals: Vec<Value>) -> (u16, Value) {
     let res = app
-        .auth_post("/api/v1/animals/batch", &json!({ "animals": animals }), token)
+        .auth_post(
+            "/api/v1/animals/batch",
+            &json!({ "animals": animals }),
+            token,
+        )
         .await;
     let status = res.status().as_u16();
     let body: Value = res.json().await.unwrap_or(Value::Null);
@@ -125,8 +129,7 @@ async fn batch_create_creates_every_animal_with_audit() {
     let tags = free_ear_tags(&app.db_pool, 3).await;
     let summary_before = count_audit(&app.db_pool, "ANIMAL_BATCH_CREATE").await;
 
-    let (status, body) =
-        post_batch(&app, &token, tags.iter().map(|t| animal(t)).collect()).await;
+    let (status, body) = post_batch(&app, &token, tags.iter().map(|t| animal(t)).collect()).await;
 
     assert_eq!(status, 200, "實際回應 {body}");
     assert_eq!(body["created_count"], 3, "{body}");
@@ -227,7 +230,9 @@ async fn batch_create_warns_on_same_ear_tag_different_birth_date_and_accepts_for
     assert_eq!(r["outcome"], "duplicate_warning", "{body}");
     assert!(r["animal_id"].is_null());
     assert!(
-        r["existing_animals"].as_array().is_some_and(|a| !a.is_empty()),
+        r["existing_animals"]
+            .as_array()
+            .is_some_and(|a| !a.is_empty()),
         "應附上與之重複的既有動物，實際 {r}"
     );
     assert_eq!(body["created_count"], 0);
