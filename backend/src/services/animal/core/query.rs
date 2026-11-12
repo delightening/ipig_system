@@ -393,7 +393,10 @@ impl AnimalService {
             -- 只列在欄活躍動物；終態（安樂死/猝死/已轉讓）雖可能殘留 pen_location
             -- （歷史/匯入資料）但已不在欄，須排除，與 pen.current_count 重算定義一致。
             AND p.status NOT IN ('euthanized', 'sudden_death', 'transferred')
-            ORDER BY p.pen_location, p.id
+            -- 欄位內依耳號由小到大。耳號在資料庫有「必為三位數字」的限制
+            -- （check_ear_tag_three_digits），所以字串序＝數字序（099 < 100）。
+            -- 原本以 UUID（p.id）排序，欄位內動物的順序是任意的；p.id 留作同耳號時的穩定次序。
+            ORDER BY p.pen_location, p.ear_tag, p.id
             "#,
         )
         .fetch_all(pool)
