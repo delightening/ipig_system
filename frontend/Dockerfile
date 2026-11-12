@@ -121,9 +121,15 @@ FROM georgjung/nginx-brotli:1.31.8-alpine3.24
 #   georgjung/nginx-brotli:1.31.8-alpine3.24 上升級後載入 brotli_filter／static 模組，
 #   `Accept-Encoding: br` 請求回 `Content-Encoding: br`，壓縮正常（Alpine v3.24/main 已有 1.2.1-r0）。
 #   （2026-10-27，Alpine 安全公告即時新增，非本次改動造成）
+# - libxslt: CVE-2026-125350 / 87636 / 9947（皆 HIGH，Trivy 標題為 chromium-browser 的 XML
+#   use-after-free／type confusion，經 libxslt 套件回報）— 1.1.43-r3 → 1.1.43-r4。
+#   靜態檔服務不處理 XSLT，這些路徑不可觸；binary 仍在映像內，一併補以清 Trivy HIGH。
+#   2026-11-12 實測：在 georgjung/nginx-brotli:1.31.8-alpine3.24 上 `apk upgrade libxslt`
+#   會拉到 1.1.43-r4，升級後 `nginx -t` 通過。（Alpine 安全公告即時新增，非任何功能 PR 造成；
+#   同日稍早 #220／#221 的 Trivy 是綠的，之後新開的 PR 才開始紅燈。）
 # 註：openssl (libcrypto3/libssl3 3.5.6-r0) 已由 georgjung base 2026 重建涵蓋多個 CVE。
 # 其他安全更新透過升級基底映像版號處理，見 docs/security.md。
-RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils libcrypto3 libssl3 nghttp2 nghttp2-libs libxml2 c-ares curl libcurl libuuid libx11 pcre2 tiff brotli-libs && rm -rf /var/cache/apk/*
+RUN apk update && apk upgrade zlib libexpat libpng musl musl-utils libcrypto3 libssl3 nghttp2 nghttp2-libs libxml2 c-ares curl libcurl libuuid libx11 libxslt pcre2 tiff brotli-libs && rm -rf /var/cache/apk/*
 
 # 主配置：載入 Brotli 模組並 include conf.d
 COPY nginx-main.conf /etc/nginx/nginx.conf
