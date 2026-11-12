@@ -31,6 +31,7 @@ const FIELD_LABEL_KEYS: Record<CorrectableField, string> = {
   birth_date: 'animals.birthDate',
   gender: 'animals.gender',
   breed: 'animals.breed',
+  entry_date: 'animals.entryDate',
 }
 
 interface RequestCorrectionDialogProps {
@@ -58,6 +59,8 @@ export function RequestCorrectionDialog({
         return animal.ear_tag
       case 'birth_date':
         return animal.birth_date ? new Date(animal.birth_date).toISOString().split('T')[0] : '-'
+      case 'entry_date':
+        return animal.entry_date ? new Date(animal.entry_date).toISOString().split('T')[0] : '-'
       case 'gender':
         return t(`animals.genderLabels.${animal.gender}`)
       case 'breed':
@@ -124,6 +127,14 @@ export function RequestCorrectionDialog({
             )}
           </>
         )
+      case 'entry_date':
+        return (
+          <>
+            <Input type="date" value={newValue} onChange={(e) => setNewValue(e.target.value)} />
+            {/* 只改進場日期；建立動物時自動寫入的初始體重紀錄不會連動（使用者 2026-11-12 裁定） */}
+            <p className="text-xs text-muted-foreground">{t('animalActions.correction.entryDateHint')}</p>
+          </>
+        )
       case 'gender':
         return (
           <Select value={newValue} onValueChange={setNewValue}>
@@ -164,6 +175,9 @@ export function RequestCorrectionDialog({
         break
       case 'birth_date':
         setNewValue(animal.birth_date ? new Date(animal.birth_date).toISOString().split('T')[0] : '')
+        break
+      case 'entry_date':
+        setNewValue(animal.entry_date ? new Date(animal.entry_date).toISOString().split('T')[0] : '')
         break
       case 'gender':
         setNewValue(animal.gender)

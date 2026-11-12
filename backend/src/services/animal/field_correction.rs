@@ -1,5 +1,5 @@
 //! 動物欄位修正申請服務
-//! 耳號、出生日期、性別、品種等欄位需經 admin 批准後才能修改
+//! 耳號、出生日期、進場日期、性別、品種等欄位需經 admin 批准後才能修改
 
 use chrono::NaiveDate;
 use sqlx::{PgPool, Postgres, Transaction};
@@ -49,6 +49,7 @@ impl AnimalFieldCorrectionService {
         let old_value = match field {
             "ear_tag" => Some(animal.ear_tag.clone()),
             "birth_date" => animal.birth_date.map(|d| d.to_string()),
+            "entry_date" => Some(animal.entry_date.to_string()),
             "gender" => Some(format!("{:?}", animal.gender).to_lowercase()),
             "breed" => Some(Self::breed_to_db_value(&animal.breed)),
             _ => None,
@@ -111,6 +112,9 @@ impl AnimalFieldCorrectionService {
                     parsed,
                     crate::time::today_taiwan_naive(),
                 )?;
+            }
+            "entry_date" => {
+                Self::parse_entry_date(new_value)?;
             }
             "gender" if new_value != "male" && new_value != "female" => {
                 return Err(AppError::Validation("性別須為 male 或 female".to_string()));
@@ -280,6 +284,15 @@ impl AnimalFieldCorrectionService {
         Ok(d)
     }
 
+    /// 解析進場日期（YYYY-MM-DD）。
+    ///
+    /// 只驗格式，與建立動物時一致（`CreateAnimalRequest.entry_date` 同樣不限制是否為未來）。
+    /// 建立與核准共用這個函式，避免兩條路徑的規則漂移。
+    fn parse_entry_date(new_value: &str) -> Result<NaiveDate> {
+        NaiveDate::parse_from_str(new_value, "%Y-%m-%d")
+            .map_err(|_| AppError::Validation("進場日期格式須為 YYYY-MM-DD".to_string()))
+    }
+
     async fn apply_correction(
         tx: &mut Transaction<'_, Postgres>,
         animal_id: Uuid,
@@ -299,6 +312,17 @@ impl AnimalFieldCorrectionService {
                 let d =
                     Self::parse_birth_date_for_apply(new_value, crate::time::today_taiwan_naive())?;
                 sqlx::query("UPDATE animals SET birth_date = $2, updated_at = NOW() WHERE id = $1")
+                    .bind(animal_id)
+                    .bind(d)
+                    .execute(&mut **tx)
+                    .await?;
+            }
+            "entry_date" => {
+                // 只改 animals.entry_date。建立動物時自動寫入的初始體重紀錄（以進場日期當量測日）
+                // 刻意不連動——使用者 2026-11-12 裁定：體重紀錄是獨立的量測事實，
+                // 需要時另行更正體重紀錄。
+                let d = Self::parse_entry_date(new_value)?;
+                sqlx::query("UPDATE animals SET entry_date = $2, updated_at = NOW() WHERE id = $1")
                     .bind(animal_id)
                     .bind(d)
                     .execute(&mut **tx)
@@ -469,6 +493,34 @@ mod tests {
         assert!(
             AnimalFieldCorrectionService::parse_birth_date_for_apply("01/15/2025", today).is_err()
         );
+    }
+
+    // ── validate_new_value: entry_date ──
+
+    #[test]
+    fn test_entry_date_valid() {
+        assert!(
+            AnimalFieldCorrectionService::validate_new_value("entry_date", "2026-01-05").is_ok()
+        );
+    }
+
+    #[test]
+    fn test_entry_date_invalid_format() {
+        let err = AnimalFieldCorrectionService::validate_new_value("entry_date", "01/05/2026")
+            .expect_err("非 YYYY-MM-DD 格式應被擋下");
+        assert!(err.to_string().contains("進場日期格式"), "{err}");
+    }
+
+    #[test]
+    fn test_entry_date_invalid_date() {
+        assert!(
+            AnimalFieldCorrectionService::validate_new_value("entry_date", "2026-02-30").is_err()
+        );
+    }
+
+    #[test]
+    fn test_entry_date_is_a_correctable_field() {
+        assert!(CORRECTABLE_FIELDS.contains(&"entry_date"));
     }
 
     // ── validate_new_value: gender ──

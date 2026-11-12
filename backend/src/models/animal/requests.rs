@@ -997,7 +997,10 @@ pub struct UpdateVaccinationWithReasonRequest {
 // ============================================
 
 /// 可申請修正的欄位
-pub const CORRECTABLE_FIELDS: &[&str] = &["ear_tag", "birth_date", "gender", "breed"];
+///
+/// 資料庫有同一份清單的 CHECK（`chk_field_name`，migration 025 起含 `entry_date`），
+/// 新增欄位時兩邊要一起改。
+pub const CORRECTABLE_FIELDS: &[&str] = &["ear_tag", "birth_date", "gender", "breed", "entry_date"];
 
 /// 建立動物欄位修正申請
 #[derive(Debug, Deserialize, Validate, ToSchema)]
