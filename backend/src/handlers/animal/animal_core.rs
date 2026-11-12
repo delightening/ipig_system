@@ -11,8 +11,9 @@ use crate::{
     middleware::{ActorContext, CurrentUser},
     models::{
         Animal, AnimalListItem, AnimalQuery, AnimalStatsResponse, AnimalsByPen,
-        AvailablePigListResponse, AvailablePigQuery, BatchAssignRequest, CreateAnimalRequest,
-        DeleteRequest, PaginatedResponse, UpdateAnimalRequest,
+        AvailablePigListResponse, AvailablePigQuery, BatchAssignRequest, BatchCreateAnimalsRequest,
+        BatchCreateAnimalsResponse, CreateAnimalRequest, DeleteRequest, PaginatedResponse,
+        UpdateAnimalRequest,
     },
     require_permission,
     services::{access, animal_excel_export, AnimalService},
@@ -290,6 +291,36 @@ pub async fn create_animal(
     let actor = ActorContext::User(current_user.clone());
     let animal = AnimalService::create(&state.db, &actor, &req).await?;
     Ok(Json(animal))
+}
+
+/// 批次新增動物（批量進豬）— 部分成功，逐隻回報
+///
+/// 每一筆都是完整的單隻建立請求，與 `POST /animals` 走同一套驗證與稽核；
+/// 一隻失敗不影響其他隻。請求本身不合法（空陣列、超過單次上限）才回 400。
+#[utoipa::path(
+    post,
+    path = "/api/v1/animals/batch",
+    request_body = BatchCreateAnimalsRequest,
+    responses(
+        (status = 200, description = "已逐隻處理，結果見 results（部分失敗仍回 200）", body = BatchCreateAnimalsResponse),
+        (status = 400, description = "請求不合法（空陣列或超過單次上限）"),
+        (status = 401, description = "未授權"),
+        (status = 403, description = "無權限")
+    ),
+    tag = "動物管理",
+    security(("bearer" = []))
+)]
+pub async fn batch_create_animals(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(req): Json<BatchCreateAnimalsRequest>,
+) -> Result<Json<BatchCreateAnimalsResponse>> {
+    require_permission!(current_user, "animal.animal.create");
+
+    // Audit 已收進 service 層（per-row ANIMAL_CREATE 在各自 tx 內 + summary ANIMAL_BATCH_CREATE）
+    let actor = ActorContext::User(current_user.clone());
+    let response = AnimalService::batch_create(&state.db, &actor, &req).await?;
+    Ok(Json(response))
 }
 
 /// 更新動物資訊

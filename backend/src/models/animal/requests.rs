@@ -128,6 +128,51 @@ pub struct BatchAssignRequest {
     pub iacuc_no: String,
 }
 
+/// 批次新增動物（批量進豬）。
+///
+/// 每一筆都是**完整**的單隻建立請求——「整批相同」的共用欄位由前端展開後填進每一筆，
+/// 後端不認識「共用欄位」這個概念。這樣每隻動物走的是與單隻新增完全相同的驗證、
+/// 容量檢查、耳號重複規則與稽核，不會出現兩套規則漂移。
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct BatchCreateAnimalsRequest {
+    pub animals: Vec<CreateAnimalRequest>,
+}
+
+/// 批次新增中單隻動物的結果。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BatchCreateOutcome {
+    /// 已建立
+    Created,
+    /// 僅耳號與其他存活動物相同（出生日期不同）：未建立，該筆帶 `force_create: true` 再送一次才會建立
+    DuplicateWarning,
+    /// 未建立（驗證不過、容量不足、同耳號同出生日期等），原因見 `message`
+    Failed,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct BatchCreateAnimalResult {
+    /// 該筆在請求 `animals` 陣列中的位置（從 0 起算），供前端對回原列
+    pub index: usize,
+    pub ear_tag: String,
+    pub outcome: BatchCreateOutcome,
+    /// `outcome = created` 時為新動物 id
+    pub animal_id: Option<Uuid>,
+    /// 未建立時的原因（給使用者看的文字）
+    pub message: Option<String>,
+    /// `outcome = duplicate_warning` 時，與之重複的既有動物
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub existing_animals: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct BatchCreateAnimalsResponse {
+    pub results: Vec<BatchCreateAnimalResult>,
+    pub created_count: usize,
+    /// 未建立的筆數（含 `duplicate_warning`）
+    pub not_created_count: usize,
+}
+
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateObservationRequest {
     pub event_date: NaiveDate,

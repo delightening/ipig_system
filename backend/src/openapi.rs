@@ -178,6 +178,7 @@ use utoipa::OpenApi;
         crate::handlers::update_animal,
         crate::handlers::delete_animal,
         crate::handlers::batch_assign_animals,
+        crate::handlers::batch_create_animals,
         crate::handlers::mark_animal_vet_read,
         crate::handlers::get_animal_events,
         // === 動物子模組 ===
@@ -434,6 +435,10 @@ use utoipa::OpenApi;
             crate::models::AnimalsByPen,
             crate::models::AnimalStatsResponse,
             crate::models::BatchAssignRequest,
+            crate::models::BatchCreateAnimalsRequest,
+            crate::models::BatchCreateAnimalsResponse,
+            crate::models::BatchCreateAnimalResult,
+            crate::models::BatchCreateOutcome,
             crate::models::DeleteRequest,
             crate::models::AnimalStatus,
             crate::models::AnimalBreed,
