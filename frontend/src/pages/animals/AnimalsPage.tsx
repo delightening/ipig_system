@@ -28,6 +28,8 @@ import {
   QuickAddDialog,
   DuplicateWarningDialog,
 } from './components/AnimalAddDialog'
+import { AddAnimalModeDialog } from './batchAdd/AddAnimalModeDialog'
+import { BatchAddAnimalsDialog } from './batchAdd/BatchAddAnimalsDialog'
 import {
   useAnimalFilters,
   useAnimalDialogs,
@@ -78,6 +80,10 @@ export function AnimalsPage() {
     setPage(1)
     queryClient.invalidateQueries({ queryKey: ['animals'] })
   }
+
+  // 「新增動物」先選單隻或批次（批量進豬）；單隻沿用 showAddDialog，批次有自己的對話框
+  const [showAddModeDialog, setShowAddModeDialog] = useState(false)
+  const [showBatchAddDialog, setShowBatchAddDialog] = useState(false)
 
   const dialogs = useAnimalDialogs()
   const selection = useAnimalSelection()
@@ -263,7 +269,7 @@ export function AnimalsPage() {
                 </Button>
               </Can>
               <Can permission={PERMISSIONS.ANIMAL_ANIMAL_CREATE}>
-                <Button size="sm" onClick={() => setShowAddDialog(true)} className="w-full gap-2 bg-primary hover:bg-primary/90 text-xs md:text-sm">
+                <Button size="sm" onClick={() => setShowAddModeDialog(true)} className="w-full gap-2 bg-primary hover:bg-primary/90 text-xs md:text-sm">
                   <Plus className="h-4 w-4 shrink-0" />
                   {t('animals.addAnimal')}
                 </Button>
@@ -336,6 +342,24 @@ export function AnimalsPage() {
       )}
 
       {/* ── Dialogs ─────────────────────────────────────────────────────────── */}
+      <AddAnimalModeDialog
+        open={showAddModeDialog}
+        onOpenChange={setShowAddModeDialog}
+        onSelectSingle={() => {
+          setShowAddModeDialog(false)
+          setShowAddDialog(true)
+        }}
+        onSelectBatch={() => {
+          setShowAddModeDialog(false)
+          setShowBatchAddDialog(true)
+        }}
+      />
+      <BatchAddAnimalsDialog
+        open={showBatchAddDialog}
+        onOpenChange={setShowBatchAddDialog}
+        sourcesData={sourcesData}
+      />
+
       <AnimalAddDialog
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
