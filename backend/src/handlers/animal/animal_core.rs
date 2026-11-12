@@ -460,6 +460,7 @@ pub async fn get_animal_events(
         Option<serde_json::Value>,
         Option<serde_json::Value>,
         chrono::DateTime<chrono::Utc>,
+        Option<String>,
     );
     let rows: Vec<EventRow> = sqlx::query_as(
         r#"
@@ -469,7 +470,8 @@ pub async fn get_animal_events(
             actor_display_name,
             before_data,
             after_data,
-            created_at
+            created_at,
+            entity_display_name
         FROM user_activity_logs
         WHERE entity_type = 'animal'
           AND entity_id = $1
@@ -485,13 +487,24 @@ pub async fn get_animal_events(
     let events = rows
         .into_iter()
         .map(
-            |(eid, event_type, actor_name, before_data, after_data, created_at)| AnimalEvent {
-                id: eid,
-                event_type,
-                actor_name,
-                before_data,
-                after_data,
-                created_at,
+            |(eid, event_type, actor_name, before_data, after_data, created_at, display)| {
+                // 修正前寫入的歷史事件沒有 before/after（稽核紀錄不可改），
+                // 由顯示文字「[舊 → 新] 耳號」回補，時間軸才不會顯示成「(無) → (無)」。
+                let (before_data, after_data) = match (before_data, after_data) {
+                    (None, None) => display
+                        .as_deref()
+                        .and_then(AnimalService::iacuc_change_data_from_display)
+                        .map_or((None, None), |(b, a)| (Some(b), Some(a))),
+                    present => present,
+                };
+                AnimalEvent {
+                    id: eid,
+                    event_type,
+                    actor_name,
+                    before_data,
+                    after_data,
+                    created_at,
+                }
             },
         )
         .collect();

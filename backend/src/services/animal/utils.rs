@@ -72,6 +72,37 @@ impl AnimalUtils {
             AnimalBreed::Other => "other",
         }
     }
+
+    /// 從歷史 `IACUC_CHANGE` 稽核事件的顯示文字還原 (before, after) 資料。
+    ///
+    /// 這類事件在修正前寫入時 `before_data/after_data` 是空的，只有顯示文字
+    /// `[舊 → 新] 耳號`（由 `AnimalService::update` 同一處產生，舊值沒有時寫 `(無)`）。
+    /// 稽核紀錄不可修改（`trg_user_activity_logs_immutable`），所以讀取時由文字補回，
+    /// 讓時間軸能顯示「舊 → 新」。格式對不上就回 `None`，呼叫端維持原狀。
+    ///
+    /// 回傳值形如 `({"iacuc_no": null}, {"iacuc_no": "PIG-114005"})`，與新寫入事件的
+    /// 欄位名一致；歷史事件沒有實際日期，所以不含 `experiment_date`。
+    pub fn iacuc_change_data_from_display(
+        display: &str,
+    ) -> Option<(serde_json::Value, serde_json::Value)> {
+        // 耳號固定在最後（三位數、不含 "] "），從右邊切才不受 IACUC 編號內容影響
+        let (inner, _ear_tag) = display.rsplit_once("] ")?;
+        let inner = inner.strip_prefix('[')?;
+        let (old, new) = inner.split_once(" → ")?;
+        let (old, new) = (old.trim(), new.trim());
+        if new.is_empty() {
+            return None;
+        }
+        let old = if old.is_empty() || old == "(無)" {
+            serde_json::Value::Null
+        } else {
+            serde_json::Value::String(old.to_string())
+        };
+        Some((
+            serde_json::json!({ "iacuc_no": old }),
+            serde_json::json!({ "iacuc_no": new }),
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -206,6 +237,35 @@ mod tests {
         assert!(AnimalUtils::ensure_birth_date_not_future(today, today).is_ok());
         let past = ymd(2025, 1, 15);
         assert!(AnimalUtils::ensure_birth_date_not_future(past, today).is_ok());
+    }
+
+    // ── iacuc_change_data_from_display ──
+
+    #[test]
+    fn test_iacuc_display_first_assignment() {
+        let (before, after) =
+            AnimalUtils::iacuc_change_data_from_display("[(無) → PIG-114005] 243")
+                .expect("標準格式應可解析");
+        assert_eq!(before, serde_json::json!({ "iacuc_no": null }));
+        assert_eq!(after, serde_json::json!({ "iacuc_no": "PIG-114005" }));
+    }
+
+    #[test]
+    fn test_iacuc_display_change_between_plans() {
+        let (before, after) =
+            AnimalUtils::iacuc_change_data_from_display("[PIG-114004 → PIG-114005] 243")
+                .expect("標準格式應可解析");
+        assert_eq!(before, serde_json::json!({ "iacuc_no": "PIG-114004" }));
+        assert_eq!(after, serde_json::json!({ "iacuc_no": "PIG-114005" }));
+    }
+
+    #[test]
+    fn test_iacuc_display_unparseable_returns_none() {
+        assert!(AnimalUtils::iacuc_change_data_from_display("").is_none());
+        assert!(AnimalUtils::iacuc_change_data_from_display("243").is_none());
+        assert!(AnimalUtils::iacuc_change_data_from_display("[PIG-1] 243").is_none());
+        // 新值為空不是合法的分配結果
+        assert!(AnimalUtils::iacuc_change_data_from_display("[PIG-1 → ] 243").is_none());
     }
 
     // ── breed_to_db_value ──
