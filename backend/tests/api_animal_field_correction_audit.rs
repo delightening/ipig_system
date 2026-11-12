@@ -151,7 +151,11 @@ async fn approve_entry_date_correction_changes_animal_but_not_initial_weight() {
             .fetch_one(&app.db_pool)
             .await
             .expect("fetch old_value");
-    assert_eq!(old_value.as_deref(), Some("2026-07-13"), "申請應記下修正前的進場日期");
+    assert_eq!(
+        old_value.as_deref(),
+        Some("2026-07-13"),
+        "申請應記下修正前的進場日期"
+    );
 
     let review = app
         .auth_post(
@@ -162,11 +166,12 @@ async fn approve_entry_date_correction_changes_animal_but_not_initial_weight() {
         .await;
     assert_eq!(review.status().as_u16(), 200, "核准應成功");
 
-    let entry_date: String = sqlx::query_scalar("SELECT entry_date::text FROM animals WHERE id = $1")
-        .bind(aid)
-        .fetch_one(&app.db_pool)
-        .await
-        .expect("fetch entry_date");
+    let entry_date: String =
+        sqlx::query_scalar("SELECT entry_date::text FROM animals WHERE id = $1")
+            .bind(aid)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("fetch entry_date");
     assert_eq!(entry_date, "2026-07-01", "核准後動物進場日期應更新");
 
     let weight_date_after: String =
@@ -175,9 +180,16 @@ async fn approve_entry_date_correction_changes_animal_but_not_initial_weight() {
             .fetch_one(&app.db_pool)
             .await
             .expect("fetch weight date");
-    assert_eq!(weight_date_after, "2026-07-13", "初始體重紀錄的量測日不應被連動修改");
+    assert_eq!(
+        weight_date_after, "2026-07-13",
+        "初始體重紀錄的量測日不應被連動修改"
+    );
 
-    assert_eq!(fc_approve_audit_count(&app, aid).await, 1, "核准必須留下稽核");
+    assert_eq!(
+        fc_approve_audit_count(&app, aid).await,
+        1,
+        "核准必須留下稽核"
+    );
 }
 
 #[tokio::test]
@@ -197,7 +209,10 @@ async fn entry_date_correction_rejects_bad_format() {
         .await;
     assert_eq!(res.status().as_u16(), 400, "日期格式不對應回 400");
     let text = res.text().await.unwrap_or_default();
-    assert!(text.contains("進場日期格式"), "錯誤訊息應說明原因，實際 {text}");
+    assert!(
+        text.contains("進場日期格式"),
+        "錯誤訊息應說明原因，實際 {text}"
+    );
 }
 
 // ── 拒絕：不改動物欄位 ──
