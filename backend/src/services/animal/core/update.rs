@@ -79,10 +79,9 @@ impl AnimalService {
         let user = actor.require_user()?;
         let updated_by = user.id;
 
-        // 驗證新 pen_id 對應的欄位是否可收容動物（tx 外預先驗，失敗即早退出）
-        if let Some(new_pen_id) = req.pen_id {
-            Self::validate_pen_for_assignment(pool, new_pen_id).await?;
-        }
+        // 欄位指派的驗證（可收容、容量）移到取得 before 之後：要知道動物「目前」在哪一欄，
+        // 才能分辨「真的換欄」與「原欄原樣回填」——後者不該被容量檢查擋下
+        // （滿欄時把自己算成佔位，會讓整份表單的一般儲存失敗）。
 
         let mut tx = pool.begin().await?;
 
@@ -183,9 +182,26 @@ impl AnimalService {
             }
         }
 
+        // B 方案第 2 階段（使用者 2026-11-13 裁定，兩套欄位資料改為以 pen_id 為唯一來源）：
+        // 前端移動／編輯只送 pen_location 文字，過去 pen_id 與在欄頭數因此不會跟著動。
+        // 現在由後端把代碼解析成 pen_id（找不到或有歧義 → 400），並以解析出的欄位代碼
+        // 回寫 pen_location，兩欄在寫入當下一致。離場動物不解析（上面已拒絕指派）。
+        let target_pen = if leaving_facility {
+            None
+        } else {
+            Self::resolve_pen_target(pool, req.pen_id, req.pen_location.as_deref()).await?
+        };
+        if let Some(ref pen) = target_pen {
+            if Some(pen.id) != before.pen_id {
+                Self::validate_pen_for_assignment(pool, pen.id).await?;
+            }
+        }
+
         let pen_location_bind = if leaving_facility {
             // 離場終態：SQL 端無條件清空（$3 不會被讀取），Rust 端綁 None 保持語意一致。
             None
+        } else if let Some(ref pen) = target_pen {
+            Some(pen.code.clone())
         } else {
             req.pen_location
                 .as_ref()
@@ -243,7 +259,7 @@ impl AnimalService {
         .bind(is_assigning_to_experiment)
         .bind(updated_by)
         .bind(req.version)
-        .bind(req.pen_id)
+        .bind(target_pen.as_ref().map(|pen| pen.id))
         .bind(req.species_id)
         .bind(leaving_facility)
         .bind(new_breed)
