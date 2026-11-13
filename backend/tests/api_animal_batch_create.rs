@@ -281,6 +281,11 @@ async fn batch_create_respects_pen_capacity_per_animal() {
         .iter()
         .map(|t| {
             let mut a = animal(t);
+            // 這個測試只用 pen_id 指定欄位：拿掉範本預設的 pen_location（A-01），
+            // 否則兩個來源指向不同欄位，寫入端會依規則回 400。
+            if let Some(obj) = a.as_object_mut() {
+                obj.remove("pen_location");
+            }
             a["pen_id"] = json!(pen_id);
             a
         })
