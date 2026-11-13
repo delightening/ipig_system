@@ -28,7 +28,8 @@
 #   1. 參數與服務名檢查（服務名對照 docker compose config --services）
 #   2. 確認在 main branch、工作目錄 clean
 #   3. git pull origin main（-SkipPull 時跳過）
-#   4. build（本機）或 pull（GHCR）
+#   4. build（本機）或 pull（GHCR）；本機 build 前自動以當前 HEAD 設定
+#      GIT_SHA（短 12 碼）與 BUILD_TIME（UTC），不必手動 export
 #   5. docker compose up -d <services>
 #   6. 健康檢查（服務清單含 api 時才做）
 #
@@ -250,6 +251,26 @@ if ($pullServices.Count -gt 0) {
 }
 
 if ($buildServices.Count -gt 0) {
+    # 版本資訊：docker-compose.yml 的 api／outbox-worker build.args 讀 $env:GIT_SHA／$env:BUILD_TIME，
+    # 沒設定時後端回報「unknown」，/admin/settings 的版本欄就無法拿來驗收。
+    # 一律由當前 HEAD 重算、覆寫殘留的同名環境變數：部署的就是 HEAD，沿用舊值會讓頁面 SHA
+    # 與實際部署內容對不上，比顯示「未知」更糟。
+    # 取不到 SHA 只警告不中止：版本標示不該擋住部署，build.rs 會 fallback 成 unknown。
+    if ($DryRun) {
+        Write-Host "  DRYRUN> GIT_SHA=<git rev-parse --short=12 HEAD>  BUILD_TIME=<目前 UTC 時間>（build 前自動設定）" -ForegroundColor Magenta
+    } else {
+        $gitSha = (git rev-parse --short=12 HEAD)
+        if ($LASTEXITCODE -ne 0 -or -not $gitSha) {
+            Write-Host "[WARN] 取不到 git SHA，版本欄位會顯示「未知」。" -ForegroundColor Yellow
+            $env:GIT_SHA = ''
+        } else {
+            $env:GIT_SHA = "$gitSha".Trim()
+        }
+        # 'Z' 要加引號：未加引號的 Z 在 .NET 自訂格式是「時區偏移」，不是字面 Z。
+        $env:BUILD_TIME = [DateTime]::UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture)
+        Write-Host "  版本：GIT_SHA=$($env:GIT_SHA)  BUILD_TIME=$($env:BUILD_TIME)" -ForegroundColor DarkGray
+    }
+
     $cmd = @('docker', 'compose') + $composeArgs + @('build') + $buildServices
     if ($DryRun) {
         Write-Host "  DRYRUN> $($cmd -join ' ')" -ForegroundColor Magenta
