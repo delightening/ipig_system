@@ -78,6 +78,17 @@ pub async fn ensure_fixture_pen(pool: &PgPool) -> (uuid::Uuid, uuid::Uuid) {
     .await
     .expect("seed fixture pen A01");
 
+    // 全新資料庫（含 CI）的種子資料（003_seed.sql）已有容量 = 1 的真實 `A01`，上面的條件式
+    // 補欄位因此略過；多個測試會在 `A-01` 建多隻動物，容量 1 會讓第二隻起被擋成「已滿」。
+    // 測試通用的 `A01` 一律放寬為不限容量（0 = 不限）。
+    sqlx::query(
+        "UPDATE pens SET capacity = 0 \
+         WHERE is_active AND upper(replace(btrim(code), '-', '')) = 'A01' AND capacity <> 0",
+    )
+    .execute(&mut *tx)
+    .await
+    .expect("relax fixture pen A01 capacity");
+
     tx.commit().await.expect("commit fixture tx");
     (zone_id, building_id)
 }
