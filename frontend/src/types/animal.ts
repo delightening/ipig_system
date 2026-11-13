@@ -610,7 +610,13 @@ export interface AnimalEvent {
     id: string
     event_type: string
     actor_name?: string
-    before_data?: { iacuc_no?: string }
-    after_data?: { iacuc_no?: string }
+    /** IACUC 變更事件的舊值；`iacuc_no` 為 null 代表原本沒有。 */
+    before_data?: { iacuc_no?: string | null } | null
+    /**
+     * IACUC 變更事件的新值。首次分配時另帶 `experiment_date`（YYYY-MM-DD，實際分配日期）；
+     * 之後轉換計畫與歷史事件沒有。
+     */
+    after_data?: { iacuc_no?: string | null; experiment_date?: string | null } | null
+    /** 系統寫入這筆稽核紀錄的時間（不可修改），不一定等於事情實際發生的日期。 */
     created_at: string
 }

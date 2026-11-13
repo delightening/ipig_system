@@ -5793,6 +5793,7 @@
       "transferInProgress": "Transfer In Progress",
       "tbd": "TBD",
       "iacucChange": "IACUC No. Changed",
+      "recordedOn": "Recorded {{date}}",
       "none": "(None)",
       "emptyFiltered": "No records under this filter",
       "recordedBy": "Recorded by: {{name}}",

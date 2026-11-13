@@ -7,7 +7,10 @@ use super::super::AnimalService;
 use super::IacucChangeInfo;
 use crate::{
     middleware::ActorContext,
-    models::{audit_diff::DataDiff, Animal, AnimalBreed, AnimalStatus, UpdateAnimalRequest},
+    models::{
+        audit_diff::{AuditRedact, DataDiff},
+        Animal, AnimalBreed, AnimalStatus, UpdateAnimalRequest,
+    },
     services::{
         audit::{ActivityLogEntry, AuditEntity},
         AuditService,
@@ -15,7 +18,53 @@ use crate::{
     AppError, Result,
 };
 
+/// `IACUC_CHANGE` 稽核事件的 before/after 快照：只放時間軸要顯示的欄位。
+///
+/// 為什麼不直接用整隻 `Animal`：完整 diff 已在同一筆更新的 `ANIMAL_UPDATE` 事件裡；
+/// 這個事件要讓時間軸（`GET /animals/{id}/events`）直接讀出「舊 → 新」與實際日期。
+/// 先前這筆事件的 `data_diff` 是空的，時間軸因此永遠顯示「(無) → (無)」。
+#[derive(serde::Serialize)]
+struct IacucChangeSnapshot {
+    iacuc_no: Option<String>,
+    /// 實驗分配日期。**只在首次分配（舊值沒有 IACUC No.）時放**：
+    /// `animals.experiment_date` 只有一格，之後轉換計畫時它仍是最初的分配日，
+    /// 放進去會讓時間軸把「最初分配日」誤當成「這次轉換的實際日期」。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    experiment_date: Option<chrono::NaiveDate>,
+}
+
+impl AuditRedact for IacucChangeSnapshot {}
+
+impl IacucChangeSnapshot {
+    /// 由更新前後的動物組出 (before, after) 快照。
+    fn pair(before: &Animal, after: &Animal) -> (Self, Self) {
+        let first_assignment = before.iacuc_no.is_none();
+        (
+            Self {
+                iacuc_no: before.iacuc_no.clone(),
+                experiment_date: None,
+            },
+            Self {
+                iacuc_no: after.iacuc_no.clone(),
+                experiment_date: if first_assignment {
+                    after.experiment_date
+                } else {
+                    None
+                },
+            },
+        )
+    }
+}
+
 impl AnimalService {
+    /// 歷史 `IACUC_CHANGE` 事件的 before/after 回補（給 `GET /animals/{id}/events` 用）。
+    /// 解析規則與限制見 [`AnimalUtils::iacuc_change_data_from_display`]。
+    pub fn iacuc_change_data_from_display(
+        display: &str,
+    ) -> Option<(serde_json::Value, serde_json::Value)> {
+        AnimalUtils::iacuc_change_data_from_display(display)
+    }
+
     /// 更新動物 — Service-driven audit
     ///
     /// 回傳 (Animal, Option<IacucChangeInfo>)；IACUC 變更時 service 內先寫一筆
@@ -172,7 +221,9 @@ impl AnimalService {
                 species_id = COALESCE($11, species_id),
                 breed = COALESCE($13, breed),
                 iacuc_no = COALESCE($4, iacuc_no),
-                experiment_date = CASE WHEN $7 AND experiment_date IS NULL THEN CURRENT_DATE ELSE COALESCE($5, experiment_date) END,
+                -- 首次分配（轉入實驗中且尚無實驗日期）：請求有帶日期就採用（補登過去的分配），
+                -- 沒帶才用今天。舊寫法無條件取 CURRENT_DATE，補登時填的過去日期會被蓋掉。
+                experiment_date = CASE WHEN $7 AND experiment_date IS NULL THEN COALESCE($5, CURRENT_DATE) ELSE COALESCE($5, experiment_date) END,
                 remark = COALESCE($6, remark),
                 experiment_assigned_by = CASE WHEN $7 THEN $8 ELSE experiment_assigned_by END,
                 version = version + 1,
@@ -220,10 +271,12 @@ impl AnimalService {
         }
 
         // IACUC_CHANGE 先寫入（時間軸上可獨立查詢）
-        // 完整 before/after diff 在 ANIMAL_UPDATE 事件內；此事件重點在顯示轉換軌跡
+        // 完整 before/after diff 在 ANIMAL_UPDATE 事件內；此事件重點在顯示轉換軌跡，
+        // 所以 before/after 只放時間軸要用的欄位（見 `IacucChangeSnapshot`）。
         if let Some(ref change) = iacuc_change {
             let old = change.old_iacuc_no.as_deref().unwrap_or("(無)");
             let display = format!("[{} → {}] {}", old, change.new_iacuc_no, animal.ear_tag);
+            let (before_snapshot, after_snapshot) = IacucChangeSnapshot::pair(&before, &animal);
             AuditService::log_activity_tx(
                 &mut tx,
                 actor,
@@ -231,7 +284,10 @@ impl AnimalService {
                     event_category: "ANIMAL",
                     event_type: "IACUC_CHANGE",
                     entity: Some(AuditEntity::new("animal", id, &display)),
-                    data_diff: None,
+                    data_diff: Some(DataDiff::compute(
+                        Some(&before_snapshot),
+                        Some(&after_snapshot),
+                    )),
                     request_context: None,
                 },
             )

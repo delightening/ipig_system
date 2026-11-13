@@ -43,6 +43,8 @@ interface TimelineItem {
     actor?: string | null
     vetRead?: boolean
     raw?: unknown
+    /** 事件實際日期與「系統登錄時間」不同日時，另附登錄時間（補登過去資料的情境）。 */
+    recordedAt?: Date
 }
 
 /** 觀察紀錄類型 → i18n key（原 recordTypeNames 的顯示文字改由語言包提供）。 */
@@ -204,12 +206,24 @@ export function AnimalTimelineView({
             content: `${tr.from_iacuc_no} → ${tr.to_iacuc_no || t('animalActions.timeline.tbd')} · ${t(`animalActions.transfer.type.${tr.transfer_type === 'external' ? 'external' : 'internal'}`)} (${t(`animalActions.transfer.status.${tr.status}`)})`,
             actor: null, raw: tr,
         })),
-        ...(iacucEvents || []).map((evt) => ({
-            id: `iacuc-${evt.id}`, originalId: 0, type: 'iacuc_change' as const,
-            date: new Date(evt.created_at), title: t('animalActions.timeline.iacucChange'),
-            content: `${evt.before_data?.iacuc_no || t('animalActions.timeline.none')} → ${evt.after_data?.iacuc_no || t('animalActions.timeline.none')}`,
-            actor: evt.actor_name || null, raw: evt,
-        })),
+        ...(iacucEvents || []).map((evt) => {
+            // 稽核紀錄的 created_at 是「系統何時記下」，不可修改；補登過去的分配時，
+            // 實際日期放在 after_data.experiment_date（首次分配才有）。有實際日期就以它排序、分組，
+            // 並在旁邊附上登錄時間；兩者同一天或沒有實際日期時，只顯示登錄時間。
+            const recorded = new Date(evt.created_at)
+            const actualRaw = evt.after_data?.experiment_date
+            const actual = actualRaw ? new Date(actualRaw) : null
+            const hasActual = actual !== null && !Number.isNaN(actual.getTime())
+            const differs = hasActual && taipeiYmd(actual) !== taipeiYmd(recorded)
+            return {
+                id: `iacuc-${evt.id}`, originalId: 0, type: 'iacuc_change' as const,
+                date: hasActual ? actual : recorded,
+                recordedAt: differs ? recorded : undefined,
+                title: t('animalActions.timeline.iacucChange'),
+                content: `${evt.before_data?.iacuc_no || t('animalActions.timeline.none')} → ${evt.after_data?.iacuc_no || t('animalActions.timeline.none')}`,
+                actor: evt.actor_name || null, raw: evt,
+            }
+        }),
     ].sort((a, b) => b.date.getTime() - a.date.getTime()), [observations, surgeries, animal, sacrifice, suddenDeath, transfers, iacucEvents, t, sep])
 
     const rows = useMemo(() => {
@@ -286,9 +300,18 @@ export function AnimalTimelineView({
                                             <div className={`rounded-lg border bg-card p-3 shadow-xs transition-shadow hover:shadow-md ${isCritical ? 'border-status-error-border' : 'border-border'}`}>
                                                 <div className="flex items-baseline gap-2">
                                                     <span className={isMilestone ? 'text-[15px] font-bold text-foreground' : 'text-sm font-semibold text-foreground'}>{item.title}</span>
-                                                    <time className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${TIME_COLOR[item.type]}`}>
-                                                        {item.date.toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' })}
-                                                    </time>
+                                                    <span className="ml-auto flex items-center gap-2">
+                                                        <time className={`rounded-full px-2 py-0.5 text-xs font-medium ${TIME_COLOR[item.type]}`}>
+                                                            {item.date.toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' })}
+                                                        </time>
+                                                        {item.recordedAt && (
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {t('animalActions.timeline.recordedOn', {
+                                                                    date: item.recordedAt.toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' }),
+                                                                })}
+                                                            </span>
+                                                        )}
+                                                    </span>
                                                 </div>
                                                 <p className="mt-1 text-sm text-muted-foreground">{item.content}</p>
                                                 <div className="mt-2 flex items-center justify-between gap-2">

@@ -5793,6 +5793,7 @@
       "transferInProgress": "轉讓進行中",
       "tbd": "待定",
       "iacucChange": "IACUC No. 變更",
+      "recordedOn": "登錄於 {{date}}",
       "none": "（無）",
       "emptyFiltered": "此篩選下尚無紀錄",
       "recordedBy": "記錄者：{{name}}",
