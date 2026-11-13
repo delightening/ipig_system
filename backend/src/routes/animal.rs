@@ -50,6 +50,8 @@ pub fn routes() -> Router<AppState> {
             "/animals/batch/assign",
             post(handlers::batch_assign_animals),
         )
+        // 批次新增動物（批量進豬）；靜態路徑，不會被 `/animals/{id}` 吃掉
+        .route("/animals/batch", post(handlers::batch_create_animals))
         .route("/animals/vet-comments", get(handlers::get_vet_comments))
         .route(
             "/animals/{id}",

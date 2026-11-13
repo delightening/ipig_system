@@ -5059,6 +5059,55 @@
     }
   },
   "animalPages": {
+    "addMode": {
+      "title": "Add Animals",
+      "description": "Choose how to add",
+      "single": "Add one animal",
+      "singleDesc": "Fill in the complete details of a single animal",
+      "batch": "Batch add (bulk intake)",
+      "batchDesc": "Add several at once: fill the shared details once, paste ear tags or a range, then enter each weight"
+    },
+    "batchAdd": {
+      "title": "Batch Add Animals",
+      "description": "Fill the shared details once; breed, gender, birth date and pen can each be the same for the whole batch or set per animal.",
+      "sharedTitle": "Shared details",
+      "modeSame": "Same for all",
+      "modeEach": "Per animal",
+      "eachHint": "Fill in per animal in the table below",
+      "penAutoSwitched": "A pen is over capacity, so pens are now set per animal; adjust the highlighted animals in the table below",
+      "select": "Select",
+      "earTagsPlaceholder": "e.g. 021-040, or 021 022 025; can be mixed",
+      "earTagsHint": "Paste a list (separated by spaces, commas or new lines) or a range; ear tags are 3 digits",
+      "addToList": "Add to list",
+      "noteInvalid": "Skipped, not recognised: {{items}}.",
+      "noteDuplicates": "Repeated ear tags were added once: {{items}}.",
+      "noteSkippedExisting": "{{count}} ear tag(s) were already in the list and were skipped.",
+      "noteSkippedOverLimit": "At most {{max}} animals per batch; {{count}} ear tag(s) were not added.",
+      "listTitle": "Preview ({{count}} / {{max}} animals)",
+      "emptyList": "No ear tags added yet",
+      "partialResultHint": "Some animals were not created yet. Fix or confirm them according to each row's status, then submit again.",
+      "col": {
+        "status": "Status",
+        "remove": "Remove"
+      },
+      "removeRow": "Remove ear tag {{earTag}}",
+      "statusOk": "Ready",
+      "confirmDuplicate": "Create anyway",
+      "submit": "Create {{count}}",
+      "createdAll": "Created {{count}} animals",
+      "createdPartialTitle": "Some animals were not created",
+      "createdPartial": "Created {{created}}; {{remaining}} were not created and stay in the list.",
+      "createFailed": "Batch add failed, please try again later",
+      "issue": {
+        "weightInvalid": "Enter a weight greater than 0",
+        "speciesRequired": "Select a breed",
+        "birthRequired": "Enter a birth date",
+        "birthFuture": "Birth date cannot be after today",
+        "penRequired": "Select a pen",
+        "duplicateInBatch": "Ear tag repeated in the list",
+        "penFull": "Pen {{pen}} is full (capacity {{capacity}}, currently {{current}})"
+      }
+    },
     "addDialog": {
       "breedOther": "Specify Breed",
       "building": "Building",
@@ -9277,6 +9326,7 @@
         "animalUpdate": "Update Animal",
         "animalDelete": "Delete Animal",
         "animalBatchAssign": "Batch Assign",
+        "animalBatchCreate": "Batch Add Animals",
         "observationCreate": "Create Observation",
         "observationUpdate": "Update Observation",
         "observationDelete": "Delete Observation",
