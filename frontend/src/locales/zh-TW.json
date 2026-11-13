@@ -5657,8 +5657,9 @@
       "earTagHint": "如：001",
       "genderHint": "選擇性別",
       "breedHint": "選擇品種",
+      "entryDateHint": "只修改進場日期；建立動物時自動寫入的初始體重紀錄日期不會連動，需要時請另外更正體重紀錄。",
       "title": "申請修正欄位",
-      "description": "耳號、出生日期、性別、品種等欄位建立後不可直接修改。若輸入錯誤，可提交修正申請，經系統管理員批准後套用。耳號：{{earTag}}",
+      "description": "耳號、出生日期、進場日期、性別、品種等欄位建立後不可直接修改。若輸入錯誤，可提交修正申請，經系統管理員批准後套用。耳號：{{earTag}}",
       "selectField": "選擇要修正的欄位",
       "currentValue": "目前值",
       "newValueLabel": "修正後的值 *",
@@ -8722,7 +8723,7 @@
     },
     "fieldCorrections": {
       "title": "修正審核",
-      "description": "耳號、出生日期、性別、品種等欄位建立後不可直接修改，需經管理員批准後才能套用修正。",
+      "description": "耳號、出生日期、進場日期、性別、品種等欄位建立後不可直接修改，需經管理員批准後才能套用修正。",
       "pendingTitle": "待審核申請",
       "pendingCount": "共 {{count}} 筆待審核",
       "col": {
@@ -8736,6 +8737,7 @@
       "field": {
         "earTag": "耳號",
         "birthDate": "出生日期",
+        "entryDate": "進場日期",
         "gender": "性別",
         "breed": "品種"
       },
@@ -8754,7 +8756,7 @@
       "reject": "拒絕",
       "confirm": {
         "title": "確認批准修正",
-        "description": "批准後將直接套用此修正至動物 {{earTag}} 的識別欄位（耳號／出生日期／性別／品種），此動作不可逆。確認批准？",
+        "description": "批准後將直接套用此修正至動物 {{earTag}} 的識別欄位（耳號／出生日期／進場日期／性別／品種），此動作不可逆。確認批准？",
         "label": "確認批准"
       },
       "rejectDialog": {

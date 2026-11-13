@@ -5657,8 +5657,9 @@
       "earTagHint": "e.g. 001",
       "genderHint": "Select gender",
       "breedHint": "Select breed",
+      "entryDateHint": "Only the entry date is changed; the initial weight record created with the animal keeps its own date. Correct the weight record separately if needed.",
       "title": "Request Field Correction",
-      "description": "Ear tag, birth date, gender, and breed cannot be edited directly once created. If a value was entered incorrectly, you can submit a correction request, which takes effect after a system administrator approves it. Ear tag: {{earTag}}",
+      "description": "Ear tag, birth date, entry date, gender, and breed cannot be edited directly once created. If a value was entered incorrectly, you can submit a correction request, which takes effect after a system administrator approves it. Ear tag: {{earTag}}",
       "selectField": "Select the field to correct",
       "currentValue": "Current Value",
       "newValueLabel": "Corrected Value *",
@@ -8722,7 +8723,7 @@
     },
     "fieldCorrections": {
       "title": "Correction Review",
-      "description": "Fields such as ear tag number, birth date, gender, and breed cannot be edited directly after creation. Corrections take effect only after administrator approval.",
+      "description": "Fields such as ear tag number, birth date, entry date, gender, and breed cannot be edited directly after creation. Corrections take effect only after administrator approval.",
       "pendingTitle": "Pending Requests",
       "pendingCount": "{{count}} pending",
       "col": {
@@ -8736,6 +8737,7 @@
       "field": {
         "earTag": "Ear Tag No.",
         "birthDate": "Birth Date",
+        "entryDate": "Entry Date",
         "gender": "Gender",
         "breed": "Breed"
       },
@@ -8754,7 +8756,7 @@
       "reject": "Reject",
       "confirm": {
         "title": "Confirm Correction Approval",
-        "description": "Approving will apply this correction directly to the identification fields (ear tag no. / birth date / gender / breed) of animal {{earTag}}. This action cannot be undone. Confirm approval?",
+        "description": "Approving will apply this correction directly to the identification fields (ear tag no. / birth date / entry date / gender / breed) of animal {{earTag}}. This action cannot be undone. Confirm approval?",
         "label": "Confirm Approval"
       },
       "rejectDialog": {

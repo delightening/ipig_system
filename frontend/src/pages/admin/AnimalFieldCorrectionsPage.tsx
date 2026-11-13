@@ -43,6 +43,7 @@ const FIELD_LABEL_KEYS: Record<string, string> = {
   birth_date: 'adminGlp.fieldCorrections.field.birthDate',
   gender: 'adminGlp.fieldCorrections.field.gender',
   breed: 'adminGlp.fieldCorrections.field.breed',
+  entry_date: 'adminGlp.fieldCorrections.field.entryDate',
 }
 
 const BREED_LABEL_KEYS: Record<string, string> = {
@@ -54,7 +55,7 @@ const BREED_LABEL_KEYS: Record<string, string> = {
 
 const formatValue = (field: string, value: string | null, t: TFunction): string => {
   if (!value) return '-'
-  if (field === 'birth_date') {
+  if (field === 'birth_date' || field === 'entry_date') {
     try {
       const d = new Date(value)
       if (!isNaN(d.getTime())) return d.toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' })

@@ -477,7 +477,7 @@ export type AnimalTimelineRecord = AnimalObservation | AnimalSurgery
 export type UpdateAnimalRequestValue = UpdateAnimalRequest[keyof UpdateAnimalRequest]
 
 /** 可申請修正的欄位 */
-export const CORRECTABLE_FIELDS = ['ear_tag', 'birth_date', 'gender', 'breed'] as const
+export const CORRECTABLE_FIELDS = ['ear_tag', 'birth_date', 'gender', 'breed', 'entry_date'] as const
 export type CorrectableField = (typeof CORRECTABLE_FIELDS)[number]
 
 /** 動物欄位修正申請 */
