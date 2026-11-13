@@ -12,6 +12,7 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import type { DocumentLine, DocumentFormData } from '../types'
 import { scopeForPayload } from '../stocktakeScope'
 import { lineQtyError } from '../lineQtyRules'
+import { sourceDocIdForPayload } from '../sourceDocRules'
 import type { InputRefs } from './useDocumentLines'
 
 interface UseDocumentSubmitOptions {
@@ -157,7 +158,8 @@ export function useDocumentSubmit({
         warehouse_to_id: mergedData.warehouse_to_id?.trim() ? mergedData.warehouse_to_id : null,
         partner_id: mergedData.partner_id?.trim() ? mergedData.partner_id : null,
         protocol_id: mergedData.protocol_id?.trim() ? mergedData.protocol_id : null,
-        source_doc_id: mergedData.source_doc_id?.trim() ? mergedData.source_doc_id : null,
+        // 只有入庫單帶來源採購單；切換類型後殘留的值不送（issue #189）
+        source_doc_id: sourceDocIdForPayload(mergedData.doc_type, mergedData.source_doc_id),
         remark: mergedData.remark?.trim() ? mergedData.remark : null,
         stocktake_scope: scopeForPayload(mergedData.doc_type, mergedData.stocktake_scope, isEdit),
         lines: validLines.map((line) => ({

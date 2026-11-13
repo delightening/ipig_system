@@ -36,6 +36,7 @@ import { useSkuCategories } from '@/hooks/useSkuCategories'
 import { useDocumentForm } from './hooks/useDocumentForm'
 import { buildStocktakeScope, stocktakeBlockReason } from './stocktakeScope'
 import { DOC_TYPE_NAMES } from './types'
+import { carriesSourceDoc } from './sourceDocRules'
 
 export type AdjMode = 'add' | 'modify'
 
@@ -162,7 +163,11 @@ export function DocumentEditPage() {
                 <Label>{t('erpDocs.shared.docType')}</Label>
                 <Select
                   value={formData.doc_type || undefined}
-                  onValueChange={(v) => updateField('doc_type', v as DocType)}
+                  onValueChange={(v) => {
+                    updateField('doc_type', v as DocType)
+                    // 來源採購單只屬於入庫單；換成別的類型就清掉，避免殘留值被送出（issue #189）
+                    if (!carriesSourceDoc(v)) updateField('source_doc_id', '')
+                  }}
                   disabled={isEdit}
                 >
                   <SelectTrigger>
