@@ -63,6 +63,19 @@ impl AnimalUtils {
         trimmed.to_string()
     }
 
+    /// 欄位代碼的正規形式：補零（A–G + 數字）後，再大寫、去 `-`、去前後空白。
+    ///
+    /// 用來比對「請求的代碼」與「資料庫裡欄位的代碼」。資料庫端的對應規則是
+    /// `repositories::pen::canonical_code_expr`，兩邊必須一致，否則存成 `A1` 的欄位
+    /// 會對不到自己、或誤選到另一區存成 `A01` 的欄位。兩邊的測試各放一份**同一張**期望表
+    /// （本檔單元測試與 `tests/api_animal_pen_single_source.rs`），改規則時兩邊要一起改。
+    pub fn canonical_pen_code(code: &str) -> String {
+        Self::format_pen_location(code)
+            .trim()
+            .to_uppercase()
+            .replace('-', "")
+    }
+
     /// 品種 enum 轉資料庫字串
     pub fn breed_to_db_value(breed: &AnimalBreed) -> &str {
         match breed {
@@ -108,6 +121,39 @@ impl AnimalUtils {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── canonical_pen_code ──
+
+    /// 期望表（輸入, 正規形式）。與 `tests/api_animal_pen_single_source.rs` 裡驗證資料庫端
+    /// `canonical_code_expr` 的那張表是同一份，兩邊必須一起改。
+    const CANONICAL_PEN_CODE_CASES: &[(&str, &str)] = &[
+        ("A1", "A01"),
+        ("a1", "A01"),
+        ("A-1", "A01"),
+        ("a-01", "A01"),
+        ("A01", "A01"),
+        ("A001", "A01"),
+        ("A0", "A00"),
+        ("B10", "B10"),
+        ("G7", "G07"),
+        (" c3 ", "C03"),
+        ("Q-1", "Q1"),
+        ("Q01", "Q01"),
+        ("A", "A"),
+        ("A1B", "A1B"),
+        ("H1", "H1"),
+    ];
+
+    #[test]
+    fn canonical_pen_code_matches_expectation_table() {
+        for (input, expected) in CANONICAL_PEN_CODE_CASES {
+            assert_eq!(
+                AnimalUtils::canonical_pen_code(input),
+                *expected,
+                "輸入 {input:?}"
+            );
+        }
+    }
 
     // ── format_ear_tag ──
 

@@ -107,17 +107,20 @@ impl AnimalService {
         // 只給代碼時由後端解析成 pen_id（找不到或有歧義 → 400），驗證可收容與容量後
         // 連同文字欄一起寫入，兩欄在建立當下就一致。
         let formatted_location = Self::require_pen_location(req)?;
+
+        let mut tx = pool.begin().await?;
+
+        // 解析與容量驗證用交易連線，與後面的 INSERT 同一條連線；不在交易外另取連線。
+        // （容量檢查與 INSERT 之間的併發競態是原本就有的缺口，另案處理。）
         let target_pen =
-            Self::resolve_pen_target(pool, req.pen_id, req.pen_location.as_deref()).await?;
+            Self::resolve_pen_target(&mut tx, req.pen_id, req.pen_location.as_deref()).await?;
         if let Some(ref pen) = target_pen {
-            Self::validate_pen_for_assignment(pool, pen.id).await?;
+            Self::validate_pen_for_assignment(&mut tx, pen.id).await?;
         }
         let (pen_id, pen_location) = match target_pen {
             Some(pen) => (Some(pen.id), Some(pen.code)),
             None => (None, formatted_location),
         };
-
-        let mut tx = pool.begin().await?;
 
         // species_id 是動物種類的真相源，breed 由它推導；只帶 breed 的舊呼叫端則反查補上
         // species_id，讓新建的動物一律兩欄齊備（規則見 SpeciesLink）。

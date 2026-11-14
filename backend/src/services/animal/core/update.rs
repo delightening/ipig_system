@@ -186,27 +186,34 @@ impl AnimalService {
         // 前端移動／編輯只送 pen_location 文字，過去 pen_id 與在欄頭數因此不會跟著動。
         // 現在由後端把代碼解析成 pen_id（找不到或有歧義 → 400），並以解析出的欄位代碼
         // 回寫 pen_location，兩欄在寫入當下一致。離場動物不解析（上面已拒絕指派）。
-        let target_pen = if leaving_facility {
+        //
+        // 沒換欄位（含「整份表單原樣送出」帶原值、空白）就完全不解析也不重驗：動物所在的欄位
+        // 後來被停用時，重新解析會回 400，使用者連這隻動物的其他欄位都改不了。
+        // 解析與容量驗證都用交易連線（`&mut tx`），不再向連線池要第二條連線——
+        // 此處已持有動物列鎖，高併發時所有連線都卡在等第二條會逾時。
+        let pen_unchanged = !leaving_facility
+            && Self::pen_request_is_unchanged(
+                req.pen_id,
+                req.pen_location.as_deref(),
+                before.pen_id,
+                before.pen_location.as_deref(),
+            );
+        let target_pen = if leaving_facility || pen_unchanged {
             None
         } else {
-            Self::resolve_pen_target(pool, req.pen_id, req.pen_location.as_deref()).await?
+            Self::resolve_pen_target(&mut tx, req.pen_id, req.pen_location.as_deref()).await?
         };
         if let Some(ref pen) = target_pen {
             if Some(pen.id) != before.pen_id {
-                Self::validate_pen_for_assignment(pool, pen.id).await?;
+                Self::validate_pen_for_assignment(&mut tx, pen.id).await?;
             }
         }
 
-        let pen_location_bind = if leaving_facility {
-            // 離場終態：SQL 端無條件清空（$3 不會被讀取），Rust 端綁 None 保持語意一致。
-            None
-        } else if let Some(ref pen) = target_pen {
-            Some(pen.code.clone())
-        } else {
-            req.pen_location
-                .as_ref()
-                .map(|s| AnimalUtils::format_pen_location(s))
-        };
+        // 有解析出欄位 → 以該欄位的代碼回寫；沒解析（離場、沒換欄位、空白）→ 綁 None，
+        // SQL 端 `COALESCE($3, pen_location)` 保留原值（離場終態由 SQL 無條件清空，
+        // `$3` 不會被讀取，Rust 端綁 None 保持語意一致）。
+        // 過去空白位置會落到 `format_pen_location` 變成空字串，造成文字清空而 pen_id 還在的不一致。
+        let pen_location_bind = target_pen.as_ref().map(|pen| pen.code.clone());
 
         let old_pen_id = before.pen_id;
 
