@@ -153,7 +153,25 @@ impl AnimalService {
         }
     }
 
+    /// 在做容量驗證之前，先鎖住這次寫入會動到的欄位列（鎖到交易結束）。
+    ///
+    /// `ids` 放「動物要進的欄位」，搬移時再加上「動物原本所在的欄位」（更新流程結束時會重算
+    /// 新舊兩欄的頭數，同樣會鎖這兩列）。順序由 `lock_pens_in_order` 統一依 id 排序，
+    /// 兩個方向相反的搬移不會互相死鎖。
+    ///
+    /// 這一步讓「檢查容量」與「寫入動物」之間不會被別的請求插進來：後到的請求在這裡等待，
+    /// 前一個提交後它再數一次，就看得到欄位已滿。
+    pub(crate) async fn lock_pens_for_assignment(
+        conn: &mut PgConnection,
+        ids: &[Uuid],
+    ) -> Result<()> {
+        PenRepository::lock_pens_in_order(conn, ids).await
+    }
+
     /// 驗證欄位是否可收容動物
+    ///
+    /// **呼叫前必須先 `lock_pens_for_assignment`**：容量是現數在欄動物數，沒有鎖的話
+    /// 兩個請求同時通過檢查會超收。
     ///
     /// 檢查項目：
     /// 1. 欄位存在且 is_active = true
