@@ -55,6 +55,33 @@ impl AnimalService {
         }
     }
 
+    /// 請求同時帶「目前的 `pen_id`」與代碼，且代碼就是該欄位的**實際代碼**（不是動物文字欄的舊值）。
+    ///
+    /// `pen_request_is_unchanged` 遇到兩個欄位都給會要求解析，但解析只認啟用中的欄位：
+    /// 動物所在的欄位後來被停用時，同時帶相符的 id 與代碼（備註之類無關的編輯）會被誤擋成 400，
+    /// 只帶其中一個卻能過。所以這裡先拿代碼比對該欄位的實際代碼：相符就是沒換欄位；
+    /// 不相符（含找不到欄位）回 `false`，讓解析去回 400，不放過矛盾的請求。
+    pub(crate) async fn pen_request_matches_current_pen(
+        conn: &mut PgConnection,
+        req_pen_id: Option<Uuid>,
+        req_location: Option<&str>,
+        current_pen_id: Option<Uuid>,
+    ) -> Result<bool> {
+        let (Some(req_id), Some(current_id)) = (req_pen_id, current_pen_id) else {
+            return Ok(false);
+        };
+        let Some(location) = req_location.map(str::trim).filter(|s| !s.is_empty()) else {
+            return Ok(false);
+        };
+        if req_id != current_id {
+            return Ok(false);
+        }
+        let Some(pen) = PenRepository::find_pen_by_id(conn, current_id).await? else {
+            return Ok(false);
+        };
+        Ok(AnimalUtils::canonical_pen_code(&pen.code) == AnimalUtils::canonical_pen_code(location))
+    }
+
     /// 解出本次請求指向的欄位。
     ///
     /// - 只給 `pen_location`（前端現況）：以代碼找唯一一個啟用欄位，轉成 `pen_id`。

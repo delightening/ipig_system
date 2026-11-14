@@ -235,6 +235,9 @@ const CANONICAL_PEN_CODE_CASES: &[(&str, &str)] = &[
     ("a-100", "A100"),
     ("A010", "A10"),
     ("A1000", "A1000"),
+    // 非純數字（含前導 `+`）不補零；零開頭且超過 u32 範圍的數字照常正規化
+    ("A+1", "A+1"),
+    ("A00000000000000000001", "A01"),
     ("B10", "B10"),
     ("G7", "G07"),
     (" c3 ", "C03"),
@@ -327,6 +330,52 @@ async fn editing_an_animal_in_a_deactivated_pen_is_not_blocked() {
         )
         .await;
     assert_eq!(moved.status().as_u16(), 400, "不可把動物移進已停用的欄位");
+}
+
+/// 欄位已停用時同時帶「目前的 pen_id」與相符的代碼（無關的編輯）也不該被擋；
+/// 但帶目前的 pen_id 卻配另一個欄位的代碼，是矛盾的請求，仍要 400。
+#[tokio::test]
+#[serial]
+async fn explicit_pair_for_the_current_deactivated_pen_is_allowed_only_when_consistent() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let (zone, _) = any_zone(&app).await;
+    let (pen, code) = make_pen(&app, zone, 4).await;
+    let created = create_in(&app, &token, &code).await;
+    let id = created["id"].as_str().expect("animal id");
+    sqlx::query("UPDATE pens SET is_active = false WHERE id = $1")
+        .bind(pen)
+        .execute(&app.db_pool)
+        .await
+        .expect("deactivate pen");
+
+    let matching = app
+        .auth_put(
+            &format!("/api/v1/animals/{id}"),
+            &json!({ "pen_id": pen, "pen_location": code, "remark": "id 與代碼都帶且一致" }),
+            &token,
+        )
+        .await;
+    assert_eq!(
+        matching.status().as_u16(),
+        200,
+        "body={:?}",
+        matching.text().await
+    );
+
+    let (_, other_code) = make_pen(&app, zone, 4).await;
+    let conflicting = app
+        .auth_put(
+            &format!("/api/v1/animals/{id}"),
+            &json!({ "pen_id": pen, "pen_location": other_code }),
+            &token,
+        )
+        .await;
+    assert_eq!(
+        conflicting.status().as_u16(),
+        400,
+        "pen_id 與代碼指向不同欄位，必須擋下"
+    );
 }
 
 /// 位置只有空白：視為沒給，兩個欄位都維持原狀（過去會把文字清成空字串而 pen_id 還在）。

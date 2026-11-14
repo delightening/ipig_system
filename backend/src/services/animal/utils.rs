@@ -70,10 +70,25 @@ impl AnimalUtils {
     /// 會對不到自己、或誤選到另一區存成 `A01` 的欄位。兩邊的測試各放一份**同一張**期望表
     /// （本檔單元測試與 `tests/api_animal_pen_single_source.rs`），改規則時兩邊要一起改。
     pub fn canonical_pen_code(code: &str) -> String {
-        Self::format_pen_location(code)
-            .trim()
-            .to_uppercase()
-            .replace('-', "")
+        // 不借用 `format_pen_location`：它用 `u32` 解析數字，會接受前導 `+`（`A+1` → `A01`）、
+        // 且遇到超過 `u32::MAX` 的零開頭數字就解析失敗；SQL 端只認「區字母 A–G + 純 ASCII 數字」。
+        // 這裡照 SQL 的規則自己判斷，兩邊才逐字一致。
+        let normalized = code.trim().to_uppercase().replace('-', "");
+        let mut chars = normalized.chars();
+        if let Some(zone @ 'A'..='G') = chars.next() {
+            let digits = chars.as_str();
+            if !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()) {
+                let significant = digits.trim_start_matches('0');
+                let significant = if significant.is_empty() {
+                    "0"
+                } else {
+                    significant
+                };
+                // 只補不足兩位，不截斷：`{:0>2}` 遇到三位以上原樣保留
+                return format!("{zone}{significant:0>2}");
+            }
+        }
+        normalized
     }
 
     /// 品種 enum 轉資料庫字串
@@ -139,6 +154,9 @@ mod tests {
         ("a-100", "A100"),
         ("A010", "A10"),
         ("A1000", "A1000"),
+        // 非純數字（含前導 `+`）不補零；零開頭且超過 u32 範圍的數字照常正規化
+        ("A+1", "A+1"),
+        ("A00000000000000000001", "A01"),
         ("B10", "B10"),
         ("G7", "G07"),
         (" c3 ", "C03"),

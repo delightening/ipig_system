@@ -66,28 +66,33 @@ pub async fn ensure_fixture_pen(pool: &PgPool) -> (uuid::Uuid, uuid::Uuid) {
         }
     };
 
-    sqlx::query(
+    // 「是否已有 A01」要用與正式查詢相同的正規化（補零、大小寫、去連字號）判斷：
+    // 若已有存成 `A1` 的啟用欄位，正式查詢視為同一個 `A01`，這裡再建一個 `A01` 會讓
+    // 之後的 `A-01` 請求變成歧義。動態 SQL 已審視：只拼入寫死的運算式，沒有使用者輸入。
+    let canonical_code = erp_backend::repositories::pen::canonical_code_expr("code");
+    let seed_pen_sql = format!(
         "INSERT INTO pens (id, zone_id, code, capacity, current_count) \
          SELECT $1, $2, 'A01', 0, 0 \
-         WHERE NOT EXISTS (SELECT 1 FROM pens \
-                           WHERE is_active AND upper(replace(btrim(code), '-', '')) = 'A01')",
-    )
-    .bind(uuid::Uuid::new_v4())
-    .bind(zone_id)
-    .execute(&mut *tx)
-    .await
-    .expect("seed fixture pen A01");
+         WHERE NOT EXISTS (SELECT 1 FROM pens WHERE is_active AND {canonical_code} = 'A01')"
+    );
+    sqlx::query(sqlx::AssertSqlSafe(seed_pen_sql))
+        .bind(uuid::Uuid::new_v4())
+        .bind(zone_id)
+        .execute(&mut *tx)
+        .await
+        .expect("seed fixture pen A01");
 
     // 全新資料庫（含 CI）的種子資料（003_seed.sql）已有容量 = 1 的真實 `A01`，上面的條件式
     // 補欄位因此略過；多個測試會在 `A-01` 建多隻動物，容量 1 會讓第二隻起被擋成「已滿」。
     // 測試通用的 `A01` 一律放寬為不限容量（0 = 不限）。
-    sqlx::query(
+    let relax_capacity_sql = format!(
         "UPDATE pens SET capacity = 0 \
-         WHERE is_active AND upper(replace(btrim(code), '-', '')) = 'A01' AND capacity <> 0",
-    )
-    .execute(&mut *tx)
-    .await
-    .expect("relax fixture pen A01 capacity");
+         WHERE is_active AND {canonical_code} = 'A01' AND capacity <> 0"
+    );
+    sqlx::query(sqlx::AssertSqlSafe(relax_capacity_sql))
+        .execute(&mut *tx)
+        .await
+        .expect("relax fixture pen A01 capacity");
 
     tx.commit().await.expect("commit fixture tx");
     (zone_id, building_id)

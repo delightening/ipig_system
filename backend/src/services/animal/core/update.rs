@@ -191,13 +191,21 @@ impl AnimalService {
         // 後來被停用時，重新解析會回 400，使用者連這隻動物的其他欄位都改不了。
         // 解析與容量驗證都用交易連線（`&mut tx`），不再向連線池要第二條連線——
         // 此處已持有動物列鎖，高併發時所有連線都卡在等第二條會逾時。
+        // 兩個欄位都給時 `pen_request_is_unchanged` 一律回 false（要解析），但解析只認啟用中的欄位；
+        // 所以先確認「帶的是目前的 id 與該欄位的實際代碼」——是的話仍是沒換欄位，停用的欄位也不擋。
         let pen_unchanged = !leaving_facility
-            && Self::pen_request_is_unchanged(
+            && (Self::pen_request_is_unchanged(
                 req.pen_id,
                 req.pen_location.as_deref(),
                 before.pen_id,
                 before.pen_location.as_deref(),
-            );
+            ) || Self::pen_request_matches_current_pen(
+                &mut tx,
+                req.pen_id,
+                req.pen_location.as_deref(),
+                before.pen_id,
+            )
+            .await?);
         let target_pen = if leaving_facility || pen_unchanged {
             None
         } else {
