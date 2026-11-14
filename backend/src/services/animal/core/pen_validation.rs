@@ -27,8 +27,10 @@ impl AnimalService {
     ///
     /// - 動物目前沒有 `pen_id`（舊資料只有文字）→ 一律當作「要解析」，才補得齊 `pen_id`。
     /// - 請求的 `pen_id` 與目前不同 → 換欄位。
+    /// - 兩個欄位（`pen_id` 與代碼）都給 → 一律要解析：舊資料的文字欄可能與 `pen_id` 不一致，
+    ///   只拿代碼比文字欄會漏掉「兩個欄位其實指向不同欄位」的矛盾請求，要交給解析去擋（400）。
     /// - 請求沒給代碼或只有空白 → 沒要換。
-    /// - 請求的代碼經正規化（補零、大小寫、連字號）後與目前的文字欄相同 → 沒換。
+    /// - 只給代碼，且經正規化（補零、大小寫、連字號）後與目前的文字欄相同 → 沒換。
     pub(crate) fn pen_request_is_unchanged(
         req_pen_id: Option<Uuid>,
         req_location: Option<&str>,
@@ -43,10 +45,13 @@ impl AnimalService {
         }
         match req_location.map(str::trim).filter(|s| !s.is_empty()) {
             None => true,
-            Some(location) => current_location.is_some_and(|current| {
-                AnimalUtils::canonical_pen_code(current)
-                    == AnimalUtils::canonical_pen_code(location)
-            }),
+            Some(location) => {
+                req_pen_id.is_none()
+                    && current_location.is_some_and(|current| {
+                        AnimalUtils::canonical_pen_code(current)
+                            == AnimalUtils::canonical_pen_code(location)
+                    })
+            }
         }
     }
 
@@ -184,15 +189,27 @@ mod tests {
         ));
         assert!(AnimalService::pen_request_is_unchanged(
             Some(id(1)),
+            None,
+            Some(id(1)),
+            Some("A01")
+        ));
+    }
+
+    #[test]
+    fn both_pen_id_and_code_given_always_resolves() {
+        // 兩個欄位都給：即使與目前的文字欄相同也要解析，確認 pen_id 與代碼指向同一欄
+        assert!(!AnimalService::pen_request_is_unchanged(
+            Some(id(1)),
             Some("a01"),
             Some(id(1)),
             Some("A01")
         ));
-        assert!(AnimalService::pen_request_is_unchanged(
+        // 舊資料文字欄（B01）與 pen_id 不一致：請求帶 pen_id 與同樣的 B01，不能被當成沒更動
+        assert!(!AnimalService::pen_request_is_unchanged(
             Some(id(1)),
-            None,
+            Some("B01"),
             Some(id(1)),
-            Some("A01")
+            Some("B01")
         ));
     }
 

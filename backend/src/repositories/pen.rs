@@ -14,9 +14,13 @@ pub struct PenRepository;
 /// `column` 只能是呼叫端寫死的欄名或參數佔位（如 `code`、`$1::text`），不可放使用者輸入。
 pub fn canonical_code_expr(column: &str) -> String {
     let c = format!("upper(replace(btrim({column}), '-', ''))");
+    // 數字去前導零後的部分（全零時留一個 '0'）。補零不用 `lpad(…, 2, …)`：
+    // lpad 在字串比目標長時會「截斷」，`A100` 會變成 `A10`，與 Rust 端不一致；
+    // 這裡只在不足兩位時才補。
+    let n = format!("COALESCE(NULLIF(ltrim(substr({c}, 2), '0'), ''), '0')");
     format!(
         "CASE WHEN {c} ~ '^[A-G][0-9]+$' \
-         THEN left({c}, 1) || lpad(COALESCE(NULLIF(ltrim(substr({c}, 2), '0'), ''), '0'), 2, '0') \
+         THEN left({c}, 1) || repeat('0', greatest(2 - length({n}), 0)) || {n} \
          ELSE {c} END"
     )
 }
