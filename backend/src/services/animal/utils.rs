@@ -21,6 +21,58 @@ impl AnimalUtils {
         Ok(())
     }
 
+    /// 實驗分配日期不可晚於「今日」（台灣時間）；當天允許。
+    ///
+    /// 補登過去的分配日期是正常用途，未來日期則會讓時間軸把事件排到最前面、
+    /// 之後的「實驗天數」等計算也跟著錯，所以擋掉。
+    pub fn ensure_experiment_date_not_future(date: NaiveDate, today: NaiveDate) -> Result<()> {
+        if date > today {
+            return Err(AppError::Validation(format!(
+                "實驗日期不可晚於今日（{}），請確認輸入的日期",
+                today
+            )));
+        }
+        Ok(())
+    }
+
+    /// 進場日期的合理性（用於「欄位更正」這條路徑；建立動物的規則不在此變動）：
+    /// - 不可晚於今日；
+    /// - 不可早於出生日期（出生日期為空則略過）；
+    /// - 不可晚於該動物已有紀錄（體重、觀察、手術、疫苗驅蟲、血液檢查）的最早日期——
+    ///   進場前就有紀錄是矛盾的。沒有任何紀錄則略過。
+    ///
+    /// 純函式：`today`、出生日期與最早紀錄日期由呼叫端傳入，邊界才能在單元測試中釘死。
+    pub fn ensure_entry_date_plausible(
+        entry_date: NaiveDate,
+        today: NaiveDate,
+        birth_date: Option<NaiveDate>,
+        earliest_record: Option<NaiveDate>,
+    ) -> Result<()> {
+        if entry_date > today {
+            return Err(AppError::Validation(format!(
+                "進場日期不可晚於今日（{}），請確認輸入的日期",
+                today
+            )));
+        }
+        if let Some(birth) = birth_date {
+            if entry_date < birth {
+                return Err(AppError::Validation(format!(
+                    "進場日期（{}）不可早於出生日期（{}）",
+                    entry_date, birth
+                )));
+            }
+        }
+        if let Some(earliest) = earliest_record {
+            if entry_date > earliest {
+                return Err(AppError::Validation(format!(
+                    "進場日期（{}）不可晚於該動物已有紀錄的最早日期（{}）",
+                    entry_date, earliest
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// 格式化耳號：如果是數字且 < 100，則補零至三位數
     pub fn format_ear_tag(ear_tag: &str) -> String {
         if let Ok(num) = ear_tag.parse::<u32>() {
@@ -176,6 +228,69 @@ mod tests {
                 "輸入 {input:?}"
             );
         }
+    }
+
+    // ── 日期合理性 ──
+
+    fn d(s: &str) -> NaiveDate {
+        NaiveDate::parse_from_str(s, "%Y-%m-%d").expect("test date")
+    }
+
+    #[test]
+    fn experiment_date_today_allowed_tomorrow_rejected() {
+        let today = d("2026-11-13");
+        assert!(AnimalUtils::ensure_experiment_date_not_future(today, today).is_ok());
+        assert!(AnimalUtils::ensure_experiment_date_not_future(d("2026-01-01"), today).is_ok());
+        assert!(AnimalUtils::ensure_experiment_date_not_future(d("2026-11-14"), today).is_err());
+    }
+
+    #[test]
+    fn entry_date_rejects_future_but_allows_today() {
+        let today = d("2026-11-13");
+        assert!(AnimalUtils::ensure_entry_date_plausible(today, today, None, None).is_ok());
+        assert!(
+            AnimalUtils::ensure_entry_date_plausible(d("2026-11-14"), today, None, None).is_err()
+        );
+    }
+
+    #[test]
+    fn entry_date_must_not_precede_birth_date() {
+        let today = d("2026-11-13");
+        let birth = Some(d("2026-05-10"));
+        assert!(
+            AnimalUtils::ensure_entry_date_plausible(d("2026-05-09"), today, birth, None).is_err()
+        );
+        // 當天進場（出生即進場）允許
+        assert!(
+            AnimalUtils::ensure_entry_date_plausible(d("2026-05-10"), today, birth, None).is_ok()
+        );
+        // 出生日期未知時略過這項檢查
+        assert!(
+            AnimalUtils::ensure_entry_date_plausible(d("2000-01-01"), today, None, None).is_ok()
+        );
+    }
+
+    #[test]
+    fn entry_date_must_not_be_later_than_earliest_record() {
+        let today = d("2026-11-13");
+        let earliest = Some(d("2026-07-13"));
+        assert!(
+            AnimalUtils::ensure_entry_date_plausible(d("2026-07-14"), today, None, earliest)
+                .is_err()
+        );
+        // 與最早紀錄同一天允許；往前更正允許
+        assert!(
+            AnimalUtils::ensure_entry_date_plausible(d("2026-07-13"), today, None, earliest)
+                .is_ok()
+        );
+        assert!(
+            AnimalUtils::ensure_entry_date_plausible(d("2026-07-01"), today, None, earliest)
+                .is_ok()
+        );
+        // 沒有任何紀錄時略過這項檢查
+        assert!(
+            AnimalUtils::ensure_entry_date_plausible(d("2026-11-13"), today, None, None).is_ok()
+        );
     }
 
     // ── format_ear_tag ──

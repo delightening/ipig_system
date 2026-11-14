@@ -82,10 +82,12 @@ async fn create_correction(app: &TestApp, animal_id: Uuid, new_value: &str, toke
 async fn approve_field_correction_changes_animal_and_writes_audit() {
     let app = TestApp::spawn().await;
     let token = app.login_as_admin().await;
+    // 申請人與核准人必須是不同人（職責分離）
+    let requester = app.login_new_user_with_role("fc-req", "admin").await;
     let u = seed_user(&app).await;
     let aid = seed_animal(&app, u).await;
 
-    let request_id = create_correction(&app, aid, "002", &token).await;
+    let request_id = create_correction(&app, aid, "002", &requester).await;
 
     let review = app
         .auth_post(
@@ -143,7 +145,9 @@ async fn approve_entry_date_correction_changes_animal_but_not_initial_weight() {
             .expect("建立動物時應自動寫入一筆初始體重");
     assert_eq!(weight_date_before, "2026-07-13");
 
-    let request_id = create_field_correction(&app, aid, "entry_date", "2026-07-01", &token).await;
+    let requester = app.login_new_user_with_role("fc-req", "admin").await;
+    let request_id =
+        create_field_correction(&app, aid, "entry_date", "2026-07-01", &requester).await;
 
     let old_value: Option<String> =
         sqlx::query_scalar("SELECT old_value FROM animal_field_correction_requests WHERE id = $1")
@@ -241,4 +245,216 @@ async fn reject_field_correction_keeps_animal_unchanged() {
         .await
         .expect("fetch ear_tag");
     assert_eq!(ear_tag, "001", "拒絕不應改動物耳號");
+}
+
+// ── 職責分離：申請人不可核准自己的申請 ──
+#[tokio::test]
+#[serial]
+async fn requester_cannot_approve_own_request() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let u = seed_user(&app).await;
+    let aid = seed_animal(&app, u).await;
+
+    // 同一個帳號申請又想核准
+    let request_id = create_correction(&app, aid, "002", &token).await;
+    let review = app
+        .auth_post(
+            &format!("/api/v1/animals/animal-field-corrections/{request_id}/review"),
+            &serde_json::json!({ "approved": true }),
+            &token,
+        )
+        .await;
+    assert_eq!(review.status().as_u16(), 403, "申請人核准自己的申請應回 403");
+
+    let ear_tag: String = sqlx::query_scalar("SELECT ear_tag FROM animals WHERE id = $1")
+        .bind(aid)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("fetch ear_tag");
+    assert_eq!(ear_tag, "001", "被擋下的核准不應改動物耳號");
+    let status: String =
+        sqlx::query_scalar("SELECT status FROM animal_field_correction_requests WHERE id = $1")
+            .bind(Uuid::parse_str(&request_id).expect("request uuid"))
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("fetch request status");
+    assert_eq!(status, "pending", "被擋下的核准不應改變申請狀態");
+    assert_eq!(
+        fc_approve_audit_count(&app, aid).await,
+        0,
+        "沒有核准就不該有核准稽核"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn requester_can_withdraw_own_request_by_rejecting() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let u = seed_user(&app).await;
+    let aid = seed_animal(&app, u).await;
+
+    let request_id = create_correction(&app, aid, "002", &token).await;
+    let review = app
+        .auth_post(
+            &format!("/api/v1/animals/animal-field-corrections/{request_id}/review"),
+            &serde_json::json!({ "approved": false, "reject_reason": "撤回" }),
+            &token,
+        )
+        .await;
+    assert_eq!(review.status().as_u16(), 200, "申請人拒絕（撤回）自己的申請不受限");
+}
+
+// ── 進場日期的合理性 ──
+
+/// 走 API 建立動物（會自動寫入一筆初始體重，量測日 = 進場日），回傳動物 id。
+async fn create_animal_via_api(app: &TestApp, token: &str, birth_date: Option<&str>) -> Uuid {
+    let created = common::create_animal_with_free_ear_tag(app, token, |ear_tag| {
+        let mut body = serde_json::json!({
+            "ear_tag": ear_tag,
+            "gender": "male",
+            "breed": "minipig",
+            "entry_date": "2026-07-13",
+            "entry_weight": 25.5,
+            "pen_location": "A-01",
+            "force_create": true,
+        });
+        if let Some(birth) = birth_date {
+            body["birth_date"] = serde_json::json!(birth);
+        }
+        body
+    })
+    .await;
+    Uuid::parse_str(created["id"].as_str().expect("animal id")).expect("uuid")
+}
+
+async fn post_entry_date_request(
+    app: &TestApp,
+    animal_id: Uuid,
+    new_value: &str,
+    token: &str,
+) -> (u16, String) {
+    let res = app
+        .auth_post(
+            &format!("/api/v1/animals/{animal_id}/field-corrections"),
+            &serde_json::json!({ "field_name": "entry_date", "new_value": new_value, "reason": "建檔誤植" }),
+            token,
+        )
+        .await;
+    let status = res.status().as_u16();
+    (status, res.text().await.unwrap_or_default())
+}
+
+#[tokio::test]
+#[serial]
+async fn entry_date_correction_rejects_future_date() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let aid = create_animal_via_api(&app, &token, None).await;
+
+    let (status, body) = post_entry_date_request(&app, aid, "2099-01-01", &token).await;
+    assert_eq!(status, 400, "未來日期應回 400，實際 {body}");
+    assert!(body.contains("不可晚於今日"), "錯誤訊息應說明原因，實際 {body}");
+}
+
+#[tokio::test]
+#[serial]
+async fn entry_date_correction_rejects_date_before_birth() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let aid = create_animal_via_api(&app, &token, Some("2026-05-10")).await;
+
+    let (status, body) = post_entry_date_request(&app, aid, "2026-05-09", &token).await;
+    assert_eq!(status, 400, "早於出生日期應回 400，實際 {body}");
+    assert!(body.contains("不可早於出生日期"), "錯誤訊息應說明原因，實際 {body}");
+
+    // 出生當天進場允許
+    let (ok_status, ok_body) = post_entry_date_request(&app, aid, "2026-05-10", &token).await;
+    assert_eq!(ok_status, 200, "出生當天進場應允許，實際 {ok_body}");
+}
+
+#[tokio::test]
+#[serial]
+async fn entry_date_correction_rejects_date_after_earliest_record() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    // 初始體重紀錄的量測日 = 2026-07-13
+    let aid = create_animal_via_api(&app, &token, None).await;
+
+    let (status, body) = post_entry_date_request(&app, aid, "2026-07-14", &token).await;
+    assert_eq!(status, 400, "晚於最早紀錄應回 400，實際 {body}");
+    assert!(body.contains("最早日期"), "錯誤訊息應說明原因，實際 {body}");
+}
+
+#[tokio::test]
+#[serial]
+async fn approval_revalidates_entry_date_against_records_added_after_request() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let requester = app.login_new_user_with_role("fc-req", "admin").await;
+    let aid = create_animal_via_api(&app, &token, None).await;
+
+    // 申請當下合理（2026-07-05 早於初始體重 2026-07-13）
+    let request_id =
+        create_field_correction(&app, aid, "entry_date", "2026-07-05", &requester).await;
+
+    // 申請之後，動物多了一筆更早的紀錄
+    sqlx::query(
+        "INSERT INTO animal_weights (animal_id, measure_date, weight) \
+         VALUES ($1, '2026-07-02', 24.0)",
+    )
+    .bind(aid)
+    .execute(&app.db_pool)
+    .await
+    .expect("insert earlier weight");
+
+    let review = app
+        .auth_post(
+            &format!("/api/v1/animals/animal-field-corrections/{request_id}/review"),
+            &serde_json::json!({ "approved": true }),
+            &token,
+        )
+        .await;
+    assert_eq!(review.status().as_u16(), 400, "核准時應重驗並擋下");
+
+    let entry_date: String =
+        sqlx::query_scalar("SELECT entry_date::text FROM animals WHERE id = $1")
+            .bind(aid)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("fetch entry_date");
+    assert_eq!(entry_date, "2026-07-13", "被擋下的核准不應改進場日期");
+}
+
+// ── 實驗日期不可是未來日期（#222 審查發現）──
+#[tokio::test]
+#[serial]
+async fn update_rejects_future_experiment_date_but_allows_past() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let aid = create_animal_via_api(&app, &token, None).await;
+
+    let future = app
+        .auth_put(
+            &format!("/api/v1/animals/{aid}"),
+            &serde_json::json!({ "experiment_date": "2099-01-01" }),
+            &token,
+        )
+        .await;
+    assert_eq!(future.status().as_u16(), 400, "未來的實驗日期應回 400");
+
+    let past = app
+        .auth_put(
+            &format!("/api/v1/animals/{aid}"),
+            &serde_json::json!({ "experiment_date": "2026-07-20" }),
+            &token,
+        )
+        .await;
+    assert_eq!(
+        past.status().as_u16(),
+        200,
+        "過去的實驗日期（補登）應允許，body={:?}",
+        past.text().await
+    );
 }
