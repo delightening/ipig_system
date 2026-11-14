@@ -222,6 +222,11 @@ impl AnimalService {
         };
         if let Some(ref pen) = target_pen {
             if Some(pen.id) != before.pen_id {
+                // 驗證前先鎖欄位列（新欄＋原本所在的舊欄，依 id 排序）：容量是現數在欄動物數，
+                // 沒有鎖的話兩個請求同時搬進同一個只剩一個空位的欄位會超收；舊欄也要鎖，因為
+                // 結尾會重算新舊兩欄的頭數，兩個方向相反的搬移若鎖的順序不同會死鎖。
+                let lock_ids: Vec<Uuid> = before.pen_id.into_iter().chain([pen.id]).collect();
+                Self::lock_pens_for_assignment(&mut tx, &lock_ids).await?;
                 Self::validate_pen_for_assignment(&mut tx, pen.id).await?;
             }
         }
@@ -295,12 +300,12 @@ impl AnimalService {
 
         // 更新 pen current_count（同 tx；舊 pen 和新 pen）
         let new_pen_id = animal.pen_id;
-        let pen_ids_to_update: Vec<Uuid> = [old_pen_id, new_pen_id]
-            .iter()
-            .filter_map(|p| *p)
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect();
+        // 依 id 排序去重：舊寫法用 HashSet，迭代順序不固定；兩個方向相反的搬移若以不同順序
+        // UPDATE 這兩個欄位列，會互相等待而死鎖（回 500）。固定順序與上面鎖欄位的順序一致。
+        let mut pen_ids_to_update: Vec<Uuid> =
+            [old_pen_id, new_pen_id].iter().filter_map(|p| *p).collect();
+        pen_ids_to_update.sort();
+        pen_ids_to_update.dedup();
         for pid in pen_ids_to_update {
             sqlx::query(
                 "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"

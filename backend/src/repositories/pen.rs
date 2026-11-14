@@ -61,6 +61,22 @@ impl PenRepository {
         Ok(pens)
     }
 
+    /// 依 id 由小到大鎖住指定的欄位列（`SELECT … FOR UPDATE`），鎖到交易結束。
+    ///
+    /// 容量檢查是「現數在欄動物數」再決定能不能收；檢查與寫入之間若沒有鎖，兩個請求同時
+    /// 看到「還有一個空位」都會通過，欄位就超收。先鎖欄位列，後到的請求會等前一個提交，
+    /// 再數一次就看得到已滿。
+    ///
+    /// **一律依 id 排序鎖**：搬移動物要同時動舊欄與新欄，兩個方向相反的搬移若以不同順序
+    /// 鎖這兩列，會互相等待而死鎖。`ORDER BY` 讓所有呼叫者用同一個順序。
+    pub async fn lock_pens_in_order(conn: &mut PgConnection, ids: &[Uuid]) -> Result<()> {
+        sqlx::query("SELECT id FROM pens WHERE id = ANY($1) ORDER BY id FOR UPDATE")
+            .bind(ids)
+            .fetch_all(conn)
+            .await?;
+        Ok(())
+    }
+
     /// 計算欄位中存活動物數量（排除終態）
     pub async fn count_active_animals_in_pen(conn: &mut PgConnection, pen_id: Uuid) -> Result<i64> {
         let count = sqlx::query_scalar::<_, i64>(

@@ -454,3 +454,151 @@ async fn unpadded_stored_code_is_treated_as_the_same_code_as_the_padded_one() {
         "A1 與 A01 同一代碼，對到兩個啟用欄位應回 400（歧義）"
     );
 }
+
+// ── 容量檢查的併發競態（欄位列鎖）──
+//
+// 容量檢查是「現數在欄動物數」再決定能不能收，檢查與寫入之間沒有鎖時，兩個請求同時
+// 看到「還有一個空位」都會通過，欄位就超收。修補是檢查前先鎖欄位列（鎖的順序固定，
+// 避免兩個方向相反的搬移互相死鎖）。下面三個測試各釘一件事。
+
+/// 一次取出 `n` 個目前沒有非終態動物佔用的三位數耳號。併發測試每個請求要用不同耳號，
+/// 不能像 `free_ear_tag` 那樣每次都回同一個。
+async fn free_ear_tags(app: &TestApp, n: i64) -> Vec<String> {
+    sqlx::query_scalar(
+        r#"
+        SELECT lpad(g::text, 3, '0')
+        FROM generate_series($1::int, $2::int) g
+        WHERE NOT EXISTS (
+            SELECT 1 FROM animals a
+            WHERE a.ear_tag = lpad(g::text, 3, '0')
+              AND a.deleted_at IS NULL
+              AND a.status NOT IN ('euthanized', 'sudden_death')
+        )
+        ORDER BY g
+        LIMIT $3
+        "#,
+    )
+    .bind(common::EAR_TAG_MIN as i32)
+    .bind(common::EAR_TAG_MAX as i32)
+    .bind(n)
+    .fetch_all(&app.db_pool)
+    .await
+    .expect("free ear tags")
+}
+
+/// 容量 1 的空欄位，同時有多個建立請求：只能成功一個，其餘是業務規則拒絕（4xx），
+/// 不可超收，也不可出現伺服器錯誤（例如死鎖）。
+#[tokio::test]
+#[serial]
+async fn concurrent_creates_into_a_one_slot_pen_admit_exactly_one() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let (zone, _) = any_zone(&app).await;
+    let (pen, code) = make_pen(&app, zone, 1).await;
+    let tags = free_ear_tags(&app, 8).await;
+    assert_eq!(tags.len(), 8, "測試庫的空耳號不足");
+
+    let bodies: Vec<Value> = tags
+        .iter()
+        .map(|tag| {
+            json!({
+                "ear_tag": tag,
+                "breed": "white",
+                "gender": "female",
+                "entry_date": "2026-01-15",
+                "entry_weight": 25.5,
+                "pen_location": code,
+                "force_create": true
+            })
+        })
+        .collect();
+    let responses = futures::future::join_all(
+        bodies
+            .iter()
+            .map(|body| app.auth_post("/api/v1/animals", body, &token)),
+    )
+    .await;
+    let statuses: Vec<u16> = responses.iter().map(|r| r.status().as_u16()).collect();
+
+    let ok = statuses.iter().filter(|s| (200..300).contains(*s)).count();
+    assert_eq!(ok, 1, "容量 1 的欄位只能收一隻，實際狀態碼 {statuses:?}");
+    assert!(
+        statuses.iter().all(|s| *s < 500),
+        "不應出現伺服器錯誤（含死鎖），實際狀態碼 {statuses:?}"
+    );
+    let in_pen: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL")
+            .bind(pen)
+            .fetch_one(&app.db_pool)
+            .await
+            .expect("count animals in pen");
+    assert_eq!(in_pen, 1, "欄位裡實際只該有一隻");
+    assert_eq!(pen_row(&app, pen).await, 1, "頭數快取也應是 1");
+}
+
+/// 容量 1 的空欄位，同時有多隻動物（各自在別的欄位）要搬進去：只能成功一個。
+#[tokio::test]
+#[serial]
+async fn concurrent_moves_into_a_one_slot_pen_admit_exactly_one() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let (zone, _) = any_zone(&app).await;
+    let (target, target_code) = make_pen(&app, zone, 1).await;
+
+    let mut paths = Vec::new();
+    for _ in 0..4 {
+        let (_, own_code) = make_pen(&app, zone, 4).await;
+        let animal = create_in(&app, &token, &own_code).await;
+        let id = animal["id"].as_str().expect("animal id");
+        paths.push(format!("/api/v1/animals/{id}"));
+    }
+
+    let body = json!({ "pen_location": target_code });
+    let responses =
+        futures::future::join_all(paths.iter().map(|path| app.auth_put(path, &body, &token))).await;
+    let statuses: Vec<u16> = responses.iter().map(|r| r.status().as_u16()).collect();
+
+    let ok = statuses.iter().filter(|s| (200..300).contains(*s)).count();
+    assert_eq!(ok, 1, "容量 1 的欄位只能搬進一隻，實際狀態碼 {statuses:?}");
+    assert!(
+        statuses.iter().all(|s| *s < 500),
+        "不應出現伺服器錯誤（含死鎖），實際狀態碼 {statuses:?}"
+    );
+    assert_eq!(pen_row(&app, target).await, 1, "目標欄位頭數應是 1");
+}
+
+/// 兩隻動物同時往對方的欄位搬（A→B 與 B→A）：兩邊都有空位，兩個都該成功。
+/// 這是加鎖順序的防線——若兩個請求以相反順序鎖兩個欄位列，會互相死鎖。
+#[tokio::test]
+#[serial]
+async fn opposite_direction_moves_between_two_pens_do_not_deadlock() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let (zone, _) = any_zone(&app).await;
+    let (pen_p, code_p) = make_pen(&app, zone, 2).await;
+    let (pen_q, code_q) = make_pen(&app, zone, 2).await;
+    let x = create_in(&app, &token, &code_p).await;
+    let y = create_in(&app, &token, &code_q).await;
+    let path_x = format!("/api/v1/animals/{}", x["id"].as_str().expect("animal id"));
+    let path_y = format!("/api/v1/animals/{}", y["id"].as_str().expect("animal id"));
+
+    // 來回搬三輪（奇數輪，最後 x 在 Q、y 在 P）
+    for round in 0..3 {
+        let (x_to, y_to) = if round % 2 == 0 {
+            (&code_q, &code_p)
+        } else {
+            (&code_p, &code_q)
+        };
+        let body_x = json!({ "pen_location": x_to });
+        let body_y = json!({ "pen_location": y_to });
+        let (res_x, res_y) = tokio::join!(
+            app.auth_put(&path_x, &body_x, &token),
+            app.auth_put(&path_y, &body_y, &token)
+        );
+        assert_eq!(res_x.status().as_u16(), 200, "第 {round} 輪 x 搬移失敗");
+        assert_eq!(res_y.status().as_u16(), 200, "第 {round} 輪 y 搬移失敗");
+    }
+
+    assert_eq!(pen_row(&app, pen_p).await, 1, "P 欄頭數");
+    assert_eq!(pen_row(&app, pen_q).await, 1, "Q 欄頭數");
+}
