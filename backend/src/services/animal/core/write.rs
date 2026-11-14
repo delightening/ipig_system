@@ -24,6 +24,8 @@ struct ResolvedAnimalCreate<'a> {
     req: &'a CreateAnimalRequest,
     ear_tag: String,
     pen_location: Option<String>,
+    /// 由 `pen_location` 代碼（或請求自帶的 `pen_id`）解析出的欄位 id，與文字欄一起寫入。
+    pen_id: Option<Uuid>,
     species_id: Uuid,
     breed: AnimalBreed,
     created_by: Uuid,
@@ -101,13 +103,24 @@ impl AnimalService {
         }
         Self::guard_duplicate_ear_tag(pool, &ear_tag, req).await?;
 
-        // 驗證 pen_id 對應的欄位是否可收容動物
-        if let Some(pen_id) = req.pen_id {
-            Self::validate_pen_for_assignment(pool, pen_id).await?;
-        }
-        let pen_location = Self::require_pen_location(req)?;
+        // 欄位為必填；B 方案第 2 階段（使用者 2026-11-13 裁定）：寫入端以 pen_id 為準，
+        // 只給代碼時由後端解析成 pen_id（找不到或有歧義 → 400），驗證可收容與容量後
+        // 連同文字欄一起寫入，兩欄在建立當下就一致。
+        let formatted_location = Self::require_pen_location(req)?;
 
         let mut tx = pool.begin().await?;
+
+        // 解析與容量驗證用交易連線，與後面的 INSERT 同一條連線；不在交易外另取連線。
+        // （容量檢查與 INSERT 之間的併發競態是原本就有的缺口，另案處理。）
+        let target_pen =
+            Self::resolve_pen_target(&mut tx, req.pen_id, req.pen_location.as_deref()).await?;
+        if let Some(ref pen) = target_pen {
+            Self::validate_pen_for_assignment(&mut tx, pen.id).await?;
+        }
+        let (pen_id, pen_location) = match target_pen {
+            Some(pen) => (Some(pen.id), Some(pen.code)),
+            None => (None, formatted_location),
+        };
 
         // species_id 是動物種類的真相源，breed 由它推導；只帶 breed 的舊呼叫端則反查補上
         // species_id，讓新建的動物一律兩欄齊備（規則見 SpeciesLink）。
@@ -120,6 +133,7 @@ impl AnimalService {
                 req,
                 ear_tag,
                 pen_location,
+                pen_id,
                 species_id,
                 breed,
                 created_by: user.id,
@@ -239,7 +253,7 @@ impl AnimalService {
         .bind(req.entry_date)
         .bind(req.entry_weight)
         .bind(&resolved.pen_location)
-        .bind(req.pen_id)
+        .bind(resolved.pen_id)
         .bind(resolved.species_id)
         .bind(&req.pre_experiment_code)
         .bind(&req.remark)

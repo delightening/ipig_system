@@ -17,6 +17,87 @@ pub struct TestApp {
     pub client: Client,
 }
 
+/// 確保測試庫裡有一個合成、無容量上限的啟用欄位 `A01`，回傳 `(zone_id, building_id)`。
+///
+/// 動物的寫入端以 `pen_id` 為唯一來源：欄位代碼對不到真實的啟用欄位就回 400。
+/// 多數既有 fixture 用 `A-01` 當欄位。測試庫的區／欄位可能被其他測試清掉（全庫匯入測試會
+/// TRUNCATE），所以這裡自帶一組 設施→棟→區→欄位，並用 advisory lock 序列化並發 spawn，
+/// 以免同一代碼被建成多個啟用欄位（那會變成「歧義」而回 400）。
+pub async fn ensure_fixture_pen(pool: &PgPool) -> (uuid::Uuid, uuid::Uuid) {
+    let mut tx = pool.begin().await.expect("begin fixture tx");
+    sqlx::query("SELECT pg_advisory_xact_lock(7313170)")
+        .execute(&mut *tx)
+        .await
+        .expect("fixture advisory lock");
+
+    let zone: Option<(uuid::Uuid, uuid::Uuid)> =
+        sqlx::query_as("SELECT id, building_id FROM zones WHERE code = 'ZXT' LIMIT 1")
+            .fetch_optional(&mut *tx)
+            .await
+            .expect("find fixture zone");
+    let (zone_id, building_id) = match zone {
+        Some(found) => found,
+        None => {
+            let facility_id = uuid::Uuid::new_v4();
+            let building_id = uuid::Uuid::new_v4();
+            let zone_id = uuid::Uuid::new_v4();
+            sqlx::query("INSERT INTO facilities (id, code, name) VALUES ($1, $2, '測試場')")
+                .bind(facility_id)
+                .bind(format!("FXT{}", &facility_id.simple().to_string()[..6]))
+                .execute(&mut *tx)
+                .await
+                .expect("insert fixture facility");
+            sqlx::query(
+                "INSERT INTO buildings (id, facility_id, code, name) VALUES ($1, $2, $3, '測試棟')",
+            )
+            .bind(building_id)
+            .bind(facility_id)
+            .bind(format!("BXT{}", &building_id.simple().to_string()[..6]))
+            .execute(&mut *tx)
+            .await
+            .expect("insert fixture building");
+            sqlx::query("INSERT INTO zones (id, building_id, code) VALUES ($1, $2, 'ZXT')")
+                .bind(zone_id)
+                .bind(building_id)
+                .execute(&mut *tx)
+                .await
+                .expect("insert fixture zone");
+            (zone_id, building_id)
+        }
+    };
+
+    // 「是否已有 A01」要用與正式查詢相同的正規化（補零、大小寫、去連字號）判斷：
+    // 若已有存成 `A1` 的啟用欄位，正式查詢視為同一個 `A01`，這裡再建一個 `A01` 會讓
+    // 之後的 `A-01` 請求變成歧義。動態 SQL 已審視：只拼入寫死的運算式，沒有使用者輸入。
+    let canonical_code = erp_backend::repositories::pen::canonical_code_expr("code");
+    let seed_pen_sql = format!(
+        "INSERT INTO pens (id, zone_id, code, capacity, current_count) \
+         SELECT $1, $2, 'A01', 0, 0 \
+         WHERE NOT EXISTS (SELECT 1 FROM pens WHERE is_active AND {canonical_code} = 'A01')"
+    );
+    sqlx::query(sqlx::AssertSqlSafe(seed_pen_sql))
+        .bind(uuid::Uuid::new_v4())
+        .bind(zone_id)
+        .execute(&mut *tx)
+        .await
+        .expect("seed fixture pen A01");
+
+    // 全新資料庫（含 CI）的種子資料（003_seed.sql）已有容量 = 1 的真實 `A01`，上面的條件式
+    // 補欄位因此略過；多個測試會在 `A-01` 建多隻動物，容量 1 會讓第二隻起被擋成「已滿」。
+    // 測試通用的 `A01` 一律放寬為不限容量（0 = 不限）。
+    let relax_capacity_sql = format!(
+        "UPDATE pens SET capacity = 0 \
+         WHERE is_active AND {canonical_code} = 'A01' AND capacity <> 0"
+    );
+    sqlx::query(sqlx::AssertSqlSafe(relax_capacity_sql))
+        .execute(&mut *tx)
+        .await
+        .expect("relax fixture pen A01 capacity");
+
+    tx.commit().await.expect("commit fixture tx");
+    (zone_id, building_id)
+}
+
 #[derive(Debug, serde::Deserialize)]
 pub struct LoginResponse {
     pub access_token: String,
@@ -321,6 +402,11 @@ C/edCMRM78P8eQTBCDUTK1ywSYaszvQZvneiW6gNtWEJndSreEcyyUdVvg==\n\
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .expect("Failed to build HTTP client");
+
+        // 動物的寫入端以 pen_id 為唯一來源：欄位代碼必須對到真實存在的啟用欄位，
+        // 否則回 400。多數既有 fixture 用 `A-01` 當欄位，這裡冪等地補一個合成的無容量上限欄位
+        // （capacity = 0 表示不限），以部分唯一索引 (zone_id, code) 擋住並發 spawn 的重複建立。
+        ensure_fixture_pen(&pool).await;
 
         TestApp {
             address: format!("http://127.0.0.1:{}", addr.port()),

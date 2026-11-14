@@ -79,10 +79,9 @@ impl AnimalService {
         let user = actor.require_user()?;
         let updated_by = user.id;
 
-        // 驗證新 pen_id 對應的欄位是否可收容動物（tx 外預先驗，失敗即早退出）
-        if let Some(new_pen_id) = req.pen_id {
-            Self::validate_pen_for_assignment(pool, new_pen_id).await?;
-        }
+        // 欄位指派的驗證（可收容、容量）移到取得 before 之後：要知道動物「目前」在哪一欄，
+        // 才能分辨「真的換欄」與「原欄原樣回填」——後者不該被容量檢查擋下
+        // （滿欄時把自己算成佔位，會讓整份表單的一般儲存失敗）。
 
         let mut tx = pool.begin().await?;
 
@@ -183,14 +182,46 @@ impl AnimalService {
             }
         }
 
-        let pen_location_bind = if leaving_facility {
-            // 離場終態：SQL 端無條件清空（$3 不會被讀取），Rust 端綁 None 保持語意一致。
+        // B 方案第 2 階段（使用者 2026-11-13 裁定，兩套欄位資料改為以 pen_id 為唯一來源）：
+        // 前端移動／編輯只送 pen_location 文字，過去 pen_id 與在欄頭數因此不會跟著動。
+        // 現在由後端把代碼解析成 pen_id（找不到或有歧義 → 400），並以解析出的欄位代碼
+        // 回寫 pen_location，兩欄在寫入當下一致。離場動物不解析（上面已拒絕指派）。
+        //
+        // 沒換欄位（含「整份表單原樣送出」帶原值、空白）就完全不解析也不重驗：動物所在的欄位
+        // 後來被停用時，重新解析會回 400，使用者連這隻動物的其他欄位都改不了。
+        // 解析與容量驗證都用交易連線（`&mut tx`），不再向連線池要第二條連線——
+        // 此處已持有動物列鎖，高併發時所有連線都卡在等第二條會逾時。
+        // 兩個欄位都給時 `pen_request_is_unchanged` 一律回 false（要解析），但解析只認啟用中的欄位；
+        // 所以先確認「帶的是目前的 id 與該欄位的實際代碼」——是的話仍是沒換欄位，停用的欄位也不擋。
+        let pen_unchanged = !leaving_facility
+            && (Self::pen_request_is_unchanged(
+                req.pen_id,
+                req.pen_location.as_deref(),
+                before.pen_id,
+                before.pen_location.as_deref(),
+            ) || Self::pen_request_matches_current_pen(
+                &mut tx,
+                req.pen_id,
+                req.pen_location.as_deref(),
+                before.pen_id,
+            )
+            .await?);
+        let target_pen = if leaving_facility || pen_unchanged {
             None
         } else {
-            req.pen_location
-                .as_ref()
-                .map(|s| AnimalUtils::format_pen_location(s))
+            Self::resolve_pen_target(&mut tx, req.pen_id, req.pen_location.as_deref()).await?
         };
+        if let Some(ref pen) = target_pen {
+            if Some(pen.id) != before.pen_id {
+                Self::validate_pen_for_assignment(&mut tx, pen.id).await?;
+            }
+        }
+
+        // 有解析出欄位 → 以該欄位的代碼回寫；沒解析（離場、沒換欄位、空白）→ 綁 None，
+        // SQL 端 `COALESCE($3, pen_location)` 保留原值（離場終態由 SQL 無條件清空，
+        // `$3` 不會被讀取，Rust 端綁 None 保持語意一致）。
+        // 過去空白位置會落到 `format_pen_location` 變成空字串，造成文字清空而 pen_id 還在的不一致。
+        let pen_location_bind = target_pen.as_ref().map(|pen| pen.code.clone());
 
         let old_pen_id = before.pen_id;
 
@@ -243,7 +274,7 @@ impl AnimalService {
         .bind(is_assigning_to_experiment)
         .bind(updated_by)
         .bind(req.version)
-        .bind(req.pen_id)
+        .bind(target_pen.as_ref().map(|pen| pen.id))
         .bind(req.species_id)
         .bind(leaving_facility)
         .bind(new_breed)

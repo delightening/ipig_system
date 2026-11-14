@@ -63,6 +63,34 @@ impl AnimalUtils {
         trimmed.to_string()
     }
 
+    /// 欄位代碼的正規形式：補零（A–G + 數字）後，再大寫、去 `-`、去前後空白。
+    ///
+    /// 用來比對「請求的代碼」與「資料庫裡欄位的代碼」。資料庫端的對應規則是
+    /// `repositories::pen::canonical_code_expr`，兩邊必須一致，否則存成 `A1` 的欄位
+    /// 會對不到自己、或誤選到另一區存成 `A01` 的欄位。兩邊的測試各放一份**同一張**期望表
+    /// （本檔單元測試與 `tests/api_animal_pen_single_source.rs`），改規則時兩邊要一起改。
+    pub fn canonical_pen_code(code: &str) -> String {
+        // 不借用 `format_pen_location`：它用 `u32` 解析數字，會接受前導 `+`（`A+1` → `A01`）、
+        // 且遇到超過 `u32::MAX` 的零開頭數字就解析失敗；SQL 端只認「區字母 A–G + 純 ASCII 數字」。
+        // 這裡照 SQL 的規則自己判斷，兩邊才逐字一致。
+        let normalized = code.trim().to_uppercase().replace('-', "");
+        let mut chars = normalized.chars();
+        if let Some(zone @ 'A'..='G') = chars.next() {
+            let digits = chars.as_str();
+            if !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()) {
+                let significant = digits.trim_start_matches('0');
+                let significant = if significant.is_empty() {
+                    "0"
+                } else {
+                    significant
+                };
+                // 只補不足兩位，不截斷：`{:0>2}` 遇到三位以上原樣保留
+                return format!("{zone}{significant:0>2}");
+            }
+        }
+        normalized
+    }
+
     /// 品種 enum 轉資料庫字串
     pub fn breed_to_db_value(breed: &AnimalBreed) -> &str {
         match breed {
@@ -108,6 +136,47 @@ impl AnimalUtils {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── canonical_pen_code ──
+
+    /// 期望表（輸入, 正規形式）。與 `tests/api_animal_pen_single_source.rs` 裡驗證資料庫端
+    /// `canonical_code_expr` 的那張表是同一份，兩邊必須一起改。
+    const CANONICAL_PEN_CODE_CASES: &[(&str, &str)] = &[
+        ("A1", "A01"),
+        ("a1", "A01"),
+        ("A-1", "A01"),
+        ("a-01", "A01"),
+        ("A01", "A01"),
+        ("A001", "A01"),
+        ("A0", "A00"),
+        // 三位以上的數字不可被截斷（SQL 端的 lpad 曾把 A100 截成 A10）
+        ("A100", "A100"),
+        ("a-100", "A100"),
+        ("A010", "A10"),
+        ("A1000", "A1000"),
+        // 非純數字（含前導 `+`）不補零；零開頭且超過 u32 範圍的數字照常正規化
+        ("A+1", "A+1"),
+        ("A00000000000000000001", "A01"),
+        ("B10", "B10"),
+        ("G7", "G07"),
+        (" c3 ", "C03"),
+        ("Q-1", "Q1"),
+        ("Q01", "Q01"),
+        ("A", "A"),
+        ("A1B", "A1B"),
+        ("H1", "H1"),
+    ];
+
+    #[test]
+    fn canonical_pen_code_matches_expectation_table() {
+        for (input, expected) in CANONICAL_PEN_CODE_CASES {
+            assert_eq!(
+                AnimalUtils::canonical_pen_code(input),
+                *expected,
+                "輸入 {input:?}"
+            );
+        }
+    }
 
     // ── format_ear_tag ──
 

@@ -276,11 +276,19 @@ async fn batch_create_respects_pen_capacity_per_animal() {
     let token = app.login_as_admin().await;
     let tags = free_ear_tags(&app.db_pool, 3).await;
     let pen_id = seed_pen_with_capacity(&app.db_pool, 2).await;
+    // pen_location 是必填；範本預設的 A-01 與 pen_id 指向不同欄位，寫入端會依規則回 400。
+    // 真實前端送的是同一個欄位的 pen_id 與代碼，這裡照做。
+    let pen_code: String = sqlx::query_scalar("SELECT code FROM pens WHERE id = $1")
+        .bind(pen_id)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("read seeded pen code");
 
     let rows: Vec<Value> = tags
         .iter()
         .map(|t| {
             let mut a = animal(t);
+            a["pen_location"] = json!(pen_code);
             a["pen_id"] = json!(pen_id);
             a
         })
