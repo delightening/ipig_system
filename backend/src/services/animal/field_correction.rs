@@ -58,6 +58,19 @@ impl AnimalFieldCorrectionService {
         // 驗證 new_value 格式
         Self::validate_new_value(field, &req.new_value)?;
 
+        // 進場日期另需對照動物現況（出生日期、已有紀錄的最早日期）
+        if field == "entry_date" {
+            let new_date = Self::parse_entry_date(&req.new_value)?;
+            let mut conn = pool.acquire().await?;
+            let earliest = Self::earliest_record_date(&mut conn, animal_id).await?;
+            super::utils::AnimalUtils::ensure_entry_date_plausible(
+                new_date,
+                crate::time::today_taiwan_naive(),
+                animal.birth_date,
+                earliest,
+            )?;
+        }
+
         let id = Uuid::new_v4();
         sqlx::query(
             r#"
@@ -172,9 +185,9 @@ impl AnimalFieldCorrectionService {
         let mut tx = pool.begin().await?;
 
         // 鎖申請列並重驗 pending（同一 tx 可見性，防並發重複核准）
-        let row: Option<(Uuid, String, String)> = sqlx::query_as(
+        let row: Option<(Uuid, String, String, Option<Uuid>)> = sqlx::query_as(
             r#"
-            SELECT animal_id, field_name, new_value
+            SELECT animal_id, field_name, new_value, requested_by
             FROM animal_field_correction_requests
             WHERE id = $1 AND status = 'pending'
             FOR UPDATE
@@ -184,8 +197,16 @@ impl AnimalFieldCorrectionService {
         .fetch_optional(&mut *tx)
         .await?;
 
-        let (animal_id, field_name, new_value) =
+        let (animal_id, field_name, new_value, requested_by) =
             row.ok_or_else(|| AppError::NotFound("找不到待審核的修正申請".to_string()))?;
+
+        // 職責分離：申請人不可核准自己的修正申請（動物身分欄位的更正需第二雙眼睛）。
+        // 拒絕（等同撤回）自己的申請不受限，因為不會改動任何資料。
+        if req.approved && requested_by == Some(reviewed_by) {
+            return Err(AppError::Forbidden(
+                "不可核准自己提出的修正申請，請由其他審核者處理".to_string(),
+            ));
+        }
 
         if req.approved {
             // 鎖動物列並取 before 快照
@@ -196,6 +217,19 @@ impl AnimalFieldCorrectionService {
             .fetch_optional(&mut *tx)
             .await?
             .ok_or_else(|| AppError::NotFound("動物不存在".to_string()))?;
+
+            // 進場日期：核准當下重驗。申請建立後動物可能又多了紀錄或被改過出生日期，
+            // 建立時通過的申請不代表現在仍合理（與出生日期的核准重驗同一個道理）。
+            if field_name == "entry_date" {
+                let new_date = Self::parse_entry_date(&new_value)?;
+                let earliest = Self::earliest_record_date(&mut tx, animal_id).await?;
+                super::utils::AnimalUtils::ensure_entry_date_plausible(
+                    new_date,
+                    crate::time::today_taiwan_naive(),
+                    before.birth_date,
+                    earliest,
+                )?;
+            }
 
             // 套用修正（同一 tx）
             Self::apply_correction(&mut tx, animal_id, &field_name, &new_value).await?;
@@ -284,13 +318,47 @@ impl AnimalFieldCorrectionService {
         Ok(d)
     }
 
-    /// 解析進場日期（YYYY-MM-DD）。
+    /// 解析進場日期（YYYY-MM-DD），只驗格式。
     ///
-    /// 只驗格式，與建立動物時一致（`CreateAnimalRequest.entry_date` 同樣不限制是否為未來）。
-    /// 建立與核准共用這個函式，避免兩條路徑的規則漂移。
+    /// 合理性（不晚於今日、不早於出生日期、不晚於已有紀錄的最早日期）由
+    /// `AnimalUtils::ensure_entry_date_plausible` 負責；建立申請與核准兩條路徑都呼叫，
+    /// 避免規則漂移。建立「動物」本身的進場日期規則不在此變動。
     fn parse_entry_date(new_value: &str) -> Result<NaiveDate> {
         NaiveDate::parse_from_str(new_value, "%Y-%m-%d")
             .map_err(|_| AppError::Validation("進場日期格式須為 YYYY-MM-DD".to_string()))
+    }
+
+    /// 該動物已有紀錄（體重、觀察、手術、疫苗驅蟲、血液檢查；不含已軟刪除）的最早日期。
+    ///
+    /// 沒有任何紀錄回 `None`。只有本檔兩處（建立申請、核准）使用，所以不抽到 repositories。
+    async fn earliest_record_date(
+        conn: &mut sqlx::PgConnection,
+        animal_id: Uuid,
+    ) -> Result<Option<NaiveDate>> {
+        let earliest: Option<NaiveDate> = sqlx::query_scalar(
+            r#"
+            SELECT MIN(d) FROM (
+                SELECT measure_date AS d FROM animal_weights
+                    WHERE animal_id = $1 AND deleted_at IS NULL
+                UNION ALL
+                SELECT event_date FROM animal_observations
+                    WHERE animal_id = $1 AND deleted_at IS NULL
+                UNION ALL
+                SELECT surgery_date FROM animal_surgeries
+                    WHERE animal_id = $1 AND deleted_at IS NULL
+                UNION ALL
+                SELECT administered_date FROM animal_vaccinations
+                    WHERE animal_id = $1 AND deleted_at IS NULL
+                UNION ALL
+                SELECT test_date FROM animal_blood_tests
+                    WHERE animal_id = $1 AND deleted_at IS NULL
+            ) records
+            "#,
+        )
+        .bind(animal_id)
+        .fetch_one(conn)
+        .await?;
+        Ok(earliest)
     }
 
     async fn apply_correction(

@@ -79,6 +79,15 @@ impl AnimalService {
         let user = actor.require_user()?;
         let updated_by = user.id;
 
+        // 實驗日期不可是未來日期（補登過去的分配日期是正常用途，未來日期會讓時間軸與
+        // 之後依日期的計算出錯）。只擋請求有帶的值，不回頭檢查既有資料。
+        if let Some(experiment_date) = req.experiment_date {
+            AnimalUtils::ensure_experiment_date_not_future(
+                experiment_date,
+                crate::time::today_taiwan_naive(),
+            )?;
+        }
+
         // 欄位指派的驗證（可收容、容量）移到取得 before 之後：要知道動物「目前」在哪一欄，
         // 才能分辨「真的換欄」與「原欄原樣回填」——後者不該被容量檢查擋下
         // （滿欄時把自己算成佔位，會讓整份表單的一般儲存失敗）。

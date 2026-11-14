@@ -453,6 +453,39 @@ C/edCMRM78P8eQTBCDUTK1ywSYaszvQZvneiW6gNtWEJndSreEcyyUdVvg==\n\
             .expect("Admin login failed — check ADMIN_EMAIL and ADMIN_INITIAL_PASSWORD env vars")
     }
 
+    /// 建立一個帶指定角色、可登入的新使用者並回傳 access token。
+    ///
+    /// 給「申請人與審核人必須是不同人」這類職責分離的測試用：`login_as_admin` 永遠是同一個帳號。
+    pub async fn login_new_user_with_role(&self, label: &str, role_code: &str) -> String {
+        const PASSWORD: &str = "NewUser$Pw1";
+        let id = uuid::Uuid::new_v4();
+        let email = format!("t-{label}-{}@test.local", &id.simple().to_string()[..8]);
+        let hash = erp_backend::services::AuthService::hash_password(PASSWORD)
+            .expect("hash password for test user");
+        sqlx::query(
+            "INSERT INTO users (id, email, password_hash, display_name, is_internal, is_active, must_change_password) \
+             VALUES ($1, $2, $3, $4, true, true, false)",
+        )
+        .bind(id)
+        .bind(&email)
+        .bind(&hash)
+        .bind(format!("test {label}"))
+        .execute(&self.db_pool)
+        .await
+        .expect("insert test user");
+        sqlx::query(
+            "INSERT INTO user_roles (user_id, role_id) SELECT $1, id FROM roles WHERE code = $2",
+        )
+        .bind(id)
+        .bind(role_code)
+        .execute(&self.db_pool)
+        .await
+        .expect("assign role to test user");
+        self.login(&email, PASSWORD)
+            .await
+            .expect("login as newly seeded test user")
+    }
+
     /// Authenticated GET request.
     pub async fn auth_get(&self, path: &str, token: &str) -> Response {
         self.client
