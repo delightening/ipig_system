@@ -265,7 +265,11 @@ async fn requester_cannot_approve_own_request() {
             &token,
         )
         .await;
-    assert_eq!(review.status().as_u16(), 403, "申請人核准自己的申請應回 403");
+    assert_eq!(
+        review.status().as_u16(),
+        403,
+        "申請人核准自己的申請應回 403"
+    );
 
     let ear_tag: String = sqlx::query_scalar("SELECT ear_tag FROM animals WHERE id = $1")
         .bind(aid)
@@ -303,7 +307,11 @@ async fn requester_can_withdraw_own_request_by_rejecting() {
             &token,
         )
         .await;
-    assert_eq!(review.status().as_u16(), 200, "申請人拒絕（撤回）自己的申請不受限");
+    assert_eq!(
+        review.status().as_u16(),
+        200,
+        "申請人拒絕（撤回）自己的申請不受限"
+    );
 }
 
 // ── 進場日期的合理性 ──
@@ -355,7 +363,10 @@ async fn entry_date_correction_rejects_future_date() {
 
     let (status, body) = post_entry_date_request(&app, aid, "2099-01-01", &token).await;
     assert_eq!(status, 400, "未來日期應回 400，實際 {body}");
-    assert!(body.contains("不可晚於今日"), "錯誤訊息應說明原因，實際 {body}");
+    assert!(
+        body.contains("不可晚於今日"),
+        "錯誤訊息應說明原因，實際 {body}"
+    );
 }
 
 #[tokio::test]
@@ -367,7 +378,10 @@ async fn entry_date_correction_rejects_date_before_birth() {
 
     let (status, body) = post_entry_date_request(&app, aid, "2026-05-09", &token).await;
     assert_eq!(status, 400, "早於出生日期應回 400，實際 {body}");
-    assert!(body.contains("不可早於出生日期"), "錯誤訊息應說明原因，實際 {body}");
+    assert!(
+        body.contains("不可早於出生日期"),
+        "錯誤訊息應說明原因，實際 {body}"
+    );
 
     // 出生當天進場允許
     let (ok_status, ok_body) = post_entry_date_request(&app, aid, "2026-05-10", &token).await;
