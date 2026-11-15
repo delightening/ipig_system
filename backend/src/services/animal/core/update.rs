@@ -222,6 +222,11 @@ impl AnimalService {
         };
         if let Some(ref pen) = target_pen {
             if Some(pen.id) != before.pen_id {
+                // 驗證前先鎖欄位列（新欄＋原本所在的舊欄，依 id 排序）：容量是現數在欄動物數，
+                // 沒有鎖的話兩個請求同時搬進同一個只剩一個空位的欄位會超收；舊欄也要鎖，因為
+                // 結尾會重算新舊兩欄的頭數，兩個方向相反的搬移若鎖的順序不同會死鎖。
+                let lock_ids: Vec<Uuid> = before.pen_id.into_iter().chain([pen.id]).collect();
+                Self::lock_pens_for_assignment(&mut tx, &lock_ids).await?;
                 Self::validate_pen_for_assignment(&mut tx, pen.id).await?;
             }
         }
@@ -246,6 +251,12 @@ impl AnimalService {
         // 想改的東西。
         let new_breed: Option<AnimalBreed> = match req.species_id {
             Some(species_id) if Some(species_id) != before.species_id => {
+                // 先鎖目前欄位，再鎖物種列，與建立流程（欄位 → 物種）的順序一致：
+                // 結尾一定會重算目前欄位的頭數而需要它的列鎖，若先拿物種鎖再等欄位鎖，
+                // 會和「持有欄位鎖、等物種鎖」的建立互相等待而死鎖。已鎖過的欄位再鎖是無害的。
+                if let Some(pen_id) = before.pen_id {
+                    Self::lock_pens_for_assignment(&mut tx, &[pen_id]).await?;
+                }
                 let (_, breed) = SpeciesLink::resolve_from_species(&mut tx, species_id).await?;
                 Some(breed)
             }
@@ -295,12 +306,16 @@ impl AnimalService {
 
         // 更新 pen current_count（同 tx；舊 pen 和新 pen）
         let new_pen_id = animal.pen_id;
-        let pen_ids_to_update: Vec<Uuid> = [old_pen_id, new_pen_id]
-            .iter()
-            .filter_map(|p| *p)
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect();
+        // 依 id 排序去重：舊寫法用 HashSet，迭代順序不固定；兩個方向相反的搬移若以不同順序
+        // UPDATE 這兩個欄位列，會互相等待而死鎖（回 500）。固定順序與上面鎖欄位的順序一致。
+        let mut pen_ids_to_update: Vec<Uuid> =
+            [old_pen_id, new_pen_id].iter().filter_map(|p| *p).collect();
+        pen_ids_to_update.sort();
+        pen_ids_to_update.dedup();
+        // 重算前先以獨立語句鎖住這些欄位列：重算的子查詢用「語句開始時」的快照，若直接在
+        // UPDATE 裡等別人的欄位列鎖，等到之後寫入的頭數會漏掉等待期間提交的動物。先鎖
+        // （搬移時已持有則不會等待），下一句 UPDATE 才以新快照計數。
+        Self::lock_pens_for_assignment(&mut tx, &pen_ids_to_update).await?;
         for pid in pen_ids_to_update {
             sqlx::query(
                 "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"

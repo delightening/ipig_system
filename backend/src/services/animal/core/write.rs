@@ -111,10 +111,12 @@ impl AnimalService {
         let mut tx = pool.begin().await?;
 
         // 解析與容量驗證用交易連線，與後面的 INSERT 同一條連線；不在交易外另取連線。
-        // （容量檢查與 INSERT 之間的併發競態是原本就有的缺口，另案處理。）
+        // 驗證前先鎖欄位列：容量是現數在欄動物數，沒有鎖的話兩個請求同時通過檢查會超收；
+        // 鎖到交易結束，後到的請求等前一個提交後再數一次，就看得到已滿。
         let target_pen =
             Self::resolve_pen_target(&mut tx, req.pen_id, req.pen_location.as_deref()).await?;
         if let Some(ref pen) = target_pen {
+            Self::lock_pens_for_assignment(&mut tx, &[pen.id]).await?;
             Self::validate_pen_for_assignment(&mut tx, pen.id).await?;
         }
         let (pen_id, pen_location) = match target_pen {
