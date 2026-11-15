@@ -312,6 +312,10 @@ impl AnimalService {
             [old_pen_id, new_pen_id].iter().filter_map(|p| *p).collect();
         pen_ids_to_update.sort();
         pen_ids_to_update.dedup();
+        // 重算前先以獨立語句鎖住這些欄位列：重算的子查詢用「語句開始時」的快照，若直接在
+        // UPDATE 裡等別人的欄位列鎖，等到之後寫入的頭數會漏掉等待期間提交的動物。先鎖
+        // （搬移時已持有則不會等待），下一句 UPDATE 才以新快照計數。
+        Self::lock_pens_for_assignment(&mut tx, &pen_ids_to_update).await?;
         for pid in pen_ids_to_update {
             sqlx::query(
                 "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"
