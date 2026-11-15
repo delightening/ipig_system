@@ -251,6 +251,12 @@ impl AnimalService {
         // 想改的東西。
         let new_breed: Option<AnimalBreed> = match req.species_id {
             Some(species_id) if Some(species_id) != before.species_id => {
+                // 先鎖目前欄位，再鎖物種列，與建立流程（欄位 → 物種）的順序一致：
+                // 結尾一定會重算目前欄位的頭數而需要它的列鎖，若先拿物種鎖再等欄位鎖，
+                // 會和「持有欄位鎖、等物種鎖」的建立互相等待而死鎖。已鎖過的欄位再鎖是無害的。
+                if let Some(pen_id) = before.pen_id {
+                    Self::lock_pens_for_assignment(&mut tx, &[pen_id]).await?;
+                }
                 let (_, breed) = SpeciesLink::resolve_from_species(&mut tx, species_id).await?;
                 Some(breed)
             }
