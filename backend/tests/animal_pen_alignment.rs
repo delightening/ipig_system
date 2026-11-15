@@ -79,8 +79,9 @@ async fn seed_animal(
 ) -> Uuid {
     let id = Uuid::new_v4();
     sqlx::query(
-        r#"INSERT INTO animals (id, ear_tag, breed, gender, entry_date, birth_date, created_by, pen_id, pen_location)
-           VALUES ($1, $2, 'miniature', 'male', '2026-01-01', '2025-03-03', $3, $4, $5)"#,
+        // entry_weight：換欄位要求動物至少有一筆體重（地板面積功能），測試資料要有。
+        r#"INSERT INTO animals (id, ear_tag, breed, gender, entry_date, birth_date, created_by, pen_id, pen_location, entry_weight)
+           VALUES ($1, $2, 'miniature', 'male', '2026-01-01', '2025-03-03', $3, $4, $5, 30.0)"#,
     )
     .bind(id)
     .bind(ear)

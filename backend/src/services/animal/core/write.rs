@@ -101,6 +101,12 @@ impl AnimalService {
                 crate::time::today_taiwan_naive(),
             )?;
         }
+        // 進場體重必須大於 0：欄位的地板面積判定靠體重，建立動物一定要指定欄位，
+        // 沒有這道檢查就能用 0 或負數繞過「沒體重不可放入」。匯入流程本來就有同樣的規定
+        // （見 import_export 的 parse_entry_weight）。
+        if req.entry_weight <= rust_decimal::Decimal::ZERO {
+            return Err(AppError::BadRequest("進場體重必須大於 0".to_string()));
+        }
         Self::guard_duplicate_ear_tag(pool, &ear_tag, req).await?;
 
         // 欄位為必填；B 方案第 2 階段（使用者 2026-11-13 裁定）：寫入端以 pen_id 為準，

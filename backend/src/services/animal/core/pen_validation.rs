@@ -168,6 +168,22 @@ impl AnimalService {
         PenRepository::lock_pens_in_order(conn, ids).await
     }
 
+    /// 動物放入欄位前必須至少有一筆體重（進場體重或體重紀錄）。
+    ///
+    /// 地板面積要靠體重才算得出來；完全沒有體重的動物放進去，欄位的面積判定就缺了這一隻。
+    /// 這是面積功能唯一會擋的情況，其餘（超標）只警示。
+    pub(crate) async fn ensure_animal_has_weight(
+        conn: &mut PgConnection,
+        animal_id: Uuid,
+    ) -> Result<()> {
+        if PenRepository::animal_has_any_weight(conn, animal_id).await? {
+            return Ok(());
+        }
+        Err(AppError::BusinessRule(
+            "此動物尚無體重紀錄，請先補上進場體重或體重紀錄再分配欄位".to_string(),
+        ))
+    }
+
     /// 驗證欄位是否可收容動物
     ///
     /// **呼叫前必須先 `lock_pens_for_assignment`**：容量是現數在欄動物數，沒有鎖的話
@@ -176,7 +192,8 @@ impl AnimalService {
     /// 檢查項目：
     /// 1. 欄位存在且 is_active = true
     /// 2. 欄位狀態為 active 或 empty
-    /// 3. 容量限制：capacity > 0 時，current_count < capacity（capacity = 0 表示無限制）
+    /// 3. 容量限制：只對**沒填長寬**的欄位生效。capacity > 0 時，current_count < capacity
+    ///    （capacity = 0 表示無限制）。有填長寬的欄位改由地板面積判定，只警示、不擋。
     pub(crate) async fn validate_pen_for_assignment(
         conn: &mut PgConnection,
         pen_id: Uuid,
@@ -199,8 +216,12 @@ impl AnimalService {
             )));
         }
 
+        // 有填長寬的欄位改看地板面積（只警示，見 `pen_floor_area`），整數容量不再擋；
+        // 沒填長寬的欄位沿用整數容量當硬限制。
+        let has_floor_area = pen.length_m.is_some() && pen.width_m.is_some();
+
         // capacity = 0 表示無限制
-        if pen.capacity > 0 {
+        if !has_floor_area && pen.capacity > 0 {
             let current_count =
                 PenRepository::count_active_animals_in_pen(&mut *conn, pen_id).await?;
             if current_count >= pen.capacity as i64 {
