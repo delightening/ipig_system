@@ -50,7 +50,7 @@ interface Props {
 }
 
 function issueText(t: TFunction, issue: RowIssue): string {
-  return t(`animalPages.batchAdd.issue.${issue.code}`, issue.params)
+  return t(`animalPages.batchAdd.issue.${issue.code}`, issue.params ?? {})
 }
 
 /** 單列的狀態：本地檢查的問題優先，其次是後端回報，最後才是「可建立」。 */

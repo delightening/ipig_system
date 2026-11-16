@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -193,7 +194,7 @@ function validateNewPersonnel(p: NewPersonnelData, t: (key: string) => string): 
 interface SectionProps {
   newPersonnel: NewPersonnelData
   setNewPersonnel: React.Dispatch<React.SetStateAction<NewPersonnelData>>
-  t: (key: string, opts?: Record<string, unknown>) => string
+  t: TFunction
 }
 
 function NamePositionRow({ newPersonnel, setNewPersonnel, staffMembers, isIACUCStaff, t }: SectionProps & { staffMembers: StaffMember[]; isIACUCStaff: boolean }) {
