@@ -255,6 +255,7 @@ const EVENT_TYPE_CONFIG: Record<string, { labelKey: string; color: string }> = {
   FACILITY_ZONE_DELETE: { labelKey: 'adminUsers.audit.eventType.facilityZoneDelete', color: 'bg-status-error-text' },
   FACILITY_PEN_CREATE: { labelKey: 'adminUsers.audit.eventType.facilityPenCreate', color: 'bg-status-success-text' },
   FACILITY_PEN_BATCH_CREATE: { labelKey: 'adminUsers.audit.eventType.facilityPenBatchCreate', color: 'bg-status-success-text' },
+  FACILITY_PEN_APPLY_SIZE: { labelKey: 'adminUsers.audit.eventType.facilityPenApplySize', color: 'bg-status-info-text' },
   FACILITY_PEN_UPDATE: { labelKey: 'adminUsers.audit.eventType.facilityPenUpdate', color: 'bg-status-info-text' },
   FACILITY_PEN_DELETE: { labelKey: 'adminUsers.audit.eventType.facilityPenDelete', color: 'bg-status-error-text' },
   FACILITY_DEPARTMENT_CREATE: { labelKey: 'adminUsers.audit.eventType.facilityDepartmentCreate', color: 'bg-status-success-text' },

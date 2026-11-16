@@ -24,12 +24,17 @@ import type { PenDetails } from '@/types/facility'
 import { PEN_STATUS_NAMES } from '@/types/facility'
 import { BatchCreatePenDialog } from './BatchCreatePenDialog'
 import { PenLayoutPreview } from './PenLayoutPreview'
+import { PenFloorAreaCell } from './PenFloorAreaCell'
+import { PenSizeFields } from './PenSizeFields'
+import { validatePenSize } from '../utils/penSize'
 
 interface PenCreateFormData {
   zone_id: string
   code: string
   name?: string
   capacity: number
+  length_m: string
+  width_m: string
 }
 
 interface PenEditFormData {
@@ -37,6 +42,8 @@ interface PenEditFormData {
   name?: string
   capacity: number
   status: string
+  length_m: string
+  width_m: string
 }
 
 export function PenTab({ canManage }: { canManage: boolean }) {
@@ -48,11 +55,11 @@ export function PenTab({ canManage }: { canManage: boolean }) {
   const [batchOpen, setBatchOpen] = useState(false)
 
   const createForm = useForm<PenCreateFormData>({
-    defaultValues: { zone_id: '', code: '', name: '', capacity: 1 },
+    defaultValues: { zone_id: '', code: '', name: '', capacity: 1, length_m: '', width_m: '' },
   })
 
   const editForm = useForm<PenEditFormData>({
-    defaultValues: { code: '', name: '', capacity: 1, status: 'active' },
+    defaultValues: { code: '', name: '', capacity: 1, status: 'active', length_m: '', width_m: '' },
   })
 
   const { data: pens = [], isLoading, isError } = useQuery({
@@ -63,7 +70,7 @@ export function PenTab({ canManage }: { canManage: boolean }) {
   const { sortedData: sortedPens, sort, toggleSort } = useTableSort(pens)
 
   // 操作欄只在可管理時渲染，skeleton／錯誤／空狀態的跨欄數要跟著變
-  const columnCount = canManage ? 7 : 6
+  const columnCount = canManage ? 8 : 7
 
 
   const { data: zones = [] } = useQuery({
@@ -77,13 +84,28 @@ export function PenTab({ canManage }: { canManage: boolean }) {
   }
 
   const createMutation = useMutation({
-    mutationFn: (data: PenCreateFormData) => facilityApi.createPen({ ...data, name: data.name || undefined }),
+    mutationFn: (data: PenCreateFormData) => facilityApi.createPen({
+      zone_id: data.zone_id,
+      code: data.code,
+      name: data.name || undefined,
+      capacity: data.capacity,
+      // 長寬一起給或一起省略；驗證在送出前已擋下只填一邊
+      length_m: data.length_m.trim() || undefined,
+      width_m: data.width_m.trim() || undefined,
+    }),
     onSuccess: () => { invalidate(); dialogs.close('create'); toast({ title: t('admin.penTab.createSuccess') }) },
     onError: (err: unknown) => toast({ title: t('admin.penTab.createFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: PenEditFormData }) => facilityApi.updatePen(id, { name: data.name || undefined, capacity: data.capacity, status: data.status }),
+    mutationFn: ({ id, data }: { id: string; data: PenEditFormData }) => facilityApi.updatePen(id, {
+      name: data.name || undefined,
+      capacity: data.capacity,
+      status: data.status,
+      // 後端：長寬都不給＝不改尺寸
+      length_m: data.length_m.trim() || undefined,
+      width_m: data.width_m.trim() || undefined,
+    }),
     onSuccess: () => { invalidate(); dialogs.close('edit'); toast({ title: t('admin.penTab.updateSuccess') }) },
     onError: (err: unknown) => toast({ title: t('admin.penTab.updateFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
   })
@@ -96,7 +118,14 @@ export function PenTab({ canManage }: { canManage: boolean }) {
 
   const handleEdit = (p: PenDetails) => {
     setEditing(p)
-    editForm.reset({ code: p.code, name: p.name ?? '', capacity: p.capacity, status: p.status })
+    editForm.reset({
+      code: p.code,
+      name: p.name ?? '',
+      capacity: p.capacity,
+      status: p.status,
+      length_m: p.length_m ?? '',
+      width_m: p.width_m ?? '',
+    })
     dialogs.open('edit')
   }
 
@@ -118,6 +147,13 @@ export function PenTab({ canManage }: { canManage: boolean }) {
 
   const createZoneId = createForm.watch('zone_id')
   const editStatus = editForm.watch('status')
+  // 長寬「一起填或一起留空」跨兩個欄位，無法掛在單一欄位的 rules 上，改在送出前即時驗證（後端同樣會擋）
+  const createLength = createForm.watch('length_m')
+  const createWidth = createForm.watch('width_m')
+  const editLength = editForm.watch('length_m')
+  const editWidth = editForm.watch('width_m')
+  const createSizeError = validatePenSize(createLength, createWidth)
+  const editSizeError = validatePenSize(editLength, editWidth)
 
   return (
     <div className="space-y-4">
@@ -128,7 +164,7 @@ export function PenTab({ canManage }: { canManage: boolean }) {
             <Button size="sm" variant="outline" onClick={() => setBatchOpen(true)}>
               <LayoutGrid className="h-4 w-4 mr-1" /> {t('admin.penTab.batchCreate')}
             </Button>
-            <Button size="sm" onClick={() => { createForm.reset({ zone_id: '', code: '', name: '', capacity: 1 }); dialogs.open('create') }}>
+            <Button size="sm" onClick={() => { createForm.reset({ zone_id: '', code: '', name: '', capacity: 1, length_m: '', width_m: '' }); dialogs.open('create') }}>
               <Plus className="h-4 w-4 mr-1" /> {t('admin.penTab.addPen')}
             </Button>
           </div>
@@ -140,6 +176,7 @@ export function PenTab({ canManage }: { canManage: boolean }) {
             <SortableTableHead sortKey="code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('admin.penTab.colCode')}</SortableTableHead>
             <SortableTableHead sortKey="name" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('admin.penTab.colName')}</SortableTableHead>
             <SortableTableHead sortKey="building_code" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('admin.penTab.colZone')}</SortableTableHead>
+            <TableHead>{t('admin.penTab.colFloorArea')}</TableHead>
             <SortableTableHead sortKey="capacity" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('admin.penTab.colCapacity')}</SortableTableHead>
             <SortableTableHead sortKey="current_count" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('admin.penTab.colCurrentCount')}</SortableTableHead>
             <SortableTableHead sortKey="status" currentSort={sort.column} currentDirection={sort.direction} onSort={toggleSort}>{t('admin.penTab.colStatus')}</SortableTableHead>
@@ -158,6 +195,7 @@ export function PenTab({ canManage }: { canManage: boolean }) {
               <TableCell className="font-mono">{p.code}</TableCell>
               <TableCell>{p.name ?? '—'}</TableCell>
               <TableCell className="text-sm text-muted-foreground">{t('admin.penTab.zoneLabel', { building: p.building_code, zone: p.zone_code })}</TableCell>
+              <TableCell><PenFloorAreaCell pen={p} /></TableCell>
               <TableCell>{p.capacity}</TableCell>
               <TableCell>{p.current_count}</TableCell>
               <TableCell><Badge variant={statusBadgeVariant(p.status)}>{t(PEN_STATUS_NAMES[p.status] ?? p.status)}</Badge></TableCell>
@@ -193,12 +231,19 @@ export function PenTab({ canManage }: { canManage: boolean }) {
             <FormField label={t('admin.penTab.colName')}>
               <Input {...createForm.register('name')} />
             </FormField>
-            <FormField label={t('admin.penTab.colCapacity')}>
+            <PenSizeFields
+              length={createLength}
+              width={createWidth}
+              onLengthChange={v => createForm.setValue('length_m', v)}
+              onWidthChange={v => createForm.setValue('width_m', v)}
+              error={createSizeError}
+            />
+            <FormField label={t('admin.penTab.colCapacityBackup')}>
               <Input type="number" min={1} {...createForm.register('capacity', { valueAsNumber: true, min: { value: 1, message: t('admin.penTab.capacityMin') } })} />
             </FormField>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => dialogs.close('create')}>{t('common.cancel')}</Button>
-              <Button type="submit" disabled={createMutation.isPending}>
+              <Button type="submit" disabled={createMutation.isPending || createSizeError !== null}>
                 {createMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} {t('common.create')}
               </Button>
             </DialogFooter>
@@ -216,7 +261,14 @@ export function PenTab({ canManage }: { canManage: boolean }) {
             <FormField label={t('admin.penTab.colName')}>
               <Input {...editForm.register('name')} />
             </FormField>
-            <FormField label={t('admin.penTab.colCapacity')}>
+            <PenSizeFields
+              length={editLength}
+              width={editWidth}
+              onLengthChange={v => editForm.setValue('length_m', v)}
+              onWidthChange={v => editForm.setValue('width_m', v)}
+              error={editSizeError}
+            />
+            <FormField label={t('admin.penTab.colCapacityBackup')}>
               <Input type="number" min={1} {...editForm.register('capacity', { valueAsNumber: true, min: { value: 1, message: t('admin.penTab.capacityMin') } })} />
             </FormField>
             <FormField label={t('admin.penTab.colStatus')}>
@@ -227,7 +279,7 @@ export function PenTab({ canManage }: { canManage: boolean }) {
             </FormField>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => dialogs.close('edit')}>{t('common.cancel')}</Button>
-              <Button type="submit" disabled={updateMutation.isPending}>
+              <Button type="submit" disabled={updateMutation.isPending || editSizeError !== null}>
                 {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} {t('common.save')}
               </Button>
             </DialogFooter>

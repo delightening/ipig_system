@@ -14,6 +14,8 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import { Loader2 } from 'lucide-react'
 import api from '@/lib/api'
 import type { ZoneWithBuilding } from '@/types/facility'
+import { PenSizeFields } from './PenSizeFields'
+import { validatePenSize } from '../utils/penSize'
 
 interface BatchCreatePenDialogProps {
   open: boolean
@@ -27,9 +29,13 @@ interface BatchPenFormData {
   count: number
   layout: 'single' | 'double'
   capacity: number
+  length_m: string
+  width_m: string
 }
 
-const INITIAL: BatchPenFormData = { zone_id: '', prefix: '', count: 20, layout: 'double', capacity: 1 }
+const INITIAL: BatchPenFormData = {
+  zone_id: '', prefix: '', count: 20, layout: 'double', capacity: 1, length_m: '', width_m: '',
+}
 
 export function BatchCreatePenDialog({ open, onOpenChange, zones }: BatchCreatePenDialogProps) {
   const { t } = useTranslation()
@@ -44,6 +50,10 @@ export function BatchCreatePenDialog({ open, onOpenChange, zones }: BatchCreateP
   const prefix = watch('prefix')
   const count = watch('count')
   const layout = watch('layout')
+  const lengthM = watch('length_m')
+  const widthM = watch('width_m')
+  // 長寬「一起填或一起留空」跨兩個欄位，改在送出前即時驗證（後端同樣會擋）
+  const sizeError = validatePenSize(lengthM, widthM)
   const preview = useMemo(() => generatePreview({ prefix, count, layout } as BatchPenFormData), [prefix, count, layout])
 
   const mutation = useMutation({
@@ -53,6 +63,8 @@ export function BatchCreatePenDialog({ open, onOpenChange, zones }: BatchCreateP
       count: data.count,
       layout: data.layout,
       capacity: data.capacity,
+      length_m: data.length_m.trim() || undefined,
+      width_m: data.width_m.trim() || undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pens'] })
@@ -140,6 +152,14 @@ export function BatchCreatePenDialog({ open, onOpenChange, zones }: BatchCreateP
             </FormField>
           </div>
 
+          <PenSizeFields
+            length={lengthM}
+            width={widthM}
+            onLengthChange={v => setValue('length_m', v)}
+            onWidthChange={v => setValue('width_m', v)}
+            error={sizeError}
+          />
+
           {prefix && count > 0 && (
             <div>
               <Label className="text-sm">{t('admin.batchCreatePenDialog.previewLabel')}</Label>
@@ -169,7 +189,7 @@ export function BatchCreatePenDialog({ open, onOpenChange, zones }: BatchCreateP
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
-            <Button type="submit" disabled={!isValid || mutation.isPending}>
+            <Button type="submit" disabled={!isValid || mutation.isPending || sizeError !== null}>
               {mutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
               {t('admin.batchCreatePenDialog.submit', { count })}
             </Button>

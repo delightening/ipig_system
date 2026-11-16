@@ -6,11 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
-import { Eye, GripVertical } from 'lucide-react'
+import { Eye, GripVertical, Ruler } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { facilityApi } from '@/lib/api/facility'
 import type { PenDetails, UpdatePenRequest } from '@/types/facility'
 import type { ZoneWithBuilding } from '@/types/facility'
 import { cn } from '@/lib/utils'
+import { ApplyPenSizeDialog } from './ApplyPenSizeDialog'
+import { formatMeters } from '../utils/penSize'
 
 interface PenLayoutPreviewProps {
   pens: PenDetails[]
@@ -93,6 +96,7 @@ function ZoneGrid({ zone, pens, canManage }: {
   const queryClient = useQueryClient()
   const [dragPen, setDragPen] = useState<PenDetails | null>(null)
   const [dropTarget, setDropTarget] = useState<{ row: number; col: number } | null>(null)
+  const [applySizeOpen, setApplySizeOpen] = useState(false)
   const gridRef = useRef<HTMLDivElement>(null)
 
   const updateMutation = useMutation({
@@ -167,6 +171,11 @@ function ZoneGrid({ zone, pens, canManage }: {
           {t('admin.penLayoutPreview.zoneHeading', { building: zone?.building_code ?? '', zone: zone?.code ?? '', name: zone?.name ?? '' })}
         </span>
         <Badge variant="secondary" className="text-xs">{t('admin.penLayoutPreview.penCount', { count: pens.length })}</Badge>
+        {canManage && zone && (
+          <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => setApplySizeOpen(true)}>
+            <Ruler className="h-4 w-4 mr-1" /> {t('admin.penLayoutPreview.applySizeButton')}
+          </Button>
+        )}
       </div>
       <div
         ref={gridRef}
@@ -196,6 +205,9 @@ function ZoneGrid({ zone, pens, canManage }: {
       </div>
       {canManage && pens.length > 1 && (
         <p className="text-xs text-muted-foreground mt-2">{t('admin.penLayoutPreview.dragHint')}</p>
+      )}
+      {canManage && zone && (
+        <ApplyPenSizeDialog open={applySizeOpen} onOpenChange={setApplySizeOpen} zone={zone} pens={pens} />
       )}
     </div>
   )
@@ -231,9 +243,18 @@ function PenCell({ pen, color, isDragging, isDropTarget, canManage, onDragStart,
     ? color
     : pen.status === 'maintenance' ? '#f59e0b' : '#d1d5db'
 
-  const penTitle = pen.name
+  const baseTitle = pen.name
     ? t('admin.penLayoutPreview.cellTitleNamed', { code: pen.code, name: pen.name, current: pen.current_count, capacity: pen.capacity })
     : t('admin.penLayoutPreview.cellTitle', { code: pen.code, current: pen.current_count, capacity: pen.capacity })
+
+  // 地板面積：超標加橘框與「!」，游標移上去顯示「需 X／有 Y」；未設定（no_area）維持原樣
+  const exceeded = pen.floor_area?.status === 'exceeded' && pen.floor_area.area_m2 != null
+  const penTitle = exceeded && pen.floor_area
+    ? `${baseTitle} — ${t('admin.penLayoutPreview.cellAreaExceeded', {
+      required: formatMeters(pen.floor_area.required_area_m2),
+      area: formatMeters(pen.floor_area.area_m2 ?? 0),
+    })}`
+    : baseTitle
 
   return (
     <div
@@ -243,9 +264,10 @@ function PenCell({ pen, color, isDragging, isDropTarget, canManage, onDragStart,
       onDrop={(e) => { e.preventDefault(); onDrop() }}
       onDragEnd={onDragEnd}
       className={cn(
-        'h-10 rounded flex items-center justify-center text-xs font-mono font-medium text-white select-none transition-all',
+        'relative h-10 rounded flex items-center justify-center text-xs font-mono font-medium text-white select-none transition-all',
         canManage && 'cursor-grab active:cursor-grabbing',
         isDragging && 'opacity-40 scale-95',
+        exceeded && 'ring-2 ring-status-warning-solid ring-offset-1',
         isDropTarget && 'ring-2 ring-ring'
       )}
       style={{ backgroundColor: statusColor }}
@@ -254,6 +276,14 @@ function PenCell({ pen, color, isDragging, isDropTarget, canManage, onDragStart,
     >
       {canManage && <GripVertical className="h-3 w-3 mr-0.5 opacity-50" />}
       {pen.code}
+      {exceeded && (
+        <span
+          aria-hidden="true"
+          className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-status-warning-solid text-[10px] font-bold text-white"
+        >
+          !
+        </span>
+      )}
     </div>
   )
 }
