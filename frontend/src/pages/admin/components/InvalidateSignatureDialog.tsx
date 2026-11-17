@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { useMutation } from '@tanstack/react-query'
 
 import api from '@/lib/api'
@@ -42,7 +43,7 @@ function validateInvalidateSignatureForm(
     reason: string
     password: string
   },
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: TFunction,
 ): { signatureId: string; reason: string; password: string } {
   const signatureId = input.signatureId.trim()
   const reason = input.reason.trim()

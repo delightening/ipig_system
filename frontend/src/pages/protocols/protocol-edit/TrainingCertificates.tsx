@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -7,7 +8,7 @@ interface TrainingCertificatesProps {
   certificates: Array<{ training_code: string; certificate_no: string }>
   allCertificates: Array<{ training_code: string; certificate_no: string }>
   onCertificatesChange: (certs: Array<{ training_code: string; certificate_no: string }>) => void
-  t: (key: string, opts?: Record<string, unknown>) => string
+  t: TFunction
 }
 
 export function TrainingCertificates({
