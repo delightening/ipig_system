@@ -329,6 +329,14 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/facilities/zones/{id}/delete", post(handlers::delete_zone))
         .route(
+            "/facilities/zones/{id}/apply-pen-size",
+            post(handlers::apply_pen_size),
+        )
+        .route(
+            "/facilities/pens/{id}/area-preview",
+            get(handlers::pen_area_preview),
+        )
+        .route(
             "/facilities/pens",
             get(handlers::list_pens).post(handlers::create_pen),
         )

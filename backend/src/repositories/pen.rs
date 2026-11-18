@@ -1,3 +1,4 @@
+use rust_decimal::Decimal;
 use sqlx::PgConnection;
 use uuid::Uuid;
 
@@ -75,6 +76,55 @@ impl PenRepository {
             .fetch_all(conn)
             .await?;
         Ok(())
+    }
+
+    /// 指定欄位內「存活動物」的最新體重，回 `(pen_id, 體重)`；沒有任何體重的動物體重為 `None`。
+    ///
+    /// 最新體重 = 未刪除的體重紀錄中 `measure_date` 最新的一筆（同日取較晚建立的），
+    /// 沒有體重紀錄就退回進場體重（`animals.entry_weight`）。存活的定義與
+    /// [`Self::count_active_animals_in_pen`] 一致（排除軟刪除與終態）。
+    pub async fn list_active_animal_weights(
+        conn: &mut PgConnection,
+        pen_ids: &[Uuid],
+    ) -> Result<Vec<(Uuid, Option<Decimal>)>> {
+        let rows = sqlx::query_as::<_, (Uuid, Option<Decimal>)>(
+            r#"
+            SELECT a.pen_id, COALESCE(w.weight, a.entry_weight)
+            FROM animals a
+            LEFT JOIN LATERAL (
+                SELECT aw.weight
+                FROM animal_weights aw
+                WHERE aw.animal_id = a.id AND aw.deleted_at IS NULL
+                ORDER BY aw.measure_date DESC, aw.created_at DESC
+                LIMIT 1
+            ) w ON true
+            WHERE a.pen_id = ANY($1)
+              AND a.deleted_at IS NULL
+              AND a.status NOT IN ('euthanized', 'sudden_death', 'transferred')
+            ORDER BY a.pen_id, a.id
+            "#,
+        )
+        .bind(pen_ids)
+        .fetch_all(conn)
+        .await?;
+        Ok(rows)
+    }
+
+    /// 動物是否至少有一筆體重（進場體重或任一筆未刪除的體重紀錄）。
+    pub async fn animal_has_any_weight(conn: &mut PgConnection, animal_id: Uuid) -> Result<bool> {
+        let has_weight = sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS (SELECT 1 FROM animals WHERE id = $1 AND entry_weight > 0)
+                OR EXISTS (
+                    SELECT 1 FROM animal_weights
+                    WHERE animal_id = $1 AND deleted_at IS NULL AND weight > 0
+                )
+            "#,
+        )
+        .bind(animal_id)
+        .fetch_one(conn)
+        .await?;
+        Ok(has_weight)
     }
 
     /// 計算欄位中存活動物數量（排除終態）

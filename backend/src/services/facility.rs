@@ -1,6 +1,9 @@
 // Facility Service
 // 包含：Species, Facility, Building, Zone, Pen, Department
 
+use std::collections::HashMap;
+
+use rust_decimal::Decimal;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -8,15 +11,17 @@ use crate::{
     middleware::ActorContext,
     models::{
         audit_diff::{AuditRedact, DataDiff},
-        Building, BuildingWithFacility, CreateBuildingRequest, CreateDepartmentRequest,
-        CreateFacilityRequest, CreatePenRequest, CreateSpeciesRequest, CreateZoneRequest,
-        Department, DepartmentWithManager, Facility, Pen, PenDetails, PenQuery, Species,
-        SpeciesListItem, UpdateBuildingRequest, UpdateDepartmentRequest, UpdateFacilityRequest,
-        UpdatePenRequest, UpdateSpeciesRequest, UpdateZoneRequest, Zone, ZoneWithBuilding,
+        ApplyPenSizeRequest, ApplyPenSizeResult, Building, BuildingWithFacility,
+        CreateBuildingRequest, CreateDepartmentRequest, CreateFacilityRequest, CreatePenRequest,
+        CreateSpeciesRequest, CreateZoneRequest, Department, DepartmentWithManager, Facility, Pen,
+        PenDetails, PenFloorArea, PenQuery, Species, SpeciesListItem, UpdateBuildingRequest,
+        UpdateDepartmentRequest, UpdateFacilityRequest, UpdatePenRequest, UpdateSpeciesRequest,
+        UpdateZoneRequest, Zone, ZoneWithBuilding,
     },
+    repositories::pen::PenRepository,
     services::{
         audit::{ActivityLogEntry, AuditEntity},
-        AuditService,
+        pen_floor_area, AuditService,
     },
     AppError, Result,
 };
@@ -871,11 +876,11 @@ impl FacilityService {
     // ============================================
 
     pub async fn list_pens(pool: &PgPool, query: &PenQuery) -> Result<Vec<PenDetails>> {
-        let pens = sqlx::query_as::<_, PenDetails>(
+        let mut pens = sqlx::query_as::<_, PenDetails>(
             r#"
             SELECT
                 p.id, p.code, p.name, p.capacity, p.current_count, p.status,
-                p.row_index, p.col_index,
+                p.row_index, p.col_index, p.length_m, p.width_m,
                 z.id as zone_id, z.code as zone_code, z.name as zone_name, z.color as zone_color,
                 z.layout_config as zone_layout_config,
                 b.id as building_id, b.code as building_code, b.name as building_name,
@@ -899,7 +904,145 @@ impl FacilityService {
         .bind(query.is_active)
         .fetch_all(pool)
         .await?;
+        Self::attach_floor_area(pool, &mut pens).await?;
         Ok(pens)
+    }
+
+    /// 為清單內每個欄位算出地板面積檢視（一次查完所有欄位的動物體重，不逐欄查）。
+    async fn attach_floor_area(pool: &PgPool, pens: &mut [PenDetails]) -> Result<()> {
+        if pens.is_empty() {
+            return Ok(());
+        }
+        let ids: Vec<Uuid> = pens.iter().map(|pen| pen.id).collect();
+        let mut conn = pool.acquire().await?;
+        let rows = PenRepository::list_active_animal_weights(&mut conn, &ids).await?;
+        let mut weights_by_pen: HashMap<Uuid, Vec<Option<Decimal>>> = HashMap::new();
+        for (pen_id, weight) in rows {
+            weights_by_pen.entry(pen_id).or_default().push(weight);
+        }
+        for pen in pens.iter_mut() {
+            let weights = weights_by_pen
+                .get(&pen.id)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
+            let dimensions = pen.length_m.zip(pen.width_m);
+            pen.floor_area = Some(pen_floor_area::assess(dimensions, weights));
+        }
+        Ok(())
+    }
+
+    /// 放入預覽：問「再放一隻這個體重的動物，這個欄位會不會超標」。只回結果、不擋、不寫入。
+    ///
+    /// `add_weight_kg` 不給就回欄位目前的狀態。體重無效（≤ 0）會被當成缺體重。
+    pub async fn pen_area_preview(
+        pool: &PgPool,
+        pen_id: Uuid,
+        add_weight_kg: Option<Decimal>,
+    ) -> Result<PenFloorArea> {
+        let mut conn = pool.acquire().await?;
+        let pen = PenRepository::find_pen_by_id(&mut conn, pen_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound(format!("欄位 (id={}) 不存在", pen_id)))?;
+        let rows = PenRepository::list_active_animal_weights(&mut conn, &[pen_id]).await?;
+        let mut weights: Vec<Option<Decimal>> = rows.into_iter().map(|(_, w)| w).collect();
+        if let Some(weight) = add_weight_kg {
+            weights.push(Some(weight));
+        }
+        Ok(pen_floor_area::assess(
+            pen.length_m.zip(pen.width_m),
+            &weights,
+        ))
+    }
+
+    /// 把同一個尺寸套用到區內所有啟用中的欄位（單一交易、單一稽核事件）。
+    ///
+    /// 稽核內容含套用的長寬與每個欄位套用前的值，要還原時有依據。
+    pub async fn apply_pen_size(
+        pool: &PgPool,
+        actor: &ActorContext,
+        zone_id: Uuid,
+        payload: &ApplyPenSizeRequest,
+    ) -> Result<ApplyPenSizeResult> {
+        let (length_m, width_m) =
+            pen_floor_area::validate_dimensions(Some(payload.length_m), Some(payload.width_m))?
+                .ok_or_else(|| AppError::BadRequest("欄位尺寸需同時提供長度與寬度".to_string()))?;
+
+        let mut tx = pool.begin().await?;
+        let zone_code: Option<String> = sqlx::query_scalar("SELECT code FROM zones WHERE id = $1")
+            .bind(zone_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+        let Some(zone_code) = zone_code else {
+            return Err(AppError::NotFound(format!("區域 (id={}) 不存在", zone_id)));
+        };
+
+        // 先鎖列並讀出套用前的值（依 id 排序，與其他寫欄位列的流程順序一致）
+        let before: Vec<(Uuid, String, Option<Decimal>, Option<Decimal>)> = sqlx::query_as(
+            "SELECT id, code, length_m, width_m FROM pens \
+             WHERE zone_id = $1 AND is_active ORDER BY id FOR UPDATE",
+        )
+        .bind(zone_id)
+        .fetch_all(&mut *tx)
+        .await?;
+
+        sqlx::query(
+            "UPDATE pens SET length_m = $2, width_m = $3, updated_at = NOW() \
+             WHERE zone_id = $1 AND is_active",
+        )
+        .bind(zone_id)
+        .bind(length_m)
+        .bind(width_m)
+        .execute(&mut *tx)
+        .await?;
+
+        #[derive(serde::Serialize)]
+        struct PenSizeBefore {
+            pen_id: Uuid,
+            code: String,
+            length_m: Option<Decimal>,
+            width_m: Option<Decimal>,
+        }
+        #[derive(serde::Serialize)]
+        struct ApplyPenSizeAudit {
+            zone_id: Uuid,
+            length_m: Decimal,
+            width_m: Decimal,
+            updated_count: usize,
+            before: Vec<PenSizeBefore>,
+        }
+        impl AuditRedact for ApplyPenSizeAudit {}
+
+        let updated_count = before.len();
+        AuditService::log_activity_tx(
+            &mut tx,
+            actor,
+            ActivityLogEntry {
+                event_category: "FACILITY",
+                event_type: "FACILITY_PEN_APPLY_SIZE",
+                entity: Some(AuditEntity::new("zone", zone_id, &zone_code)),
+                data_diff: Some(DataDiff::create_only(&ApplyPenSizeAudit {
+                    zone_id,
+                    length_m,
+                    width_m,
+                    updated_count,
+                    before: before
+                        .into_iter()
+                        .map(|(pen_id, code, length_m, width_m)| PenSizeBefore {
+                            pen_id,
+                            code,
+                            length_m,
+                            width_m,
+                        })
+                        .collect(),
+                })),
+                request_context: None,
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(ApplyPenSizeResult {
+            updated_count: updated_count as i64,
+        })
     }
 
     pub async fn get_pen(pool: &PgPool, id: Uuid) -> Result<Pen> {
@@ -915,11 +1058,12 @@ impl FacilityService {
         actor: &ActorContext,
         payload: &CreatePenRequest,
     ) -> Result<Pen> {
+        let dimensions = pen_floor_area::validate_dimensions(payload.length_m, payload.width_m)?;
         let mut tx = pool.begin().await?;
         let pen = sqlx::query_as::<_, Pen>(
             r#"
-            INSERT INTO pens (id, zone_id, code, name, capacity, row_index, col_index)
-            VALUES ($1, $2, $3, $4, COALESCE($5, 1), $6, $7)
+            INSERT INTO pens (id, zone_id, code, name, capacity, row_index, col_index, length_m, width_m)
+            VALUES ($1, $2, $3, $4, COALESCE($5, 1), $6, $7, $8, $9)
             RETURNING *
             "#,
         )
@@ -930,6 +1074,8 @@ impl FacilityService {
         .bind(payload.capacity)
         .bind(payload.row_index)
         .bind(payload.col_index)
+        .bind(dimensions.map(|(length, _)| length))
+        .bind(dimensions.map(|(_, width)| width))
         .fetch_one(&mut *tx)
         .await?;
         AuditService::log_activity_tx(
@@ -965,6 +1111,7 @@ impl FacilityService {
             ));
         }
 
+        let dimensions = pen_floor_area::validate_dimensions(payload.length_m, payload.width_m)?;
         let is_double = payload.layout == "double";
         let half = if is_double {
             (payload.count + 1) / 2
@@ -994,8 +1141,8 @@ impl FacilityService {
             // （no unique constraint matching the ON CONFLICT specification）→ 整批失敗。
             let pen = sqlx::query_as::<_, Pen>(
                 r#"
-                INSERT INTO pens (id, zone_id, code, name, capacity, row_index, col_index)
-                VALUES ($1, $2, $3, $3, $4, $5, $6)
+                INSERT INTO pens (id, zone_id, code, name, capacity, row_index, col_index, length_m, width_m)
+                VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8)
                 ON CONFLICT (zone_id, code) WHERE is_active = true DO NOTHING
                 RETURNING *
                 "#,
@@ -1006,6 +1153,8 @@ impl FacilityService {
             .bind(payload.capacity)
             .bind(row_index)
             .bind(col_index)
+            .bind(dimensions.map(|(length, _)| length))
+            .bind(dimensions.map(|(_, width)| width))
             .fetch_optional(&mut *tx)
             .await?;
 
@@ -1057,6 +1206,8 @@ impl FacilityService {
         id: Uuid,
         payload: &UpdatePenRequest,
     ) -> Result<Pen> {
+        // 兩個都不給 = 不改尺寸；只給一個、或值不合理 → 400
+        let dimensions = pen_floor_area::validate_dimensions(payload.length_m, payload.width_m)?;
         let mut tx = pool.begin().await?;
         let before = sqlx::query_as::<_, Pen>("SELECT * FROM pens WHERE id = $1 FOR UPDATE")
             .bind(id)
@@ -1071,6 +1222,8 @@ impl FacilityService {
                 row_index = COALESCE($5, row_index),
                 col_index = COALESCE($6, col_index),
                 is_active = COALESCE($7, is_active),
+                length_m = COALESCE($8, length_m),
+                width_m = COALESCE($9, width_m),
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
@@ -1083,6 +1236,8 @@ impl FacilityService {
         .bind(payload.row_index)
         .bind(payload.col_index)
         .bind(payload.is_active)
+        .bind(dimensions.map(|(length, _)| length))
+        .bind(dimensions.map(|(_, width)| width))
         .fetch_one(&mut *tx)
         .await?;
         AuditService::log_activity_tx(

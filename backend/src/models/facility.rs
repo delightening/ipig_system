@@ -2,6 +2,7 @@
 // 包含：Species, Facility, Building, Zone, Pen, Department
 
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use utoipa::ToSchema;
@@ -239,6 +240,36 @@ pub struct Pen {
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// 欄位長度（公尺）；與 `width_m` 同時有值或同時為空
+    pub length_m: Option<Decimal>,
+    /// 欄位寬度（公尺）
+    pub width_m: Option<Decimal>,
+}
+
+/// 欄位地板面積判定結果（只警示，不擋操作）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FloorAreaStatus {
+    /// 所需面積不超過欄位面積
+    Ok,
+    /// 所需面積超過欄位面積
+    Exceeded,
+    /// 欄位沒有填長寬，無法判定
+    NoArea,
+}
+
+/// 欄位地板面積檢視：依欄內動物的最新體重與隻數，對照最小地板面積表算出所需面積。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, ToSchema)]
+pub struct PenFloorArea {
+    pub status: FloorAreaStatus,
+    /// 欄位面積（m²）；沒填長寬為空
+    pub area_m2: Option<Decimal>,
+    /// 欄內動物所需的最小地板面積合計（m²）；缺體重的動物不計入
+    pub required_area_m2: Decimal,
+    /// 欄內動物數（含缺體重者，決定適用單獨／2–5 隻／6 隻以上哪一段）
+    pub animal_count: i64,
+    /// 缺體重而無法計入所需面積的動物數
+    pub animals_missing_weight: i64,
 }
 
 #[derive(Debug, Serialize, FromRow, ToSchema)]
@@ -251,6 +282,11 @@ pub struct PenDetails {
     pub status: String,
     pub row_index: Option<i32>,
     pub col_index: Option<i32>,
+    pub length_m: Option<Decimal>,
+    pub width_m: Option<Decimal>,
+    /// 由後端依體重與隻數算出，不在資料表內
+    #[sqlx(skip)]
+    pub floor_area: Option<PenFloorArea>,
     pub zone_id: Uuid,
     pub zone_code: String,
     pub zone_name: Option<String>,
@@ -272,6 +308,10 @@ pub struct CreatePenRequest {
     pub capacity: Option<i32>,
     pub row_index: Option<i32>,
     pub col_index: Option<i32>,
+    /// 欄位長度（公尺，最多兩位小數）；須與 `width_m` 一起給
+    pub length_m: Option<Decimal>,
+    /// 欄位寬度（公尺，最多兩位小數）
+    pub width_m: Option<Decimal>,
 }
 
 /// 批次建立欄位請求
@@ -288,6 +328,10 @@ pub struct BatchCreatePensRequest {
     /// 每欄容量
     #[serde(default = "default_pen_capacity")]
     pub capacity: i32,
+    /// 每欄長度（公尺）；須與 `width_m` 一起給
+    pub length_m: Option<Decimal>,
+    /// 每欄寬度（公尺）
+    pub width_m: Option<Decimal>,
 }
 
 fn default_pen_layout() -> String {
@@ -305,6 +349,30 @@ pub struct UpdatePenRequest {
     pub row_index: Option<i32>,
     pub col_index: Option<i32>,
     pub is_active: Option<bool>,
+    /// 欄位長度（公尺）；須與 `width_m` 一起給，兩者都不給表示不改尺寸
+    pub length_m: Option<Decimal>,
+    /// 欄位寬度（公尺）
+    pub width_m: Option<Decimal>,
+}
+
+/// 把同一個尺寸套用到整個區內所有啟用中的欄位。
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ApplyPenSizeRequest {
+    pub length_m: Decimal,
+    pub width_m: Decimal,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ApplyPenSizeResult {
+    /// 實際更新的欄位數
+    pub updated_count: i64,
+}
+
+/// 放入預覽的查詢參數：問「再放一隻這個體重的動物，欄位會不會超標」。
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
+pub struct PenAreaPreviewQuery {
+    /// 預計放入動物的體重（公斤）；不給就回目前狀態
+    pub add_weight_kg: Option<Decimal>,
 }
 
 #[derive(Debug, Deserialize)]

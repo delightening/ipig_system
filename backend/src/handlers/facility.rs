@@ -15,12 +15,13 @@ use uuid::Uuid;
 use crate::{
     middleware::CurrentUser,
     models::{
-        BatchCreatePensRequest, Building, BuildingWithFacility, CommitteeMember,
-        CreateBuildingRequest, CreateDepartmentRequest, CreateFacilityRequest, CreatePenRequest,
-        CreateSpeciesRequest, CreateZoneRequest, Department, DepartmentMember,
-        DepartmentWithManager, Facility, Pen, PenDetails, PenQuery, Species, SpeciesListItem,
-        SpeciesListQuery, UpdateBuildingRequest, UpdateDepartmentRequest, UpdateFacilityRequest,
-        UpdatePenRequest, UpdateSpeciesRequest, UpdateZoneRequest, Zone, ZoneWithBuilding,
+        ApplyPenSizeRequest, ApplyPenSizeResult, BatchCreatePensRequest, Building,
+        BuildingWithFacility, CommitteeMember, CreateBuildingRequest, CreateDepartmentRequest,
+        CreateFacilityRequest, CreatePenRequest, CreateSpeciesRequest, CreateZoneRequest,
+        Department, DepartmentMember, DepartmentWithManager, Facility, Pen, PenAreaPreviewQuery,
+        PenDetails, PenFloorArea, PenQuery, Species, SpeciesListItem, SpeciesListQuery,
+        UpdateBuildingRequest, UpdateDepartmentRequest, UpdateFacilityRequest, UpdatePenRequest,
+        UpdateSpeciesRequest, UpdateZoneRequest, Zone, ZoneWithBuilding,
     },
     require_permission,
     services::{FacilityService, UserService},
@@ -348,6 +349,31 @@ pub async fn update_pen(
     let actor = crate::middleware::ActorContext::User(current_user.clone());
     let pen = FacilityService::update_pen(&state.db, &actor, id, &payload).await?;
     Ok(Json(pen))
+}
+
+/// 放入預覽：再放一隻指定體重的動物，欄位會不會超標（只回結果，不擋、不寫入）
+#[utoipa::path(get, path = "/api/v1/facilities/pens/{id}/area-preview", params(("id" = Uuid, Path, description = "欄位 ID"), PenAreaPreviewQuery), responses((status = 200, description = "地板面積檢視", body = PenFloorArea)), tag = "設施管理", security(("bearer" = [])))]
+pub async fn pen_area_preview(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Query(params): Query<PenAreaPreviewQuery>,
+) -> Result<Json<PenFloorArea>> {
+    let preview = FacilityService::pen_area_preview(&state.db, id, params.add_weight_kg).await?;
+    Ok(Json(preview))
+}
+
+/// 把同一個尺寸套用到區內所有啟用中的欄位
+#[utoipa::path(post, path = "/api/v1/facilities/zones/{id}/apply-pen-size", params(("id" = Uuid, Path, description = "區域 ID")), request_body = ApplyPenSizeRequest, responses((status = 200, description = "套用成功", body = ApplyPenSizeResult)), tag = "設施管理", security(("bearer" = [])))]
+pub async fn apply_pen_size(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<ApplyPenSizeRequest>,
+) -> Result<Json<ApplyPenSizeResult>> {
+    require_permission!(current_user, "facility.manage");
+    let actor = crate::middleware::ActorContext::User(current_user.clone());
+    let result = FacilityService::apply_pen_size(&state.db, &actor, id, &payload).await?;
+    Ok(Json(result))
 }
 
 /// 刪除欄位

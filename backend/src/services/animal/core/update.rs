@@ -228,6 +228,8 @@ impl AnimalService {
                 let lock_ids: Vec<Uuid> = before.pen_id.into_iter().chain([pen.id]).collect();
                 Self::lock_pens_for_assignment(&mut tx, &lock_ids).await?;
                 Self::validate_pen_for_assignment(&mut tx, pen.id).await?;
+                // 地板面積要靠體重算：完全沒有體重的動物不可放入（只擋換欄位，原欄回填不受影響）
+                Self::ensure_animal_has_weight(&mut tx, id).await?;
             }
         }
 
