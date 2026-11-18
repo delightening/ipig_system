@@ -107,6 +107,7 @@ function ZoneGrid({ zone, pens, canManage }: {
   const [dragPen, setDragPen] = useState<PenDetails | null>(null)
   const [dropTarget, setDropTarget] = useState<{ row: number; col: number } | null>(null)
   const [applySizeOpen, setApplySizeOpen] = useState(false)
+  const applySizeButtonRef = useRef<HTMLButtonElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
 
   const updateMutation = useMutation({
@@ -189,7 +190,7 @@ function ZoneGrid({ zone, pens, canManage }: {
         </span>
         <Badge variant="secondary" className="text-xs">{t('admin.penLayoutPreview.penCount', { count: pens.length })}</Badge>
         {canManage && zone && (
-          <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => setApplySizeOpen(true)}>
+          <Button ref={applySizeButtonRef} type="button" variant="outline" size="sm" className="ml-auto" onClick={() => setApplySizeOpen(true)}>
             <Ruler className="h-4 w-4 mr-1" /> {t('admin.penLayoutPreview.applySizeButton')}
           </Button>
         )}
@@ -253,7 +254,7 @@ function ZoneGrid({ zone, pens, canManage }: {
         <p className="text-xs text-muted-foreground mt-2">{t('admin.penLayoutPreview.dragHint')}</p>
       )}
       {canManage && zone && (
-        <ApplyPenSizeDialog open={applySizeOpen} onOpenChange={setApplySizeOpen} zone={zone} pens={pens} />
+        <ApplyPenSizeDialog open={applySizeOpen} onOpenChange={setApplySizeOpen} zone={zone} pens={pens} returnFocusRef={applySizeButtonRef} />
       )}
     </div>
   )

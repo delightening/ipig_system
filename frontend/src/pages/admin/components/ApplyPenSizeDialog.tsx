@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type RefObject } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AxiosError } from 'axios'
@@ -18,10 +18,12 @@ interface ApplyPenSizeDialogProps {
   zone: ZoneWithBuilding
   /** 該區目前列出的欄位，用來告知「套用到幾個、其中幾個已有尺寸會被覆蓋」 */
   pens: PenDetails[]
+  /** 關閉時把焦點還給開啟它的按鈕（本對話框由 state 開啟、沒有 DialogTrigger，Radix 不知道要回哪裡） */
+  returnFocusRef?: RefObject<HTMLElement | null>
 }
 
 /** 把同一個長寬一次套用到整個區（單一交易、單一稽核事件，套用前的值會被記錄） */
-export function ApplyPenSizeDialog({ open, onOpenChange, zone, pens }: ApplyPenSizeDialogProps) {
+export function ApplyPenSizeDialog({ open, onOpenChange, zone, pens, returnFocusRef }: ApplyPenSizeDialogProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [length, setLength] = useState('')
@@ -69,7 +71,14 @@ export function ApplyPenSizeDialog({ open, onOpenChange, zone, pens }: ApplyPenS
   return (
     // 送出中不可關閉：關掉對話框並不會取消已送出的寫入，使用者會誤以為沒套用
     <Dialog open={open} onOpenChange={o => { if (mutation.isPending) return; if (!o) close(); else onOpenChange(true) }}>
-      <DialogContent>
+      <DialogContent
+        onCloseAutoFocus={e => {
+          // 沒有 DialogTrigger，Radix 無處可回；有給目標才接手，沒給就維持預設
+          if (!returnFocusRef?.current) return
+          e.preventDefault()
+          returnFocusRef.current.focus()
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{t('admin.penLayoutPreview.applySizeTitle')}</DialogTitle>
           <DialogDescription>{t('admin.penLayoutPreview.applySizeDescription', { zone: zoneLabel })}</DialogDescription>

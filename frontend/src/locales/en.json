@@ -3559,7 +3559,7 @@
       "applySizeSubmit": "Apply",
       "applySizeSuccess": "Applied to {{count}} pen(s)",
       "applySizeFailed": "Failed to apply",
-      "applySizeUnknown": "The result is uncertain. Pen data has been reloaded; please check before retrying",
+      "applySizeUnknown": "The result is uncertain. A reload of pen data was requested; confirm the list has updated before retrying",
       "unplacedHeading": "Unplaced or overlapping pens"
     },
     "auditDashboardTab": {

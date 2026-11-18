@@ -2,7 +2,7 @@ import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/ui/form-field'
-import { formatMeters, penAreaM2, type PenSizeError } from '../utils/penSize'
+import { formatArea, penAreaM2, type PenSizeError } from '../utils/penSize'
 
 interface PenSizeFieldsProps {
   length: string
@@ -54,7 +54,7 @@ export function PenSizeFields({
         <p className="text-sm text-destructive" role="alert">{t(`admin.penTab.size_${errorKey}`)}</p>
       ) : area !== null ? (
         <p className="text-sm text-muted-foreground tabular-nums">
-          {t('admin.penTab.computedArea', { area: formatMeters(area) })}
+          {t('admin.penTab.computedArea', { area: formatArea(area) })}
         </p>
       ) : (
         <p className="text-xs text-muted-foreground">

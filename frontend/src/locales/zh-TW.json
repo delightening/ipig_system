@@ -3628,7 +3628,7 @@
       "applySizeSubmit": "套用",
       "applySizeSuccess": "已套用到 {{count}} 個欄位",
       "applySizeFailed": "套用失敗",
-      "applySizeUnknown": "套用結果不確定，已重新載入欄位資料，請確認後再決定是否重試",
+      "applySizeUnknown": "套用結果不確定，已要求重新載入欄位資料，請確認列表已更新後再決定是否重試",
       "unplacedHeading": "未排位或位置重複的欄位"
     },
     "auditDashboardTab": {
