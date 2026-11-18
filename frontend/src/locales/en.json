@@ -2809,7 +2809,10 @@
       "fieldWidth": "Width (m)",
       "sizeHint": "Fill in both length and width, or leave both empty; up to 2 decimals",
       "computedArea": "Area {{area}} m²",
+      "sizeHintRequired": "Both length and width are required; up to 2 decimals",
       "size_bothOrNone": "Enter both length and width, or leave both empty",
+      "size_bothRequired": "Both length and width are required",
+      "size_cannotClear": "A pen that already has a size cannot be cleared; enter a new length and width instead",
       "size_invalid": "Enter a number greater than 0 (up to 2 decimals)",
       "size_tooLarge": "Length and width cannot exceed 100 m",
       "areaFormula": "{{length}} × {{width}} m = {{area}} m²",
@@ -3555,7 +3558,9 @@
       "applySizeOverwrite": "{{count}} of them already have a size and will be overwritten (previous values are recorded in the audit log).",
       "applySizeSubmit": "Apply",
       "applySizeSuccess": "Applied to {{count}} pen(s)",
-      "applySizeFailed": "Failed to apply"
+      "applySizeFailed": "Failed to apply",
+      "applySizeUnknown": "The result is uncertain. Pen data has been reloaded; please check before retrying",
+      "unplacedHeading": "Unplaced or overlapping pens"
     },
     "auditDashboardTab": {
       "activeUsersToday": "Active Users Today",

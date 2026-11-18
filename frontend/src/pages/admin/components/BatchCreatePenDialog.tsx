@@ -188,7 +188,7 @@ export function BatchCreatePenDialog({ open, onOpenChange, zones }: BatchCreateP
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
+            <Button type="button" variant="outline" onClick={() => { reset(INITIAL); onOpenChange(false) }}>{t('common.cancel')}</Button>
             <Button type="submit" disabled={!isValid || mutation.isPending || sizeError !== null}>
               {mutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
               {t('admin.batchCreatePenDialog.submit', { count })}

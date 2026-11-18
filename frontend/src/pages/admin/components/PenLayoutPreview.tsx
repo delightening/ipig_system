@@ -13,7 +13,17 @@ import type { PenDetails, UpdatePenRequest } from '@/types/facility'
 import type { ZoneWithBuilding } from '@/types/facility'
 import { cn } from '@/lib/utils'
 import { ApplyPenSizeDialog } from './ApplyPenSizeDialog'
-import { formatMeters } from '../utils/penSize'
+import { exactAreaM2, formatArea, formatMeters } from '../utils/penSize'
+
+/** 超標時的「需／有」面積字串參數；非超標回 null。有面積用長寬算的精確值（後端 area_m2 已四捨五入） */
+function exceededAreaArgs(pen: PenDetails): { required: string; area: string } | null {
+  const fa = pen.floor_area
+  if (fa?.status !== 'exceeded' || fa.area_m2 == null) return null
+  return {
+    required: formatMeters(fa.required_area_m2),
+    area: formatArea(exactAreaM2(pen.length_m, pen.width_m, Number(fa.area_m2))),
+  }
+}
 
 interface PenLayoutPreviewProps {
   pens: PenDetails[]
@@ -116,15 +126,19 @@ function ZoneGrid({ zone, pens, canManage }: {
   const rows = maxRow + 1
   const cols = maxCol + 1
 
-  // 建立 grid map
-  const gridMap = useMemo(() => {
+  // 建立 grid map；未排位（沒有座標）或座標重複的欄位不能互相覆蓋，否則被蓋掉的那格連同它的超標警示會消失，
+  // 改為另外列出（extraPens）
+  const { gridMap, extraPens } = useMemo(() => {
     const map = new Map<string, PenDetails>()
+    const extra: PenDetails[] = []
     for (const pen of pens) {
       const key = `${pen.row_index ?? 0}-${pen.col_index ?? 0}`
-      map.set(key, pen)
+      if (map.has(key)) extra.push(pen)
+      else map.set(key, pen)
     }
-    return map
+    return { gridMap: map, extraPens: extra }
   }, [pens])
+  const exceededPens = pens.filter(p => exceededAreaArgs(p) !== null)
 
   const color = zone?.color || '#94a3b8'
 
@@ -203,6 +217,35 @@ function ZoneGrid({ zone, pens, canManage }: {
           })
         )}
       </div>
+      {extraPens.length > 0 && (
+        <div className="mt-2">
+          <p className="text-xs text-muted-foreground mb-1">{t('admin.penLayoutPreview.unplacedHeading')}</p>
+          <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+            {extraPens.map(pen => (
+              <PenCell
+                key={pen.id}
+                pen={pen}
+                color={color}
+                isDragging={dragPen?.id === pen.id}
+                isDropTarget={false}
+                canManage={canManage}
+                onDragStart={() => handleDragStart(pen)}
+                onDragOver={() => undefined}
+                onDrop={() => undefined}
+                onDragEnd={() => { setDragPen(null); setDropTarget(null) }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+      {exceededPens.length > 0 && (
+        // 超標資訊不只靠游標移上去的提示：觸控與鍵盤使用者也要看得到
+        <ul className="mt-2 space-y-0.5 text-xs text-status-warning-solid">
+          {exceededPens.map(pen => (
+            <li key={pen.id}>{pen.code} — {t('admin.penLayoutPreview.cellAreaExceeded', exceededAreaArgs(pen) ?? undefined)}</li>
+          ))}
+        </ul>
+      )}
       {canManage && pens.length > 1 && (
         <p className="text-xs text-muted-foreground mt-2">{t('admin.penLayoutPreview.dragHint')}</p>
       )}
@@ -248,12 +291,10 @@ function PenCell({ pen, color, isDragging, isDropTarget, canManage, onDragStart,
     : t('admin.penLayoutPreview.cellTitle', { code: pen.code, current: pen.current_count, capacity: pen.capacity })
 
   // 地板面積：超標加橘框與「!」，游標移上去顯示「需 X／有 Y」；未設定（no_area）維持原樣
-  const exceeded = pen.floor_area?.status === 'exceeded' && pen.floor_area.area_m2 != null
-  const penTitle = exceeded && pen.floor_area
-    ? `${baseTitle} — ${t('admin.penLayoutPreview.cellAreaExceeded', {
-      required: formatMeters(pen.floor_area.required_area_m2),
-      area: formatMeters(pen.floor_area.area_m2 ?? 0),
-    })}`
+  const exceededArgs = exceededAreaArgs(pen)
+  const exceeded = exceededArgs !== null
+  const penTitle = exceededArgs
+    ? `${baseTitle} — ${t('admin.penLayoutPreview.cellAreaExceeded', exceededArgs)}`
     : baseTitle
 
   return (
@@ -272,10 +313,11 @@ function PenCell({ pen, color, isDragging, isDropTarget, canManage, onDragStart,
       )}
       style={{ backgroundColor: statusColor }}
       title={penTitle}
-      aria-label={penTitle}
     >
       {canManage && <GripVertical className="h-3 w-3 mr-0.5 opacity-50" />}
       {pen.code}
+      {/* 一般 div 上的 aria-label 讀不到，改放螢幕閱讀器專用文字（含超標資訊） */}
+      <span className="sr-only">{penTitle}</span>
       {exceeded && (
         <span
           aria-hidden="true"

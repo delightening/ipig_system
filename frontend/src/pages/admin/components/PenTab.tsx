@@ -26,7 +26,7 @@ import { BatchCreatePenDialog } from './BatchCreatePenDialog'
 import { PenLayoutPreview } from './PenLayoutPreview'
 import { PenFloorAreaCell } from './PenFloorAreaCell'
 import { PenSizeFields } from './PenSizeFields'
-import { validatePenSize } from '../utils/penSize'
+import { validatePenSize, type PenSizeError } from '../utils/penSize'
 
 interface PenCreateFormData {
   zone_id: string
@@ -98,13 +98,13 @@ export function PenTab({ canManage }: { canManage: boolean }) {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: PenEditFormData }) => facilityApi.updatePen(id, {
+    mutationFn: ({ id, data, sizeChanged }: { id: string; data: PenEditFormData; sizeChanged: boolean }) => facilityApi.updatePen(id, {
       name: data.name || undefined,
       capacity: data.capacity,
       status: data.status,
-      // 後端：長寬都不給＝不改尺寸
-      length_m: data.length_m.trim() || undefined,
-      width_m: data.width_m.trim() || undefined,
+      // 後端：長寬都不給＝不改尺寸；沒動過尺寸就不送，避免只改名稱也重寫尺寸
+      length_m: sizeChanged ? data.length_m.trim() || undefined : undefined,
+      width_m: sizeChanged ? data.width_m.trim() || undefined : undefined,
     }),
     onSuccess: () => { invalidate(); dialogs.close('edit'); toast({ title: t('admin.penTab.updateSuccess') }) },
     onError: (err: unknown) => toast({ title: t('admin.penTab.updateFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
@@ -140,7 +140,9 @@ export function PenTab({ canManage }: { canManage: boolean }) {
 
   const onCreateSubmit = createForm.handleSubmit(data => createMutation.mutate(data))
   const onEditSubmit = editForm.handleSubmit(data => {
-    if (editing) updateMutation.mutate({ id: editing.id, data })
+    if (!editing) return
+    const sizeChanged = data.length_m.trim() !== (editing.length_m ?? '') || data.width_m.trim() !== (editing.width_m ?? '')
+    updateMutation.mutate({ id: editing.id, data, sizeChanged })
   })
 
   const statusBadgeVariant = (s: string) => s === 'active' ? 'default' : s === 'empty' ? 'secondary' : 'outline'
@@ -153,7 +155,9 @@ export function PenTab({ canManage }: { canManage: boolean }) {
   const editLength = editForm.watch('length_m')
   const editWidth = editForm.watch('width_m')
   const createSizeError = validatePenSize(createLength, createWidth)
-  const editSizeError = validatePenSize(editLength, editWidth)
+  // 已有尺寸的欄位不能清空：後端把「都不給」當成不改，清空後儲存會靜默沒有效果，不如直接擋下並說明
+  const editSizeError: PenSizeError | null = validatePenSize(editLength, editWidth)
+    ?? (editing?.length_m != null && !editLength.trim() && !editWidth.trim() ? 'cannotClear' : null)
 
   return (
     <div className="space-y-4">

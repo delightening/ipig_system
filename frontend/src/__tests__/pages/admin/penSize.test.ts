@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMeters, penAreaM2, validatePenSize } from '@/pages/admin/utils/penSize'
+import { exactAreaM2, formatArea, formatMeters, penAreaM2, validatePenSize } from '@/pages/admin/utils/penSize'
 
 describe('validatePenSize', () => {
   it('兩格皆空是合法的（表示不填尺寸）', () => {
@@ -46,6 +46,34 @@ describe('penAreaM2', () => {
     expect(penAreaM2(null, '3.00')).toBeNull()
     expect(penAreaM2('2.40', undefined)).toBeNull()
     expect(penAreaM2('abc', '3.00')).toBeNull()
+  })
+})
+
+describe('formatArea', () => {
+  it('最多四位小數、至少兩位，尾端多餘的 0 去掉', () => {
+    expect(formatArea(3.24)).toBe('3.24')
+    expect(formatArea(3)).toBe('3.00')
+    expect(formatArea(3.2)).toBe('3.20')
+    expect(formatArea('3.205')).toBe('3.205')
+  })
+
+  it('差不到 0.01 的短缺仍看得出來（後端面積已四捨五入到兩位）', () => {
+    // 1.55 × 2.09 = 3.2395：四捨五入成 3.24 會和需求 3.24 看起來一樣
+    const exact = penAreaM2('1.55', '2.09')
+    expect(exact).toBe(3.2395)
+    expect(formatArea(exact ?? 0)).toBe('3.2395')
+    expect(formatArea(3.24 - (exact ?? 0))).toBe('0.0005')
+  })
+})
+
+describe('exactAreaM2', () => {
+  it('有長寬時用長寬算，不用後端已捨入的值', () => {
+    expect(exactAreaM2('1.55', '2.09', 3.24)).toBe(3.2395)
+  })
+
+  it('長寬缺少或無效才退回後端的值', () => {
+    expect(exactAreaM2(null, '2.09', 3.24)).toBe(3.24)
+    expect(exactAreaM2('abc', '2.09', 3.24)).toBe(3.24)
   })
 })
 

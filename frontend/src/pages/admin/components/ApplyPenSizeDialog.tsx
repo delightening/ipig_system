@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { AxiosError } from 'axios'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -37,22 +38,37 @@ export function ApplyPenSizeDialog({ open, onOpenChange, zone, pens }: ApplyPenS
     onOpenChange(false)
   }
 
+  const refreshPens = () => {
+    queryClient.invalidateQueries({ queryKey: ['pens'] })
+    queryClient.invalidateQueries({ queryKey: ['facility-pens'] })
+  }
+
+  // 送出的長寬在點擊當下就固定成變數，不在 mutation 真正執行時才讀 state
   const mutation = useMutation({
-    mutationFn: () => facilityApi.applyPenSize(zone.id, { length_m: length.trim(), width_m: width.trim() }),
+    mutationFn: (size: { length_m: string; width_m: string }) => facilityApi.applyPenSize(zone.id, size),
     onSuccess: res => {
-      queryClient.invalidateQueries({ queryKey: ['pens'] })
-      queryClient.invalidateQueries({ queryKey: ['facility-pens'] })
+      refreshPens()
       toast({ title: t('admin.penLayoutPreview.applySizeSuccess', { count: res.data.updated_count }) })
       close()
     },
-    onError: (err: unknown) =>
-      toast({ title: t('admin.penLayoutPreview.applySizeFailed'), description: getApiErrorMessage(err), variant: 'destructive' }),
+    onError: (err: unknown) => {
+      // 沒收到回應或伺服器端錯誤時，不能確定寫入有沒有成功：重新載入欄位資料並如實告知，
+      // 讓使用者確認後再決定要不要重試；明確的 4xx 拒絕則維持原本「修正後再送」流程
+      const unknownOutcome = err instanceof AxiosError && (!err.response || err.response.status >= 500)
+      if (unknownOutcome) refreshPens()
+      toast({
+        title: t(unknownOutcome ? 'admin.penLayoutPreview.applySizeUnknown' : 'admin.penLayoutPreview.applySizeFailed'),
+        description: getApiErrorMessage(err),
+        variant: 'destructive',
+      })
+    },
   })
 
   const zoneLabel = t('admin.penLayoutPreview.zoneLabel', { building: zone.building_code, zone: zone.code })
 
   return (
-    <Dialog open={open} onOpenChange={o => { if (!o) close(); else onOpenChange(true) }}>
+    // 送出中不可關閉：關掉對話框並不會取消已送出的寫入，使用者會誤以為沒套用
+    <Dialog open={open} onOpenChange={o => { if (mutation.isPending) return; if (!o) close(); else onOpenChange(true) }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('admin.penLayoutPreview.applySizeTitle')}</DialogTitle>
@@ -77,10 +93,10 @@ export function ApplyPenSizeDialog({ open, onOpenChange, zone, pens }: ApplyPenS
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={close}>{t('common.cancel')}</Button>
+          <Button type="button" variant="outline" onClick={close} disabled={mutation.isPending}>{t('common.cancel')}</Button>
           <Button
             type="button"
-            onClick={() => mutation.mutate()}
+            onClick={() => mutation.mutate({ length_m: length.trim(), width_m: width.trim() })}
             disabled={mutation.isPending || bothEmpty || sizeError !== null || pens.length === 0}
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}

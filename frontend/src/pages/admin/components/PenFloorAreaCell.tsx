@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import type { PenDetails } from '@/types/facility'
-import { formatMeters } from '../utils/penSize'
+import { exactAreaM2, formatArea, formatMeters } from '../utils/penSize'
 
 type AreaBadge = { variant: 'success' | 'warning' | 'secondary'; labelKey: string }
 
@@ -36,7 +36,9 @@ export function PenFloorAreaCell({ pen }: { pen: PenDetails }) {
     )
   }
 
-  const area = Number(fa.area_m2)
+  // 後端的 area_m2 已四捨五入到兩位，但超標判定用未捨入的值；改由長寬算精確面積，
+  // 才不會出現「顯示剛好夠、卻標超標」
+  const area = exactAreaM2(pen.length_m, pen.width_m, Number(fa.area_m2))
   const required = Number(fa.required_area_m2)
   const diff = Math.abs(area - required)
 
@@ -46,15 +48,15 @@ export function PenFloorAreaCell({ pen }: { pen: PenDetails }) {
         {t('admin.penTab.areaFormula', {
           length: formatMeters(pen.length_m ?? 0),
           width: formatMeters(pen.width_m ?? 0),
-          area: formatMeters(area),
+          area: formatArea(area),
         })}
       </span>
       <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
         {t('admin.penTab.areaNeed', { required: formatMeters(required) })}
         {' · '}
         {fa.status === 'exceeded'
-          ? t('admin.penTab.areaOver', { over: formatMeters(diff) })
-          : t('admin.penTab.areaLeft', { left: formatMeters(diff) })}
+          ? t('admin.penTab.areaOver', { over: formatArea(diff) })
+          : t('admin.penTab.areaLeft', { left: formatArea(diff) })}
       </span>
       {fa.animals_missing_weight > 0 && (
         <span className="text-xs text-muted-foreground whitespace-nowrap">

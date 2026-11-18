@@ -2878,7 +2878,10 @@
       "fieldWidth": "寬（公尺）",
       "sizeHint": "長、寬須一起填或一起留空；最多兩位小數",
       "computedArea": "面積 {{area}} m²",
+      "sizeHintRequired": "長、寬皆必填；最多兩位小數",
       "size_bothOrNone": "長與寬須一起填寫，或一起留空",
+      "size_bothRequired": "長與寬都必須填寫",
+      "size_cannotClear": "已設定尺寸的欄位不能清空；請改填新的長與寬",
       "size_invalid": "請輸入大於 0 的數字（最多兩位小數）",
       "size_tooLarge": "長、寬不可超過 100 公尺",
       "areaFormula": "{{length}} × {{width}} m = {{area}} m²",
@@ -3624,7 +3627,9 @@
       "applySizeOverwrite": "其中 {{count}} 個已有尺寸，會被覆蓋（套用前的值會記錄在稽核紀錄）。",
       "applySizeSubmit": "套用",
       "applySizeSuccess": "已套用到 {{count}} 個欄位",
-      "applySizeFailed": "套用失敗"
+      "applySizeFailed": "套用失敗",
+      "applySizeUnknown": "套用結果不確定，已重新載入欄位資料，請確認後再決定是否重試",
+      "unplacedHeading": "未排位或位置重複的欄位"
     },
     "auditDashboardTab": {
       "activeUsersToday": "今日活躍用戶",
