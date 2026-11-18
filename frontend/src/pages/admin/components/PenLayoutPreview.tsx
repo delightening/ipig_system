@@ -138,7 +138,10 @@ function ZoneGrid({ zone, pens, canManage }: {
     }
     return { gridMap: map, extraPens: extra }
   }, [pens])
-  const exceededPens = pens.filter(p => exceededAreaArgs(p) !== null)
+  const exceededPens = pens.flatMap(pen => {
+    const args = exceededAreaArgs(pen)
+    return args ? [{ pen, args }] : []
+  })
 
   const color = zone?.color || '#94a3b8'
 
@@ -241,8 +244,8 @@ function ZoneGrid({ zone, pens, canManage }: {
       {exceededPens.length > 0 && (
         // 超標資訊不只靠游標移上去的提示：觸控與鍵盤使用者也要看得到
         <ul className="mt-2 space-y-0.5 text-xs text-status-warning-solid">
-          {exceededPens.map(pen => (
-            <li key={pen.id}>{pen.code} — {t('admin.penLayoutPreview.cellAreaExceeded', exceededAreaArgs(pen) ?? undefined)}</li>
+          {exceededPens.map(({ pen, args }) => (
+            <li key={pen.id}>{pen.code} — {t('admin.penLayoutPreview.cellAreaExceeded', args)}</li>
           ))}
         </ul>
       )}
