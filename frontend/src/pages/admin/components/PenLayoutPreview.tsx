@@ -127,17 +127,33 @@ function ZoneGrid({ zone, pens, canManage }: {
   const rows = maxRow + 1
   const cols = maxCol + 1
 
-  // 建立 grid map；未排位（沒有座標）或座標重複的欄位不能互相覆蓋，否則被蓋掉的那格連同它的超標警示會消失，
-  // 改為另外列出（extraPens）
-  const { gridMap, extraPens } = useMemo(() => {
+  // 建立 grid map；未排位（任一座標為空）或座標重複的欄位不能互相覆蓋，否則被蓋掉的那格連同它的超標警示會消失，
+  // 改為另外列出（extraPens）。沒座標的一律直接進 extraPens，不能當成 (0,0) 去和真正在 (0,0) 的欄位搶格子，
+  // 否則畫面會取決於陣列順序。
+  // noSwapIds：不能做「兩格互換」的欄位——未排位、重複的，以及和它們共用同一格的。
+  // 互換會把對方搬到這些欄位登記的舊格子，而那格還有別人，只會製造新的撞位。
+  const { gridMap, extraPens, noSwapIds } = useMemo(() => {
     const map = new Map<string, PenDetails>()
     const extra: PenDetails[] = []
+    const crowdedKeys = new Set<string>()
     for (const pen of pens) {
-      const key = `${pen.row_index ?? 0}-${pen.col_index ?? 0}`
-      if (map.has(key)) extra.push(pen)
-      else map.set(key, pen)
+      if (pen.row_index == null || pen.col_index == null) {
+        extra.push(pen)
+        continue
+      }
+      const key = `${pen.row_index}-${pen.col_index}`
+      if (map.has(key)) {
+        extra.push(pen)
+        crowdedKeys.add(key)
+      } else {
+        map.set(key, pen)
+      }
     }
-    return { gridMap: map, extraPens: extra }
+    const noSwap = new Set<string>(extra.map(p => p.id))
+    for (const [key, pen] of map) {
+      if (crowdedKeys.has(key)) noSwap.add(pen.id)
+    }
+    return { gridMap: map, extraPens: extra, noSwapIds: noSwap }
   }, [pens])
   const exceededPens = pens.flatMap(pen => {
     const args = exceededAreaArgs(pen)
@@ -162,6 +178,13 @@ function ZoneGrid({ zone, pens, canManage }: {
 
     // Swap positions
     if (targetPen && targetPen.id !== dragPen.id) {
+      if (noSwapIds.has(dragPen.id) || noSwapIds.has(targetPen.id)) {
+        // 其中一方的格子不是它獨佔的：互換只會製造新的撞位，請使用者先搬到空格
+        toast({ title: t('admin.penLayoutPreview.swapBlocked'), variant: 'destructive' })
+        setDragPen(null)
+        setDropTarget(null)
+        return
+      }
       updateMutation.mutate({
         id: dragPen.id,
         data: { row_index: targetRow, col_index: targetCol },
@@ -179,7 +202,7 @@ function ZoneGrid({ zone, pens, canManage }: {
 
     setDragPen(null)
     setDropTarget(null)
-  }, [dragPen, gridMap, updateMutation])
+  }, [dragPen, gridMap, noSwapIds, updateMutation, t])
 
   return (
     <div className="border rounded-lg p-3">

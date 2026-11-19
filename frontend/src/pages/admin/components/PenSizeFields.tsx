@@ -23,8 +23,11 @@ export function PenSizeFields({
   const area = error === null ? penAreaM2(length, width) : null
   const lengthId = useId()
   const widthId = useId()
+  const errorId = useId()
   // 必填模式（套用到整個區）不能說「或一起留空」，提示與單邊錯誤都改用必填措辭
   const errorKey = required && error === 'bothOrNone' ? 'bothRequired' : error
+  // 出錯時兩個輸入框都指向同一段錯誤文字，輔助工具回到輸入框時才讀得到原因
+  const describedBy = errorKey !== null ? errorId : undefined
 
   return (
     <div className="space-y-1">
@@ -36,6 +39,7 @@ export function PenSizeFields({
             value={length}
             onChange={e => onLengthChange(e.target.value)}
             aria-invalid={error !== null}
+            aria-describedby={describedBy}
             placeholder="2.40"
           />
         </FormField>
@@ -46,12 +50,13 @@ export function PenSizeFields({
             value={width}
             onChange={e => onWidthChange(e.target.value)}
             aria-invalid={error !== null}
+            aria-describedby={describedBy}
             placeholder="3.00"
           />
         </FormField>
       </div>
       {errorKey !== null ? (
-        <p className="text-sm text-destructive" role="alert">{t(`admin.penTab.size_${errorKey}`)}</p>
+        <p id={errorId} className="text-sm text-destructive" role="alert">{t(`admin.penTab.size_${errorKey}`)}</p>
       ) : area !== null ? (
         <p className="text-sm text-muted-foreground tabular-nums">
           {t('admin.penTab.computedArea', { area: formatArea(area) })}

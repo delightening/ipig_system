@@ -2818,7 +2818,7 @@
       "areaFormula": "{{length}} × {{width}} m = {{area}} m²",
       "areaNeed": "Needs {{required}} m²",
       "areaLeft": "{{left}} m² spare",
-      "areaOver": "{{over}} m² over",
+      "areaOver": "{{over}} m² short",
       "areaMissingWeight": "{{count}} animal(s) without weight, not counted",
       "areaStatusOk": "Sufficient",
       "areaStatusExceeded": "Exceeded",
@@ -3560,7 +3560,8 @@
       "applySizeSuccess": "Applied to {{count}} pen(s)",
       "applySizeFailed": "Failed to apply",
       "applySizeUnknown": "The result is uncertain. A reload of pen data was requested; confirm the list has updated before retrying",
-      "unplacedHeading": "Unplaced or overlapping pens"
+      "unplacedHeading": "Unplaced or overlapping pens",
+      "swapBlocked": "This pen is unplaced or shares a cell, so it cannot be swapped. Drag it to an empty cell first"
     },
     "auditDashboardTab": {
       "activeUsersToday": "Active Users Today",
