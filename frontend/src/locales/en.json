@@ -3561,7 +3561,8 @@
       "applySizeFailed": "Failed to apply",
       "applySizeUnknown": "The result is uncertain. A reload of pen data was requested; confirm the list has updated before retrying",
       "unplacedHeading": "Unplaced or overlapping pens",
-      "swapBlocked": "This pen is unplaced or shares a cell, so it cannot be swapped. Drag it to an empty cell first"
+      "swapBlocked": "This pen is unplaced or shares a cell, so it cannot be swapped. Drag it to an empty cell first",
+      "applySizeOffline": "You are offline, so the size cannot be applied. Reconnect and try again"
     },
     "auditDashboardTab": {
       "activeUsersToday": "Active Users Today",

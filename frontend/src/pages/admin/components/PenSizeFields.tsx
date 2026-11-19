@@ -38,6 +38,7 @@ export function PenSizeFields({
             inputMode="decimal"
             value={length}
             onChange={e => onLengthChange(e.target.value)}
+            aria-required={required}
             aria-invalid={error !== null}
             aria-describedby={describedBy}
             placeholder="2.40"
@@ -49,6 +50,7 @@ export function PenSizeFields({
             inputMode="decimal"
             value={width}
             onChange={e => onWidthChange(e.target.value)}
+            aria-required={required}
             aria-invalid={error !== null}
             aria-describedby={describedBy}
             placeholder="3.00"

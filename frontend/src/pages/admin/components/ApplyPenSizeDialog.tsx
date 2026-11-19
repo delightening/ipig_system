@@ -1,4 +1,4 @@
-import { useState, type RefObject } from 'react'
+import { useState, useSyncExternalStore, type RefObject } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AxiosError } from 'axios'
@@ -11,6 +11,15 @@ import { facilityApi } from '@/lib/api/facility'
 import type { PenDetails, ZoneWithBuilding } from '@/types/facility'
 import { PenSizeFields } from './PenSizeFields'
 import { validatePenSize } from '../utils/penSize'
+
+function subscribeOnline(onChange: () => void) {
+  window.addEventListener('online', onChange)
+  window.addEventListener('offline', onChange)
+  return () => {
+    window.removeEventListener('online', onChange)
+    window.removeEventListener('offline', onChange)
+  }
+}
 
 interface ApplyPenSizeDialogProps {
   open: boolean
@@ -28,6 +37,9 @@ export function ApplyPenSizeDialog({ open, onOpenChange, zone, pens, returnFocus
   const queryClient = useQueryClient()
   const [length, setLength] = useState('')
   const [width, setWidth] = useState('')
+  // 離線時 TanStack Query 會把寫入暫停排隊，對話框又在送出中不可關閉，使用者會被鎖住；
+  // 所以離線就直接停用「套用」，不讓請求進入暫停狀態
+  const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true)
 
   // 套用時兩格都必填；validatePenSize 對「兩格皆空」回合法，這裡另外擋
   const bothEmpty = length.trim() === '' && width.trim() === ''
@@ -94,6 +106,11 @@ export function ApplyPenSizeDialog({ open, onOpenChange, zone, pens, returnFocus
             required
           />
           <p className="text-sm">{t('admin.penLayoutPreview.applySizeAffects', { count: pens.length })}</p>
+          {!online && (
+            <p className="text-sm text-destructive" role="alert">
+              {t('admin.penLayoutPreview.applySizeOffline')}
+            </p>
+          )}
           {overwriteCount > 0 && (
             <p className="text-sm text-status-warning-solid" role="status">
               {t('admin.penLayoutPreview.applySizeOverwrite', { count: overwriteCount })}
@@ -106,7 +123,7 @@ export function ApplyPenSizeDialog({ open, onOpenChange, zone, pens, returnFocus
           <Button
             type="button"
             onClick={() => mutation.mutate({ length_m: length.trim(), width_m: width.trim() })}
-            disabled={mutation.isPending || bothEmpty || sizeError !== null || pens.length === 0}
+            disabled={mutation.isPending || !online || bothEmpty || sizeError !== null || pens.length === 0}
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
             {t('admin.penLayoutPreview.applySizeSubmit')}
