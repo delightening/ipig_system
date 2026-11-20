@@ -147,6 +147,23 @@ export interface UpdateZoneRequest {
 // Pen（欄位）
 // ============================================
 
+/** 欄位地板面積判定：ok=足夠、exceeded=超標、no_area=沒填長寬無法判定 */
+export type FloorAreaStatus = 'ok' | 'exceeded' | 'no_area'
+
+/**
+ * 欄位地板面積檢視（只警示，不擋操作）。
+ * 後端 Decimal 以字串序列化（例如 "7.20"），顯示前用 Number() 轉換。
+ */
+export interface PenFloorArea {
+  status: FloorAreaStatus
+  area_m2: string | null
+  required_area_m2: string
+  /** 欄內動物數（含缺體重者） */
+  animal_count: number
+  /** 缺體重而無法計入所需面積的動物數 */
+  animals_missing_weight: number
+}
+
 export interface PenDetails {
   id: string
   code: string
@@ -156,6 +173,11 @@ export interface PenDetails {
   status: string
   row_index: number | null
   col_index: number | null
+  /** 欄位長、寬（公尺）；兩者同時有值或同時為 null（選填：舊資料與 demo 物件可省略） */
+  length_m?: string | null
+  width_m?: string | null
+  /** 清單端點才會帶；單筆端點可能為空 */
+  floor_area?: PenFloorArea | null
   zone_id: string
   zone_code: string
   zone_name: string | null
@@ -176,6 +198,9 @@ export interface CreatePenRequest {
   capacity?: number
   row_index?: number
   col_index?: number
+  /** 長、寬須一起給（公尺，最多兩位小數） */
+  length_m?: string
+  width_m?: string
 }
 
 export interface UpdatePenRequest {
@@ -185,6 +210,20 @@ export interface UpdatePenRequest {
   row_index?: number
   col_index?: number
   is_active?: boolean
+  /** 長、寬須一起給；兩者都不給表示不改尺寸 */
+  length_m?: string
+  width_m?: string
+}
+
+/** 把同一尺寸套用到整個區內所有啟用中的欄位 */
+export interface ApplyPenSizeRequest {
+  length_m: string
+  width_m: string
+}
+
+export interface ApplyPenSizeResult {
+  /** 實際更新的欄位數 */
+  updated_count: number
 }
 
 // 值為 i18n key（非顯示字串）；consumer 須以 t() 取顯示文字。

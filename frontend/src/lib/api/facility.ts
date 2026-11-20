@@ -6,6 +6,7 @@ import type {
   BuildingWithFacility, CreateBuildingRequest, UpdateBuildingRequest,
   ZoneWithBuilding, CreateZoneRequest, UpdateZoneRequest,
   PenDetails, CreatePenRequest, UpdatePenRequest,
+  ApplyPenSizeRequest, ApplyPenSizeResult,
   DepartmentWithManager, CreateDepartmentRequest, UpdateDepartmentRequest,
   CommitteeMember,
   DepartmentMember,
@@ -64,6 +65,9 @@ export const facilityApi = {
     api.put<PenDetails>(`/facilities/pens/${id}`, data),
   deletePen: (id: string) =>
     deleteResource(`/facilities/pens/${id}`),
+  /** 把同一尺寸套用到區內所有啟用中的欄位（單一交易、單一稽核事件） */
+  applyPenSize: (zoneId: string, data: ApplyPenSizeRequest) =>
+    api.post<ApplyPenSizeResult>(`/facilities/zones/${zoneId}/apply-pen-size`, data),
 
   // ── Department ───────────────────────────
   listDepartments: () =>

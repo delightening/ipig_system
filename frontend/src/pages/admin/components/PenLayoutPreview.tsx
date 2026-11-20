@@ -6,11 +6,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/apiError'
-import { Eye, GripVertical } from 'lucide-react'
+import { Eye, GripVertical, Ruler } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { facilityApi } from '@/lib/api/facility'
 import type { PenDetails, UpdatePenRequest } from '@/types/facility'
 import type { ZoneWithBuilding } from '@/types/facility'
 import { cn } from '@/lib/utils'
+import { ApplyPenSizeDialog } from './ApplyPenSizeDialog'
+import { exactAreaM2, formatArea, formatMeters } from '../utils/penSize'
+
+/** 超標時的「需／有」面積字串參數；非超標回 null。有面積用長寬算的精確值（後端 area_m2 已四捨五入） */
+function exceededAreaArgs(pen: PenDetails): { required: string; area: string } | null {
+  const fa = pen.floor_area
+  if (fa?.status !== 'exceeded' || fa.area_m2 == null) return null
+  return {
+    required: formatMeters(fa.required_area_m2),
+    area: formatArea(exactAreaM2(pen.length_m, pen.width_m, Number(fa.area_m2))),
+  }
+}
 
 interface PenLayoutPreviewProps {
   pens: PenDetails[]
@@ -93,6 +106,8 @@ function ZoneGrid({ zone, pens, canManage }: {
   const queryClient = useQueryClient()
   const [dragPen, setDragPen] = useState<PenDetails | null>(null)
   const [dropTarget, setDropTarget] = useState<{ row: number; col: number } | null>(null)
+  const [applySizeOpen, setApplySizeOpen] = useState(false)
+  const applySizeButtonRef = useRef<HTMLButtonElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
 
   const updateMutation = useMutation({
@@ -112,15 +127,38 @@ function ZoneGrid({ zone, pens, canManage }: {
   const rows = maxRow + 1
   const cols = maxCol + 1
 
-  // 建立 grid map
-  const gridMap = useMemo(() => {
+  // 建立 grid map；未排位（任一座標為空）或座標重複的欄位不能互相覆蓋，否則被蓋掉的那格連同它的超標警示會消失，
+  // 改為另外列出（extraPens）。沒座標的一律直接進 extraPens，不能當成 (0,0) 去和真正在 (0,0) 的欄位搶格子，
+  // 否則畫面會取決於陣列順序。
+  // noSwapIds：不能做「兩格互換」的欄位——未排位、重複的，以及和它們共用同一格的。
+  // 互換會把對方搬到這些欄位登記的舊格子，而那格還有別人，只會製造新的撞位。
+  const { gridMap, extraPens, noSwapIds } = useMemo(() => {
     const map = new Map<string, PenDetails>()
+    const extra: PenDetails[] = []
+    const crowdedKeys = new Set<string>()
     for (const pen of pens) {
-      const key = `${pen.row_index ?? 0}-${pen.col_index ?? 0}`
-      map.set(key, pen)
+      if (pen.row_index == null || pen.col_index == null) {
+        extra.push(pen)
+        continue
+      }
+      const key = `${pen.row_index}-${pen.col_index}`
+      if (map.has(key)) {
+        extra.push(pen)
+        crowdedKeys.add(key)
+      } else {
+        map.set(key, pen)
+      }
     }
-    return map
+    const noSwap = new Set<string>(extra.map(p => p.id))
+    for (const [key, pen] of map) {
+      if (crowdedKeys.has(key)) noSwap.add(pen.id)
+    }
+    return { gridMap: map, extraPens: extra, noSwapIds: noSwap }
   }, [pens])
+  const exceededPens = pens.flatMap(pen => {
+    const args = exceededAreaArgs(pen)
+    return args ? [{ pen, args }] : []
+  })
 
   const color = zone?.color || '#94a3b8'
 
@@ -140,6 +178,13 @@ function ZoneGrid({ zone, pens, canManage }: {
 
     // Swap positions
     if (targetPen && targetPen.id !== dragPen.id) {
+      if (noSwapIds.has(dragPen.id) || noSwapIds.has(targetPen.id)) {
+        // 其中一方的格子不是它獨佔的：互換只會製造新的撞位，請使用者先搬到空格
+        toast({ title: t('admin.penLayoutPreview.swapBlocked'), variant: 'destructive' })
+        setDragPen(null)
+        setDropTarget(null)
+        return
+      }
       updateMutation.mutate({
         id: dragPen.id,
         data: { row_index: targetRow, col_index: targetCol },
@@ -157,7 +202,7 @@ function ZoneGrid({ zone, pens, canManage }: {
 
     setDragPen(null)
     setDropTarget(null)
-  }, [dragPen, gridMap, updateMutation])
+  }, [dragPen, gridMap, noSwapIds, updateMutation, t])
 
   return (
     <div className="border rounded-lg p-3">
@@ -167,6 +212,11 @@ function ZoneGrid({ zone, pens, canManage }: {
           {t('admin.penLayoutPreview.zoneHeading', { building: zone?.building_code ?? '', zone: zone?.code ?? '', name: zone?.name ?? '' })}
         </span>
         <Badge variant="secondary" className="text-xs">{t('admin.penLayoutPreview.penCount', { count: pens.length })}</Badge>
+        {canManage && zone && (
+          <Button ref={applySizeButtonRef} type="button" variant="outline" size="sm" className="ml-auto" onClick={() => setApplySizeOpen(true)}>
+            <Ruler className="h-4 w-4 mr-1" /> {t('admin.penLayoutPreview.applySizeButton')}
+          </Button>
+        )}
       </div>
       <div
         ref={gridRef}
@@ -194,8 +244,40 @@ function ZoneGrid({ zone, pens, canManage }: {
           })
         )}
       </div>
+      {extraPens.length > 0 && (
+        <div className="mt-2">
+          <p className="text-xs text-muted-foreground mb-1">{t('admin.penLayoutPreview.unplacedHeading')}</p>
+          <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+            {extraPens.map(pen => (
+              <PenCell
+                key={pen.id}
+                pen={pen}
+                color={color}
+                isDragging={dragPen?.id === pen.id}
+                isDropTarget={false}
+                canManage={canManage}
+                onDragStart={() => handleDragStart(pen)}
+                onDragOver={() => undefined}
+                onDrop={() => undefined}
+                onDragEnd={() => { setDragPen(null); setDropTarget(null) }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+      {exceededPens.length > 0 && (
+        // 超標資訊不只靠游標移上去的提示：觸控與鍵盤使用者也要看得到
+        <ul className="mt-2 space-y-0.5 text-xs text-status-warning-solid">
+          {exceededPens.map(({ pen, args }) => (
+            <li key={pen.id}>{pen.code} — {t('admin.penLayoutPreview.cellAreaExceeded', args)}</li>
+          ))}
+        </ul>
+      )}
       {canManage && pens.length > 1 && (
         <p className="text-xs text-muted-foreground mt-2">{t('admin.penLayoutPreview.dragHint')}</p>
+      )}
+      {canManage && zone && (
+        <ApplyPenSizeDialog open={applySizeOpen} onOpenChange={setApplySizeOpen} zone={zone} pens={pens} returnFocusRef={applySizeButtonRef} />
       )}
     </div>
   )
@@ -231,9 +313,16 @@ function PenCell({ pen, color, isDragging, isDropTarget, canManage, onDragStart,
     ? color
     : pen.status === 'maintenance' ? '#f59e0b' : '#d1d5db'
 
-  const penTitle = pen.name
+  const baseTitle = pen.name
     ? t('admin.penLayoutPreview.cellTitleNamed', { code: pen.code, name: pen.name, current: pen.current_count, capacity: pen.capacity })
     : t('admin.penLayoutPreview.cellTitle', { code: pen.code, current: pen.current_count, capacity: pen.capacity })
+
+  // 地板面積：超標加橘框與「!」，游標移上去顯示「需 X／有 Y」；未設定（no_area）維持原樣
+  const exceededArgs = exceededAreaArgs(pen)
+  const exceeded = exceededArgs !== null
+  const penTitle = exceededArgs
+    ? `${baseTitle} — ${t('admin.penLayoutPreview.cellAreaExceeded', exceededArgs)}`
+    : baseTitle
 
   return (
     <div
@@ -243,17 +332,27 @@ function PenCell({ pen, color, isDragging, isDropTarget, canManage, onDragStart,
       onDrop={(e) => { e.preventDefault(); onDrop() }}
       onDragEnd={onDragEnd}
       className={cn(
-        'h-10 rounded flex items-center justify-center text-xs font-mono font-medium text-white select-none transition-all',
+        'relative h-10 rounded flex items-center justify-center text-xs font-mono font-medium text-white select-none transition-all',
         canManage && 'cursor-grab active:cursor-grabbing',
         isDragging && 'opacity-40 scale-95',
+        exceeded && 'ring-2 ring-status-warning-solid ring-offset-1',
         isDropTarget && 'ring-2 ring-ring'
       )}
       style={{ backgroundColor: statusColor }}
       title={penTitle}
-      aria-label={penTitle}
     >
       {canManage && <GripVertical className="h-3 w-3 mr-0.5 opacity-50" />}
       {pen.code}
+      {/* 一般 div 上的 aria-label 讀不到，改放螢幕閱讀器專用文字（含超標資訊） */}
+      <span className="sr-only">{penTitle}</span>
+      {exceeded && (
+        <span
+          aria-hidden="true"
+          className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-status-warning-solid text-[10px] font-bold text-white"
+        >
+          !
+        </span>
+      )}
     </div>
   )
 }
