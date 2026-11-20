@@ -435,6 +435,73 @@ async fn apply_pen_size_updates_only_active_pens_of_that_zone_and_writes_one_aud
     assert_eq!(res.status().as_u16(), 404);
 }
 
+#[tokio::test]
+#[serial]
+async fn apply_pen_size_rejects_when_the_expected_pen_set_no_longer_matches() {
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let zone = make_zone(&app).await;
+    let (pen_a, _) = make_pen(&app, zone, 4, None).await;
+    let (pen_b, _) = make_pen(&app, zone, 4, None).await;
+    let url = format!("/api/v1/facilities/zones/{zone}/apply-pen-size");
+
+    // 預覽之後又有人新增了一個欄位：預期清單只有 A、B，實際是 A、B、C → 409 且完全不寫
+    let (pen_c, _) = make_pen(&app, zone, 4, Some(("5.00", "5.00"))).await;
+    let res = app
+        .auth_post(
+            &url,
+            &json!({
+                "length_m": "1.20",
+                "width_m": "2.40",
+                "expected_pen_ids": [pen_a, pen_b],
+            }),
+            &token,
+        )
+        .await;
+    assert_eq!(res.status().as_u16(), 409, "body={:?}", res.text().await);
+
+    let dims = |pen: Uuid| {
+        let pool = app.db_pool.clone();
+        async move {
+            sqlx::query_as::<_, (Option<Decimal>, Option<Decimal>)>(
+                "SELECT length_m, width_m FROM pens WHERE id = $1",
+            )
+            .bind(pen)
+            .fetch_one(&pool)
+            .await
+            .expect("dims")
+        }
+    };
+    assert_eq!(dims(pen_a).await, (None, None), "被拒絕時不寫任何欄位");
+    assert_eq!(dims(pen_c).await, (Some(d("5.00")), Some(d("5.00"))));
+    let events: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM user_activity_logs \
+         WHERE event_type = 'FACILITY_PEN_APPLY_SIZE' AND entity_id = $1",
+    )
+    .bind(zone)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("audit count");
+    assert_eq!(events, 0, "被拒絕時不寫稽核事件");
+
+    // 預期清單與實際一致（順序不同、重複也無妨）→ 套用成功
+    let res = app
+        .auth_post(
+            &url,
+            &json!({
+                "length_m": "1.20",
+                "width_m": "2.40",
+                "expected_pen_ids": [pen_c, pen_a, pen_b, pen_a],
+            }),
+            &token,
+        )
+        .await;
+    assert_eq!(res.status().as_u16(), 200, "body={:?}", res.text().await);
+    let result: Value = res.json().await.expect("result json");
+    assert_eq!(result["updated_count"], 3);
+    assert_eq!(dims(pen_c).await, (Some(d("1.20")), Some(d("2.40"))));
+}
+
 // ---------- 完全沒體重的動物不可放入 ----------
 
 #[tokio::test]
