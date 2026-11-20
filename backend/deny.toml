@@ -34,6 +34,13 @@ ignore = [
     # 公告本身也標明「無可升級的安全版本」。僅 unmaintained 標記，非漏洞。
     # 日後 hyper 不再依賴 pin-utils，cargo-deny 會回報 advisory-not-detected，屆時移除此行。
     "RUSTSEC-2026-0441",
+    # chrono／chrono-tz 不維護（RUSTSEC-2026-0543／0555，2026-11-20 CI 首次偵測到）。
+    # 公告標明所有版本皆受影響、「無可升級的安全版本」，建議改用 jiff 或 time。
+    # chrono 同時被 sqlx、calamine、tokio-cron-scheduler 等依賴間接引入，
+    # 本專案無法單方面移除；僅 unmaintained 標記，非漏洞。
+    # 日後依賴鏈脫離 chrono 或上游發布替代，cargo-deny 會回報 advisory-not-detected，屆時移除這兩行。
+    "RUSTSEC-2026-0543",
+    "RUSTSEC-2026-0555",
     # RUSTSEC-2026-0190（anyhow downcast_mut unsound）已移除（2026-09-20）：
     # 依賴樹中已無受影響版本，cargo-deny 回報 advisory-not-detected。
 ]
