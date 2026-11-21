@@ -48,9 +48,15 @@ RUN pnpm run build
 # ============================================
 # Stage 2: Serve with nginx (Brotli 支援)
 # ============================================
-FROM georgjung/nginx-brotli:1.31.8-alpine3.24
+FROM georgjung/nginx-brotli:1.31.9-alpine3.24
 
-# 版本釘選：nginx 1.31.8 + Alpine 3.24（2026-10-21；georgjung 1.31.7 起只出 alpine3.24 tag）
+# 版本釘選：nginx 1.31.9 + Alpine 3.24（2026-11-21；georgjung 1.31.7 起只出 alpine3.24 tag）
+# 1.31.8 → 1.31.9：涵蓋 nginx 公告的 CVE-2026-123007／CVE-2026-123633（兩者在 1.31.8 皆受影響，
+# 1.31.9／1.30.7 修復；2026-11-21 確認 georgjung 已發布 1.31.9-alpine3.24 tag）。
+# 本專案 nginx.conf 以 `listen 8080 http2;` 提供服務，屬可能受影響的設定，故升級；
+# 純 base image 版號變動，不改任何 nginx 設定。
+#
+# 前次釘選：nginx 1.31.8（2026-10-21）
 # 1.31.2 → 1.31.8 涵蓋 1.31.7（2026-10-14）的 nginx core CVE：
 # - CVE-2026-93479 (含變數的字串運算式 buffer overflow，影響 document root 計算與 request logging
 #   ——nginx-main.conf 的 log_format json_combined、nginx.conf 的 set $cspNonce 都在可觸發路徑上)
