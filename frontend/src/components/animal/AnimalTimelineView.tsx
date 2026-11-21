@@ -29,6 +29,8 @@ interface Props {
     onHistory: (type: 'observation' | 'surgery', id: number) => void
     onVet: (type: 'observation' | 'surgery', id: number) => void
     onDelete: (type: 'observation' | 'surgery', id: number) => void
+    /** 有給才會在 IACUC 變更事件上顯示「補登實際日期」按鈕（呼叫端依權限決定要不要給）。 */
+    onBackfillIacucDate?: (event: AnimalEvent) => void
 }
 
 type TimelineItemType = 'observation' | 'surgery' | 'created' | 'sacrificed' | 'completed' | 'euthanized' | 'sudden_death' | 'transferred' | 'iacuc_change'
@@ -45,6 +47,8 @@ interface TimelineItem {
     raw?: unknown
     /** 事件實際日期與「系統登錄時間」不同日時，另附登錄時間（補登過去資料的情境）。 */
     recordedAt?: Date
+    /** 有人補登過實際日期時的說明（補登人、時間、原因）。 */
+    backfillNote?: string
 }
 
 /** 觀察紀錄類型 → i18n key（原 recordTypeNames 的顯示文字改由語言包提供）。 */
@@ -126,7 +130,7 @@ function relativeDay(d: Date, t: TFunction): string {
 
 export function AnimalTimelineView({
     observations, surgeries, animalWeights, sacrifice, suddenDeath, transfers, iacucEvents, animal,
-    onView, onEdit, onDelete,
+    onView, onEdit, onDelete, onBackfillIacucDate,
 }: Props) {
     const [filter, setFilter] = useState<FilterKey>('all')
     // 訂閱語系：切換 zh/en 時重算日期標頭格式（locale 進 groups deps）。
@@ -207,11 +211,12 @@ export function AnimalTimelineView({
             actor: null, raw: tr,
         })),
         ...(iacucEvents || []).map((evt) => {
-            // 稽核紀錄的 created_at 是「系統何時記下」，不可修改；補登過去的分配時，
-            // 實際日期放在 after_data.experiment_date（首次分配才有）。有實際日期就以它排序、分組，
+            // 稽核紀錄的 created_at 是「系統何時記下」，不可修改。實際日期有兩個來源，
+            // 補登的優先（evt.actual_date，只新增不覆蓋、後端取最新一筆），其次是首次分配
+            // 原本就帶的 after_data.experiment_date。有實際日期就以它排序、分組，
             // 並在旁邊附上登錄時間；兩者同一天或沒有實際日期時，只顯示登錄時間。
             const recorded = new Date(evt.created_at)
-            const actualRaw = evt.after_data?.experiment_date
+            const actualRaw = evt.actual_date ?? evt.after_data?.experiment_date
             const actual = actualRaw ? new Date(actualRaw) : null
             const hasActual = actual !== null && !Number.isNaN(actual.getTime())
             const differs = hasActual && taipeiYmd(actual) !== taipeiYmd(recorded)
@@ -222,6 +227,13 @@ export function AnimalTimelineView({
                 title: t('animalActions.timeline.iacucChange'),
                 content: `${evt.before_data?.iacuc_no || t('animalActions.timeline.none')} → ${evt.after_data?.iacuc_no || t('animalActions.timeline.none')}`,
                 actor: evt.actor_name || null, raw: evt,
+                backfillNote: evt.backfill
+                    ? t('animalActions.timeline.backfilledNote', {
+                        name: evt.backfill.by_name || t('animalActions.common.system'),
+                        date: new Date(evt.backfill.at).toLocaleDateString(uiLocale(), { timeZone: 'Asia/Taipei' }),
+                        reason: evt.backfill.reason,
+                    })
+                    : undefined,
             }
         }),
     ].sort((a, b) => b.date.getTime() - a.date.getTime()), [observations, surgeries, animal, sacrifice, suddenDeath, transfers, iacucEvents, t, sep])
@@ -314,6 +326,9 @@ export function AnimalTimelineView({
                                                     </span>
                                                 </div>
                                                 <p className="mt-1 text-sm text-muted-foreground">{item.content}</p>
+                                                {item.backfillNote && (
+                                                    <p className="mt-1 text-xs text-muted-foreground">{item.backfillNote}</p>
+                                                )}
                                                 <div className="mt-2 flex items-center justify-between gap-2">
                                                     <span className="flex items-center gap-2 text-xs text-muted-foreground">
                                                         {t('animalActions.timeline.recordedBy', { name: item.actor || t('animalActions.common.system') })}
@@ -321,6 +336,12 @@ export function AnimalTimelineView({
                                                             <Badge className="bg-status-success-bg text-status-success-text hover:bg-status-success-bg">{t('animalActions.timeline.vetRead')}</Badge>
                                                         )}
                                                     </span>
+                                                    {item.type === 'iacuc_change' && onBackfillIacucDate && item.raw !== undefined && (
+                                                        <Button variant="ghost" size="sm" className="h-7 shrink-0 text-xs"
+                                                            onClick={() => onBackfillIacucDate(item.raw as AnimalEvent)}>
+                                                            {t('animalActions.timeline.backfillButton')}
+                                                        </Button>
+                                                    )}
                                                     {editable && (
                                                         <span className="flex shrink-0 gap-1">
                                                             <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={t('common.edit')}

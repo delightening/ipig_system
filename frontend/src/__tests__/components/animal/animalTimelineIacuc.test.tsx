@@ -8,7 +8,7 @@
  * 4. 「舊 → 新」讀 before/after；舊值為 null 顯示「（無）」，不再兩邊都是「（無）」。
  */
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 
 // t() 回傳 key；帶 date 插值時把值接在後面，才斷言得到顯示的日期
 vi.mock('react-i18next', () => ({
@@ -25,7 +25,10 @@ import type { AnimalEvent } from '@/types/animal'
 
 const noop = () => {}
 
-function renderTimeline(iacucEvents: AnimalEvent[]) {
+function renderTimeline(
+  iacucEvents: AnimalEvent[],
+  onBackfillIacucDate?: (event: AnimalEvent) => void,
+) {
   return render(
     <AnimalTimelineView
       observations={[]}
@@ -37,6 +40,7 @@ function renderTimeline(iacucEvents: AnimalEvent[]) {
       onHistory={noop}
       onVet={noop}
       onDelete={noop}
+      onBackfillIacucDate={onBackfillIacucDate}
     />,
   )
 }
@@ -108,5 +112,92 @@ describe('AnimalTimelineView IACUC 變更事件', () => {
     ])
 
     expect(screen.getByText(`${NONE} → ${NONE}`)).toBeTruthy()
+  })
+})
+
+describe('AnimalTimelineView IACUC 變更事件：補登實際日期', () => {
+  it('補登的日期優先於首次分配原本帶的日期，並附登錄時間與補登說明', () => {
+    renderTimeline([
+      {
+        id: 'b1',
+        event_type: 'IACUC_CHANGE',
+        before_data: { iacuc_no: null },
+        after_data: { iacuc_no: 'PIG-114005', experiment_date: '2026-09-01' },
+        created_at: '2026-11-12T03:00:00Z',
+        actual_date: '2026-08-20',
+        backfill: { by_name: '管理員甲', at: '2026-11-13T02:00:00Z', reason: '依紙本申請單補登' },
+      },
+    ])
+
+    expect(screen.getAllByText(fmt('2026-08-20')).length).toBeGreaterThan(0)
+    // 首次分配原本帶的 09-01 不再當作顯示日期
+    expect(screen.queryAllByText(fmt('2026-09-01')).length).toBe(0)
+    expect(screen.getByText(`animalActions.timeline.recordedOn|${fmt('2026-11-12T03:00:00Z')}`)).toBeTruthy()
+    expect(
+      screen.getByText(`animalActions.timeline.backfilledNote|${fmt('2026-11-13T02:00:00Z')}`),
+    ).toBeTruthy()
+  })
+
+  it('轉換計畫的事件補登後，也以補登日期顯示（原本只顯示登錄時間）', () => {
+    renderTimeline([
+      {
+        id: 'b2',
+        event_type: 'IACUC_CHANGE',
+        before_data: { iacuc_no: 'PIG-114004' },
+        after_data: { iacuc_no: 'PIG-114005' },
+        created_at: '2026-11-12T03:00:00Z',
+        actual_date: '2026-10-05',
+        backfill: { by_name: null, at: '2026-11-13T02:00:00Z', reason: '補登' },
+      },
+    ])
+
+    expect(screen.getAllByText(fmt('2026-10-05')).length).toBeGreaterThan(0)
+    expect(screen.getByText(`animalActions.timeline.recordedOn|${fmt('2026-11-12T03:00:00Z')}`)).toBeTruthy()
+  })
+
+  it('沒補登過的事件不顯示補登說明', () => {
+    renderTimeline([
+      {
+        id: 'b3',
+        event_type: 'IACUC_CHANGE',
+        before_data: { iacuc_no: 'PIG-114004' },
+        after_data: { iacuc_no: 'PIG-114005' },
+        created_at: '2026-11-12T03:00:00Z',
+        actual_date: null,
+        backfill: null,
+      },
+    ])
+
+    expect(screen.queryByText(/animalActions\.timeline\.backfilledNote/)).toBeNull()
+  })
+
+  it('有給 callback 才顯示「補登實際日期」按鈕，點下去帶出該事件', () => {
+    const event: AnimalEvent = {
+      id: 'b4',
+      event_type: 'IACUC_CHANGE',
+      before_data: { iacuc_no: null },
+      after_data: { iacuc_no: 'PIG-114005' },
+      created_at: '2026-11-12T03:00:00Z',
+    }
+    const onBackfill = vi.fn()
+    renderTimeline([event], onBackfill)
+
+    fireEvent.click(screen.getByText('animalActions.timeline.backfillButton'))
+    expect(onBackfill).toHaveBeenCalledTimes(1)
+    expect(onBackfill).toHaveBeenCalledWith(event)
+  })
+
+  it('沒給 callback（沒有補登權限）就沒有按鈕', () => {
+    renderTimeline([
+      {
+        id: 'b5',
+        event_type: 'IACUC_CHANGE',
+        before_data: { iacuc_no: null },
+        after_data: { iacuc_no: 'PIG-114005' },
+        created_at: '2026-11-12T03:00:00Z',
+      },
+    ])
+
+    expect(screen.queryByText('animalActions.timeline.backfillButton')).toBeNull()
   })
 })
