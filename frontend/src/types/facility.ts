@@ -219,6 +219,11 @@ export interface UpdatePenRequest {
 export interface ApplyPenSizeRequest {
   length_m: string
   width_m: string
+  /**
+   * 使用者確認時畫面上看到的欄位 ID。給了就請後端檢查：該區實際啟用中的欄位集合
+   * 與它不同（預覽後有人新增或停用欄位）就回 409、不寫入。不給則不檢查。
+   */
+  expected_pen_ids?: string[]
 }
 
 export interface ApplyPenSizeResult {
