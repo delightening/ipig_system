@@ -360,6 +360,10 @@ pub struct UpdatePenRequest {
 pub struct ApplyPenSizeRequest {
     pub length_m: Decimal,
     pub width_m: Decimal,
+    /// 使用者確認預覽時看到的啟用中欄位 ID。有給時，伺服器發現區內實際的啟用欄位集合與此不同
+    /// 就拒絕（409），讓使用者重新確認；不給則維持舊行為（套用到區內所有啟用中的欄位）
+    #[serde(default)]
+    pub expected_pen_ids: Option<Vec<Uuid>>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

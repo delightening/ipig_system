@@ -985,11 +985,30 @@ impl FacilityService {
         .fetch_all(&mut *tx)
         .await?;
 
+        let captured_ids: Vec<Uuid> = before.iter().map(|(id, ..)| *id).collect();
+
+        // 使用者確認預覽時看到的欄位集合與現在不同（有人新增、停用或刪除了欄位）→ 拒絕，
+        // 回傳前不寫任何東西（tx 隨錯誤放掉即 rollback）
+        if let Some(expected) = &payload.expected_pen_ids {
+            let mut expected_sorted = expected.clone();
+            expected_sorted.sort_unstable();
+            expected_sorted.dedup();
+            let mut actual_sorted = captured_ids.clone();
+            actual_sorted.sort_unstable();
+            if expected_sorted != actual_sorted {
+                return Err(AppError::Conflict(
+                    "該區的欄位在預覽後有變動，請重新載入並再確認一次".to_string(),
+                ));
+            }
+        }
+
+        // 只更新上面讀到並鎖住的那批：避免在讀取之後才新增並 commit 的欄位被一併覆蓋，
+        // 卻不在稽核清單與 updated_count 裡
         sqlx::query(
             "UPDATE pens SET length_m = $2, width_m = $3, updated_at = NOW() \
-             WHERE zone_id = $1 AND is_active",
+             WHERE id = ANY($1)",
         )
-        .bind(zone_id)
+        .bind(&captured_ids)
         .bind(length_m)
         .bind(width_m)
         .execute(&mut *tx)
