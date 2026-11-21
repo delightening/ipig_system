@@ -1,5 +1,6 @@
-import React, { lazy, Suspense, useMemo, useCallback } from 'react'
+import React, { lazy, Suspense, useMemo, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useAuthHasPermission } from '@/stores/auth'
 
 import {
   Animal,
@@ -30,6 +31,7 @@ import type { TabType } from '../constants'
 
 // Lazy-loaded tab components
 const AnimalTimelineView = lazy(() => import('@/components/animal/AnimalTimelineView').then(m => ({ default: m.AnimalTimelineView })))
+const BackfillIacucEventDateDialog = lazy(() => import('@/components/animal/BackfillIacucEventDateDialog').then(m => ({ default: m.BackfillIacucEventDateDialog })))
 const ObservationsTab = lazy(() => import('@/components/animal/ObservationsTab').then(m => ({ default: m.ObservationsTab })))
 const SurgeriesTab = lazy(() => import('@/components/animal/SurgeriesTab').then(m => ({ default: m.SurgeriesTab })))
 const WeightsTab = lazy(() => import('@/components/animal/WeightsTab').then(m => ({ default: m.WeightsTab })))
@@ -135,6 +137,11 @@ export function TabContent({
   setActiveTab,
 }: TabContentProps) {
   const { afterParam, observations, surgeries, weights, vaccinations, sacrifice, suddenDeath, transfers, iacucEvents } = data
+  // 補登 IACUC 變更事件的實際日期：權限與後端一致（animal.field_correction.review）；
+  // 沒有權限就不把 callback 傳給時間軸，按鈕也就不會出現
+  const hasPermission = useAuthHasPermission()
+  const canBackfillIacucDate = hasPermission('animal.field_correction.review')
+  const [backfillTarget, setBackfillTarget] = useState<AnimalEvent | null>(null)
   const handleTimelineAction = useCallback(
     (type: string) => {
       setActiveTab(type === 'observation' ? 'observations' : 'surgeries')
@@ -161,6 +168,15 @@ export function TabContent({
             onHistory={handleTimelineAction}
             onVet={handleTimelineAction}
             onDelete={handleTimelineAction}
+            onBackfillIacucDate={canBackfillIacucDate ? setBackfillTarget : undefined}
+          />
+        )}
+        {backfillTarget && (
+          <BackfillIacucEventDateDialog
+            open
+            onOpenChange={(open) => { if (!open) setBackfillTarget(null) }}
+            animalId={animalId}
+            event={backfillTarget}
           />
         )}
 
