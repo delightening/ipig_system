@@ -99,6 +99,19 @@ fn get_conflict_columns(table: &str) -> Option<&'static [&'static str]> {
     Some(cols)
 }
 
+/// 只新增、不可更新的表：資料庫端有 BEFORE UPDATE 觸發器拒絕任何 UPDATE。
+///
+/// 匯入對這些表遇到主鍵衝突時一律 `DO NOTHING`，不可走「遇重複則取代」的
+/// `DO UPDATE SET`，否則觸發器會丟例外、整個匯入失敗：
+/// - 已存在的列保持不變；重複匯入相同的資料會成功（衝突列被略過）。
+/// - 同一個 id 但內容不同的列**不會覆蓋**既有列，同樣被略過（算在 skipped 裡）。
+///   這類資料的更正方式是再補登一筆（新的 id），而不是改舊列。
+const INSERT_ONLY_TABLES: &[&str] = &["animal_event_actual_dates"];
+
+fn is_insert_only_table(table: &str) -> bool {
+    INSERT_ONLY_TABLES.contains(&table)
+}
+
 /// 有 natural key 的表（可建立 ID 對應）
 fn has_id_remap_table(table: &str) -> bool {
     get_conflict_columns(table).is_some()
@@ -1008,7 +1021,8 @@ async fn import_table(
             .filter(|c| !conflict_set.contains(c.as_str()) && !pk_cols.contains(c.as_str()))
             .map(|c| format!(r#""{}" = EXCLUDED."{}""#, c, c))
             .collect();
-        let update_clause = if update_set.is_empty() {
+        // 只新增的表（見 INSERT_ONLY_TABLES）即使有可更新的欄位，也一律略過衝突列
+        let update_clause = if update_set.is_empty() || is_insert_only_table(table) {
             " DO NOTHING".to_string()
         } else {
             [" DO UPDATE SET ", &update_set.join(", ")].concat()
@@ -1070,4 +1084,28 @@ async fn get_primary_key_columns(pool: &PgPool, table: &str) -> Result<Vec<Strin
     .map_err(|e| AppError::Internal(format!("PK columns for {}: {}", table, e)))?;
 
     Ok(rows.into_iter().map(|r| r.0).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn insert_only_tables_never_take_the_update_path() {
+        // 資料庫端的 BEFORE UPDATE 觸發器會拒絕任何 UPDATE；匯入必須對它們 DO NOTHING
+        assert!(is_insert_only_table("animal_event_actual_dates"));
+        assert!(!is_insert_only_table("animals"));
+        assert!(!is_insert_only_table("users"));
+    }
+
+    #[test]
+    fn every_insert_only_table_is_part_of_the_export_order() {
+        // 只新增的表若沒列入匯出順序，匯入根本不會處理它（also 避免寫錯表名）
+        for table in INSERT_ONLY_TABLES {
+            assert!(
+                EXPORT_TABLE_ORDER.contains(table),
+                "{table} 在 INSERT_ONLY_TABLES 但不在 EXPORT_TABLE_ORDER"
+            );
+        }
+    }
 }

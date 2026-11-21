@@ -125,6 +125,8 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "animal_transfers",
     "transfer_vet_evaluations",
     "animal_field_correction_requests",
+    // 027 IACUC 變更事件補登實際日期（FK → animals, users；event_id 不建外鍵）
+    "animal_event_actual_dates",
     "animal_vet_advices",
     "animal_vet_advice_records",
     "vet_patrol_reports",

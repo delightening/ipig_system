@@ -16,7 +16,10 @@ use crate::{
         UpdateAnimalRequest,
     },
     require_permission,
-    services::{access, animal_excel_export, AnimalService},
+    services::{
+        access, animal_excel_export, AnimalService, BackfillIacucEventDateRequest,
+        BackfillIacucEventDateResponse, IacucEventBackfill,
+    },
     AppError, AppState, Result,
 };
 
@@ -460,6 +463,27 @@ pub struct AnimalEvent {
     pub before_data: Option<serde_json::Value>,
     pub after_data: Option<serde_json::Value>,
     pub created_at: chrono::DateTime<chrono::Utc>,
+    /// 補登的實際變更日期；沒有補登過為 null。
+    /// 首次分配事件原本就帶的日期仍在 `after_data.experiment_date`，不會出現在這裡。
+    pub actual_date: Option<chrono::NaiveDate>,
+    /// 補登資訊（補登人、時間、原因）；沒有補登過為 null
+    pub backfill: Option<IacucEventBackfill>,
+}
+
+/// 事件列表的一筆查詢結果（含該事件最新一筆補登）
+#[derive(sqlx::FromRow)]
+struct AnimalEventRow {
+    id: String,
+    event_type: String,
+    actor_display_name: Option<String>,
+    before_data: Option<serde_json::Value>,
+    after_data: Option<serde_json::Value>,
+    created_at: chrono::DateTime<chrono::Utc>,
+    entity_display_name: Option<String>,
+    backfill_date: Option<chrono::NaiveDate>,
+    backfill_at: Option<chrono::DateTime<chrono::Utc>>,
+    backfill_reason: Option<String>,
+    backfill_by_name: Option<String>,
 }
 
 /// 取得動物的 IACUC 變更事件（用於時間軸顯示）
@@ -484,30 +508,34 @@ pub async fn get_animal_events(
 ) -> Result<Json<Vec<AnimalEvent>>> {
     // SEC-IDOR: v2 審計發現 — 動物活動事件需驗證計畫歸屬
     access::require_animal_read_access(&state.db, &current_user, id).await?;
-    type EventRow = (
-        String,
-        String,
-        Option<String>,
-        Option<serde_json::Value>,
-        Option<serde_json::Value>,
-        chrono::DateTime<chrono::Utc>,
-        Option<String>,
-    );
-    let rows: Vec<EventRow> = sqlx::query_as(
+    // 補登只新增不覆蓋：LATERAL 取每個事件最新一筆（見 migration 027）
+    let rows: Vec<AnimalEventRow> = sqlx::query_as(
         r#"
         SELECT
-            id::text,
-            event_type,
-            actor_display_name,
-            before_data,
-            after_data,
-            created_at,
-            entity_display_name
-        FROM user_activity_logs
-        WHERE entity_type = 'animal'
-          AND entity_id = $1
-          AND event_type = 'IACUC_CHANGE'
-        ORDER BY created_at DESC
+            l.id::text AS id,
+            l.event_type,
+            l.actor_display_name,
+            l.before_data,
+            l.after_data,
+            l.created_at,
+            l.entity_display_name,
+            b.actual_date AS backfill_date,
+            b.created_at AS backfill_at,
+            b.reason AS backfill_reason,
+            u.display_name AS backfill_by_name
+        FROM user_activity_logs l
+        LEFT JOIN LATERAL (
+            SELECT actual_date, reason, created_by, created_at
+            FROM animal_event_actual_dates
+            WHERE event_id = l.id AND animal_id = l.entity_id
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+        ) b ON TRUE
+        LEFT JOIN users u ON u.id = b.created_by
+        WHERE l.entity_type = 'animal'
+          AND l.entity_id = $1
+          AND l.event_type = 'IACUC_CHANGE'
+        ORDER BY l.created_at DESC
         LIMIT 50
         "#,
     )
@@ -517,28 +545,72 @@ pub async fn get_animal_events(
 
     let events = rows
         .into_iter()
-        .map(
-            |(eid, event_type, actor_name, before_data, after_data, created_at, display)| {
-                // 修正前寫入的歷史事件沒有 before/after（稽核紀錄不可改），
-                // 由顯示文字「[舊 → 新] 耳號」回補，時間軸才不會顯示成「(無) → (無)」。
-                let (before_data, after_data) = match (before_data, after_data) {
-                    (None, None) => display
-                        .as_deref()
-                        .and_then(AnimalService::iacuc_change_data_from_display)
-                        .map_or((None, None), |(b, a)| (Some(b), Some(a))),
-                    present => present,
-                };
-                AnimalEvent {
-                    id: eid,
-                    event_type,
-                    actor_name,
-                    before_data,
-                    after_data,
-                    created_at,
-                }
-            },
-        )
+        .map(|row| {
+            // 修正前寫入的歷史事件沒有 before/after（稽核紀錄不可改），
+            // 由顯示文字「[舊 → 新] 耳號」回補，時間軸才不會顯示成「(無) → (無)」。
+            let (before_data, after_data) = match (row.before_data, row.after_data) {
+                (None, None) => row
+                    .entity_display_name
+                    .as_deref()
+                    .and_then(AnimalService::iacuc_change_data_from_display)
+                    .map_or((None, None), |(b, a)| (Some(b), Some(a))),
+                present => present,
+            };
+            let backfill = match (row.backfill_at, row.backfill_reason) {
+                (Some(at), Some(reason)) => Some(IacucEventBackfill {
+                    by_name: row.backfill_by_name,
+                    at,
+                    reason,
+                }),
+                _ => None,
+            };
+            AnimalEvent {
+                id: row.id,
+                event_type: row.event_type,
+                actor_name: row.actor_display_name,
+                before_data,
+                after_data,
+                created_at: row.created_at,
+                actual_date: row.backfill_date,
+                backfill,
+            }
+        })
         .collect();
 
     Ok(Json(events))
+}
+
+/// 為 IACUC 變更事件補登實際日期（只新增不覆蓋，需 animal.field_correction.review 權限）
+#[utoipa::path(
+    post,
+    path = "/api/v1/animals/{id}/events/{event_id}/actual-date",
+    request_body = BackfillIacucEventDateRequest,
+    responses(
+        (status = 200, description = "補登成功", body = BackfillIacucEventDateResponse),
+        (status = 400, description = "日期格式錯誤、原因空白，或日期超出該事件允許的範圍"),
+        (status = 401, description = "未授權"),
+        (status = 403, description = "沒有補登權限"),
+        (status = 404, description = "找不到動物，或事件不屬於該動物／不是 IACUC 變更事件")
+    ),
+    params(
+        ("id" = Uuid, Path, description = "動物 ID"),
+        ("event_id" = Uuid, Path, description = "IACUC 變更事件 ID（GET /animals/{id}/events 回傳的 id）")
+    ),
+    tag = "動物管理",
+    security(("bearer" = []))
+)]
+pub async fn backfill_iacuc_event_actual_date(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path((id, event_id)): Path<(Uuid, Uuid)>,
+    Json(req): Json<BackfillIacucEventDateRequest>,
+) -> Result<Json<BackfillIacucEventDateResponse>> {
+    require_permission!(current_user, "animal.field_correction.review");
+    // 沿用動物存取守衛：補登權限不等於可存取任意動物
+    access::require_animal_read_access(&state.db, &current_user, id).await?;
+
+    let actor = ActorContext::User(current_user.clone());
+    let res =
+        AnimalService::backfill_iacuc_event_date(&state.db, &actor, id, event_id, &req).await?;
+    Ok(Json(res))
 }
