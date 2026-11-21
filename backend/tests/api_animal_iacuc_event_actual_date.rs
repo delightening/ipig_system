@@ -344,6 +344,60 @@ async fn first_assignment_is_capped_by_the_first_plan_required_record_only() {
 
 #[tokio::test]
 #[serial]
+async fn the_first_logged_event_is_not_capped_when_it_is_not_an_initial_assignment() {
+    // 批次分配與轉讓直接改 animals.iacuc_no、不寫 IACUC_CHANGE 事件。
+    // 這裡用 SQL 模擬：計畫 A 是直接設上去的（沒有事件），試驗紀錄在 A 底下建立，
+    // 之後在更新頁換成 B，第一個被記錄的事件是「A → B」，它的舊值不是空的，
+    // 不是首次分配，所以不該被「第一筆試驗紀錄」的上限擋住。
+    let app = TestApp::spawn().await;
+    let token = app.login_as_admin().await;
+    let id = create_animal(&app, &token).await;
+    sqlx::query("UPDATE animals SET iacuc_no = 'PIG-TEST-A' WHERE id = $1")
+        .bind(id)
+        .execute(&app.db_pool)
+        .await
+        .expect("assign without an event");
+    let res = app
+        .auth_post(
+            &format!("/api/v1/animals/{id}/observations"),
+            &json!({ "event_date": "2026-07-20", "record_type": "experiment", "content": "試驗性觀察" }),
+            &token,
+        )
+        .await;
+    assert!(
+        res.status().is_success(),
+        "試驗性觀察建立失敗：{}",
+        res.status()
+    );
+    put_animal(&app, &token, id, json!({ "iacuc_no": "PIG-TEST-B" })).await;
+
+    let events = get_events(&app, &token, id).await;
+    assert_eq!(
+        events.len(),
+        1,
+        "只應有「A → B」這一個被記錄的事件：{events:?}"
+    );
+    assert_eq!(events[0]["before_data"]["iacuc_no"], "PIG-TEST-A");
+    let event = event_ids_oldest_first(&events)[0];
+
+    // 08-01 晚於試驗觀察（07-20）：若被誤當成首次分配，會被擋成 400
+    let (s, b) = backfill(
+        &app,
+        &token,
+        id,
+        event,
+        "2026-08-01",
+        "晚於試驗紀錄也應可補登",
+    )
+    .await;
+    assert_eq!(s, 200, "{b}");
+    // 下限（進場日）仍然有效
+    let (s, b) = backfill(&app, &token, id, event, "2026-07-12", "早於進場日").await;
+    assert_eq!(s, 400, "{b}");
+}
+
+#[tokio::test]
+#[serial]
 async fn later_change_is_sandwiched_by_the_previous_event_and_its_own_registration() {
     let app = TestApp::spawn().await;
     let token = app.login_as_admin().await;

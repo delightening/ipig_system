@@ -8,7 +8,9 @@
 //! - 事件的「有效日期」＝有補登用補登日，否則用登錄日（登錄時間換算成台北時間的日曆日）。
 //! - 下限：第一次分配＝進場日；之後的更換＝前一事件的有效日期。
 //! - 上限：不晚於自己的登錄日；有下一事件則不晚於下一事件的有效日期；
-//!   第一次分配另外不晚於「第一筆需計畫的試驗紀錄」的日期。
+//!   首次分配（事件的舊值沒有 IACUC No.；不是「時間上第一個事件」）另外不晚於
+//!   「第一筆需計畫的試驗紀錄」的日期。批次分配與轉讓直接改 `animals.iacuc_no`、不寫事件，
+//!   所以第一個被記錄的事件可能是「A → B」，它不套用這個上限。
 //! - 「需計畫的試驗紀錄」＝手術、試驗性觀察、疼痛評估（疼痛評估沒有自己的日期，取其父紀錄的日期）。
 //!   體重、疫苗、血液檢查是日常照護，不算；病理報告沒有臨床日期（只有建立時間），也不算。
 
@@ -69,6 +71,46 @@ struct BackfillSnapshot {
 }
 
 impl AuditRedact for BackfillSnapshot {}
+
+/// 稽核表裡的一筆 IACUC 變更事件：範圍計算與判斷「是否為首次分配」需要的欄位。
+#[derive(sqlx::FromRow)]
+struct EventRow {
+    id: Uuid,
+    created_at: DateTime<Utc>,
+    before_data: Option<serde_json::Value>,
+    after_data: Option<serde_json::Value>,
+    entity_display_name: Option<String>,
+}
+
+impl EventRow {
+    fn is_initial_assignment(&self) -> bool {
+        is_initial_assignment(
+            self.before_data.as_ref(),
+            self.after_data.as_ref(),
+            self.entity_display_name.as_deref(),
+        )
+    }
+}
+
+/// 事件是否為「首次分配」：變更前沒有 IACUC No.（舊值為空）。
+///
+/// 判斷依據沿用 `IacucChangeSnapshot::pair` 的規則：`before_data.iacuc_no` 為 null 或缺席。
+/// 修正前寫入的歷史事件 before/after 都是空的，退回解析顯示文字 `[(無) → X] 耳號`。
+/// 兩種來源都判斷不出來時回 `false`（不套用「第一筆試驗紀錄」上限）：
+/// 寧可放寬，也不誤擋合法的補登。
+fn is_initial_assignment(
+    before: Option<&serde_json::Value>,
+    after: Option<&serde_json::Value>,
+    display: Option<&str>,
+) -> bool {
+    let before_value: Option<serde_json::Value> = match (before, after) {
+        (None, None) => display
+            .and_then(AnimalService::iacuc_change_data_from_display)
+            .map(|(b, _)| b),
+        (b, _) => b.cloned(),
+    };
+    before_value.is_some_and(|b| b.get("iacuc_no").is_none_or(serde_json::Value::is_null))
+}
 
 /// 時間軸上的一個 IACUC 變更事件（只留範圍計算需要的日期）
 #[derive(Debug, Clone, Copy)]
@@ -185,9 +227,9 @@ impl AnimalService {
             animal.ok_or_else(|| AppError::NotFound("動物不存在".to_string()))?;
 
         // 該動物全部 IACUC 變更事件（不受時間軸 50 筆顯示上限影響），由舊到新
-        let event_rows: Vec<(Uuid, DateTime<Utc>)> = sqlx::query_as(
+        let event_rows: Vec<EventRow> = sqlx::query_as(
             r#"
-            SELECT id, created_at
+            SELECT id, created_at, before_data, after_data, entity_display_name
             FROM user_activity_logs
             WHERE entity_type = 'animal'
               AND entity_id = $1
@@ -201,7 +243,7 @@ impl AnimalService {
 
         let index = event_rows
             .iter()
-            .position(|(id, _)| *id == event_id)
+            .position(|row| row.id == event_id)
             .ok_or_else(|| AppError::NotFound("找不到該動物的 IACUC 變更事件".to_string()))?;
 
         // 每個事件最新一筆補登
@@ -220,15 +262,21 @@ impl AnimalService {
 
         let timeline: Vec<TimelineEvent> = event_rows
             .iter()
-            .map(|(id, created_at)| TimelineEvent {
-                registered: created_at
+            .map(|row| TimelineEvent {
+                registered: row
+                    .created_at
                     .with_timezone(&crate::time::taiwan_offset())
                     .date_naive(),
-                backfilled: latest_of(*id),
+                backfilled: latest_of(row.id),
             })
             .collect();
 
-        let first_plan_record = if index == 0 {
+        // 「第一筆試驗紀錄」上限只套用在真正的首次分配：事件的舊值沒有 IACUC No.。
+        // 不能只看「時間上第一個 IACUC_CHANGE」：批次分配與轉讓直接改 animals.iacuc_no、
+        // 不寫這個事件，之後在更新頁換計畫時，第一個被記錄的事件是「A → B」，
+        // 試驗紀錄是在 A 底下建立的，套用上限會誤擋合法的補登。
+        let is_initial = index == 0 && event_rows[index].is_initial_assignment();
+        let first_plan_record = if is_initial {
             Self::first_plan_required_record_date(&mut tx, animal_id).await?
         } else {
             None
@@ -467,5 +515,47 @@ mod tests {
         assert!(clean_reason("   ").is_err());
         assert!(clean_reason(&"字".repeat(501)).is_err());
         assert!(clean_reason(&"字".repeat(500)).is_ok());
+    }
+
+    // ── 是否為首次分配（決定要不要套用「第一筆試驗紀錄」上限）──
+
+    #[test]
+    fn event_without_a_previous_iacuc_is_an_initial_assignment() {
+        let before = serde_json::json!({ "iacuc_no": null });
+        let after = serde_json::json!({ "iacuc_no": "PIG-114005" });
+        assert!(is_initial_assignment(Some(&before), Some(&after), None));
+        // before_data 沒有 iacuc_no 這個鍵，也視為舊值為空
+        let empty = serde_json::json!({});
+        assert!(is_initial_assignment(Some(&empty), Some(&after), None));
+    }
+
+    #[test]
+    fn event_with_a_previous_iacuc_is_not_an_initial_assignment() {
+        // 批次分配或轉讓不寫事件，之後換計畫時第一個被記錄的事件是「A → B」
+        let before = serde_json::json!({ "iacuc_no": "PIG-114004" });
+        let after = serde_json::json!({ "iacuc_no": "PIG-114005" });
+        assert!(!is_initial_assignment(Some(&before), Some(&after), None));
+    }
+
+    #[test]
+    fn legacy_event_falls_back_to_the_display_text() {
+        // 修正前寫入的歷史事件：before/after 都是空，只有顯示文字
+        assert!(is_initial_assignment(
+            None,
+            None,
+            Some("[(無) → PIG-114005] 243")
+        ));
+        assert!(!is_initial_assignment(
+            None,
+            None,
+            Some("[PIG-114004 → PIG-114005] 243")
+        ));
+    }
+
+    #[test]
+    fn unknown_previous_value_does_not_apply_the_cap() {
+        // 兩種來源都判斷不出來：寧可放寬，也不誤擋合法的補登
+        assert!(!is_initial_assignment(None, None, None));
+        assert!(!is_initial_assignment(None, None, Some("看不懂的文字")));
     }
 }
