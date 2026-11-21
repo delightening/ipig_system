@@ -74,6 +74,9 @@ pub use animal::care_record::{
     CareRecord, CareRecordService, CareVetRecordType, CreateCareRecordRequest,
     UpdateCareRecordRequest,
 };
+pub use animal::iacuc_event_date::{
+    BackfillIacucEventDateRequest, BackfillIacucEventDateResponse, IacucEventBackfill,
+};
 pub use animal::pen_alignment;
 pub use animal::sacrifice_backfill;
 pub use animal::vet_advice::{

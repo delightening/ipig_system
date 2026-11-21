@@ -183,6 +183,7 @@ use utoipa::OpenApi;
         crate::handlers::batch_create_animals,
         crate::handlers::mark_animal_vet_read,
         crate::handlers::get_animal_events,
+        crate::handlers::backfill_iacuc_event_actual_date,
         // === 動物子模組 ===
         crate::handlers::list_animal_observations,
         crate::handlers::get_animal_observation,
@@ -450,6 +451,9 @@ use utoipa::OpenApi;
             crate::models::AnimalBreed,
             crate::models::AnimalGender,
             crate::handlers::AnimalEvent,
+            crate::services::BackfillIacucEventDateRequest,
+            crate::services::BackfillIacucEventDateResponse,
+            crate::services::IacucEventBackfill,
             // 動物子模組
             crate::models::AnimalObservation,
             crate::models::AnimalSurgery,

@@ -61,6 +61,11 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/animals/{id}/delete", post(handlers::delete_animal))
         .route("/animals/{id}/events", get(handlers::get_animal_events))
+        // IACUC 變更事件補登實際日期（只新增不覆蓋；權限 animal.field_correction.review）
+        .route(
+            "/animals/{id}/events/{event_id}/actual-date",
+            post(handlers::backfill_iacuc_event_actual_date),
+        )
         .route(
             "/animals/{id}/client-info",
             get(handlers::get_animal_client_info),

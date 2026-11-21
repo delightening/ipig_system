@@ -16,6 +16,7 @@ pub mod care_record;
 mod core;
 pub mod excel_export;
 pub(crate) mod field_correction;
+pub(crate) mod iacuc_event_date;
 mod import_export;
 pub(crate) mod medical;
 pub(crate) mod observation;
