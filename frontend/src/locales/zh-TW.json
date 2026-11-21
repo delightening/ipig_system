@@ -3631,7 +3631,8 @@
       "applySizeUnknown": "套用結果不確定，已要求重新載入欄位資料，請確認列表已更新後再決定是否重試",
       "unplacedHeading": "未排位或位置重複的欄位",
       "swapBlocked": "此欄位未排位或位置重複，無法與其他欄位互換，請先拖到空格",
-      "applySizeOffline": "目前離線，無法套用，請恢復連線後再試"
+      "applySizeOffline": "目前離線，無法套用，請恢復連線後再試",
+      "applySizeConflict": "此區的欄位在你確認之後有變動，尚未套用任何尺寸。已重新載入，請確認欄位數量後再按一次「套用」"
     },
     "auditDashboardTab": {
       "activeUsersToday": "今日活躍用戶",

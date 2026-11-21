@@ -57,15 +57,24 @@ export function ApplyPenSizeDialog({ open, onOpenChange, zone, pens, returnFocus
     queryClient.invalidateQueries({ queryKey: ['facility-pens'] })
   }
 
-  // 送出的長寬在點擊當下就固定成變數，不在 mutation 真正執行時才讀 state
+  // 送出的長寬與「畫面上看到的欄位 ID」在點擊當下就固定成變數，不在 mutation 真正執行時才讀 state；
+  // 欄位 ID 讓後端能發現「預覽後有人新增／停用欄位」而回 409，而不是靜默套用到不同的一批欄位
   const mutation = useMutation({
-    mutationFn: (size: { length_m: string; width_m: string }) => facilityApi.applyPenSize(zone.id, size),
+    mutationFn: (req: { length_m: string; width_m: string; expected_pen_ids: string[] }) =>
+      facilityApi.applyPenSize(zone.id, req),
     onSuccess: res => {
       refreshPens()
       toast({ title: t('admin.penLayoutPreview.applySizeSuccess', { count: res.data.updated_count }) })
       close()
     },
     onError: (err: unknown) => {
+      // 409：預覽之後該區的欄位有變動，後端沒有寫入任何東西。重新載入欄位資料並保持對話框開啟，
+      // 讓使用者看過新的欄位數與「會覆蓋幾個」之後再決定要不要套用
+      if (err instanceof AxiosError && err.response?.status === 409) {
+        refreshPens()
+        toast({ title: t('admin.penLayoutPreview.applySizeConflict'), variant: 'destructive' })
+        return
+      }
       // 沒收到回應或伺服器端錯誤時，不能確定寫入有沒有成功：重新載入欄位資料並如實告知，
       // 讓使用者確認後再決定要不要重試；明確的 4xx 拒絕則維持原本「修正後再送」流程
       const unknownOutcome = err instanceof AxiosError && (!err.response || err.response.status >= 500)
@@ -122,7 +131,11 @@ export function ApplyPenSizeDialog({ open, onOpenChange, zone, pens, returnFocus
           <Button type="button" variant="outline" onClick={close} disabled={mutation.isPending}>{t('common.cancel')}</Button>
           <Button
             type="button"
-            onClick={() => mutation.mutate({ length_m: length.trim(), width_m: width.trim() })}
+            onClick={() => mutation.mutate({
+              length_m: length.trim(),
+              width_m: width.trim(),
+              expected_pen_ids: pens.map(p => p.id),
+            })}
             disabled={mutation.isPending || !online || bothEmpty || sizeError !== null || pens.length === 0}
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
