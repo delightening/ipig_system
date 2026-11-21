@@ -19,7 +19,11 @@ CREATE TABLE animal_event_actual_dates (
     actual_date date        NOT NULL,
     reason      text        NOT NULL,
     created_by  uuid        NOT NULL REFERENCES users (id),
-    created_at  timestamptz NOT NULL DEFAULT now(),
+    -- clock_timestamp()（寫入當下）而不是 now()（交易開始時間）：讀取「最新一筆」靠這欄排序，
+    -- 而服務層是先鎖動物列、之後才 INSERT。若用 now()，先開始交易卻較晚拿到鎖的補登，
+    -- 會帶著較早的時間寫在後面，被誤判成較舊。寫入發生在鎖內，所以同一隻動物的
+    -- clock_timestamp() 順序等於實際寫入順序。
+    created_at  timestamptz NOT NULL DEFAULT clock_timestamp(),
     CONSTRAINT animal_event_actual_dates_reason_not_blank
         CHECK (length(btrim(reason)) > 0 AND length(reason) <= 500)
 );

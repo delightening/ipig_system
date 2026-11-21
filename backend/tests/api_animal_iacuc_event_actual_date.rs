@@ -94,21 +94,29 @@ async fn animal_with_first_assignment(app: &TestApp, token: &str) -> (Uuid, Uuid
     (id, event_ids_oldest_first(&events)[0])
 }
 
-/// 台北時間今天的日期字串（YYYY-MM-DD）。
-async fn today_taipei(app: &TestApp) -> String {
-    sqlx::query_scalar("SELECT to_char((now() AT TIME ZONE 'Asia/Taipei')::date, 'YYYY-MM-DD')")
-        .fetch_one(&app.db_pool)
-        .await
-        .expect("today")
-}
-
-async fn tomorrow_taipei(app: &TestApp) -> String {
+/// 事件的登錄日（寫入時間換算成台北時間的日曆日，YYYY-MM-DD）。
+///
+/// 邊界斷言一律用事件自己的登錄日，不用「現在的台北今天」：兩者在測試跑過台北午夜時會差一天，
+/// 而伺服器是以事件的登錄日當上限。
+async fn registered_date(app: &TestApp, event: Uuid) -> String {
     sqlx::query_scalar(
-        "SELECT to_char(((now() AT TIME ZONE 'Asia/Taipei')::date + 1), 'YYYY-MM-DD')",
+        "SELECT to_char((created_at AT TIME ZONE 'Asia/Taipei')::date, 'YYYY-MM-DD') \
+         FROM user_activity_logs WHERE id = $1",
     )
+    .bind(event)
     .fetch_one(&app.db_pool)
     .await
-    .expect("tomorrow")
+    .expect("registered date")
+}
+
+/// 給定日期的隔天（YYYY-MM-DD）。
+async fn day_after(app: &TestApp, date: &str) -> String {
+    // $1::text::date：先固定參數型別為 text（sqlx 綁的是字串），再轉成日期
+    sqlx::query_scalar("SELECT to_char(($1::text::date + 1), 'YYYY-MM-DD')")
+        .bind(date)
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("day after")
 }
 
 async fn backfill_row_count(app: &TestApp, animal: Uuid) -> i64 {
@@ -130,9 +138,19 @@ async fn backfill_is_returned_on_the_timeline_and_unbackfilled_events_stay_null(
 
     let before = get_events(&app, &token, id).await;
     assert_eq!(before.len(), 2, "{before:?}");
+    // 要求「欄位存在且為 null」，不是「欄位缺席」：serde_json 對缺少的鍵索引也回 Null，
+    // 用 e["x"].is_null() 會讓整個欄位被拿掉的回歸也通過
     for e in &before {
-        assert!(e["actual_date"].is_null(), "沒補登過應為 null：{e}");
-        assert!(e["backfill"].is_null(), "沒補登過應為 null：{e}");
+        assert_eq!(
+            e.get("actual_date"),
+            Some(&Value::Null),
+            "沒補登過應為 null：{e}"
+        );
+        assert_eq!(
+            e.get("backfill"),
+            Some(&Value::Null),
+            "沒補登過應為 null：{e}"
+        );
     }
 
     let (status, body) = backfill(&app, &token, id, first, "2026-07-20", "依紙本申請單補登").await;
@@ -155,8 +173,8 @@ async fn backfill_is_returned_on_the_timeline_and_unbackfilled_events_stay_null(
         .iter()
         .find(|e| e["id"] != first.to_string())
         .expect("other event");
-    assert!(other["actual_date"].is_null(), "{other}");
-    assert!(other["backfill"].is_null(), "{other}");
+    assert_eq!(other.get("actual_date"), Some(&Value::Null), "{other}");
+    assert_eq!(other.get("backfill"), Some(&Value::Null), "{other}");
 }
 
 #[tokio::test]
@@ -207,6 +225,26 @@ async fn backfilling_again_appends_a_row_and_the_latest_one_wins() {
 
 #[tokio::test]
 #[serial]
+async fn created_at_records_the_write_time_not_the_transaction_start() {
+    // 讀「最新一筆」靠 created_at 排序，而補登是先鎖動物列、之後才 INSERT。
+    // 預設若是 now()（交易開始時間），先開始卻較晚拿到鎖的補登會帶著較早的時間寫在後面，
+    // 被誤判成較舊；clock_timestamp() 是寫入當下，鎖內的寫入順序就等於時間順序。
+    let app = TestApp::spawn().await;
+    let default: String = sqlx::query_scalar(
+        "SELECT column_default FROM information_schema.columns \
+         WHERE table_name = 'animal_event_actual_dates' AND column_name = 'created_at'",
+    )
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("created_at default");
+    assert!(
+        default.contains("clock_timestamp"),
+        "created_at 預設應為 clock_timestamp()，實際：{default}"
+    );
+}
+
+#[tokio::test]
+#[serial]
 async fn the_table_itself_rejects_update_and_delete() {
     let app = TestApp::spawn().await;
     let token = app.login_as_admin().await;
@@ -233,8 +271,8 @@ async fn first_assignment_range_starts_at_entry_date_and_ends_at_today() {
     let app = TestApp::spawn().await;
     let token = app.login_as_admin().await;
     let (id, first) = animal_with_first_assignment(&app, &token).await;
-    let today = today_taipei(&app).await;
-    let tomorrow = tomorrow_taipei(&app).await;
+    let registered = registered_date(&app, first).await;
+    let after_registered = day_after(&app, &registered).await;
 
     // 早於進場日
     let (s, b) = backfill(&app, &token, id, first, "2026-07-12", "太早").await;
@@ -245,13 +283,13 @@ async fn first_assignment_range_starts_at_entry_date_and_ends_at_today() {
     );
 
     // 晚於登錄日（沒有試驗紀錄時上限是登錄日）
-    let (s, b) = backfill(&app, &token, id, first, &tomorrow, "太晚").await;
+    let (s, b) = backfill(&app, &token, id, first, &after_registered, "太晚").await;
     assert_eq!(s, 400, "{b}");
 
     // 兩端含在內
     let (s, b) = backfill(&app, &token, id, first, ENTRY_DATE, "進場當天").await;
     assert_eq!(s, 200, "{b}");
-    let (s, b) = backfill(&app, &token, id, first, &today, "登錄當天").await;
+    let (s, b) = backfill(&app, &token, id, first, &registered, "登錄當天").await;
     assert_eq!(s, 200, "{b}");
 }
 
@@ -315,12 +353,13 @@ async fn later_change_is_sandwiched_by_the_previous_event_and_its_own_registrati
     let ids = event_ids_oldest_first(&events);
     assert_eq!(ids.len(), 2);
     let second = ids[1];
-    let today = today_taipei(&app).await;
+    let second_registered = registered_date(&app, second).await;
 
-    // 前一事件還沒補登：有效日期＝登錄日（今天），所以更換事件只能是今天
+    // 前一事件還沒補登：有效日期＝它的登錄日，所以更換事件不能更早（07-30 遠早於登錄日）；
+    // 上限是自己的登錄日，兩端含在內
     let (s, b) = backfill(&app, &token, id, second, "2026-07-30", "早於前一事件").await;
     assert_eq!(s, 400, "{b}");
-    let (s, b) = backfill(&app, &token, id, second, &today, "與前一事件同日").await;
+    let (s, b) = backfill(&app, &token, id, second, &second_registered, "與登錄日同日").await;
     assert_eq!(s, 200, "{b}");
 
     // 前一事件補登到 07-20 之後，更換事件的下限跟著放寬到 07-20
