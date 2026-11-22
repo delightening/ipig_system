@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 /// 開一個 PI 角色帳號（animal.animal.view_project + animal.record.view，但**非 view_all**）。
 /// PI 為 AUP 角色，須以 user_roles(code='PI') 指派才會帶權限進 JWT。
-async fn create_pi_user_and_login(app: &TestApp) -> String {
+async fn create_pi_user_and_login(app: &TestApp) -> (Uuid, String) {
     let password = "TestPassword123!";
     let id = Uuid::new_v4();
     let email = format!("avp_pi_{}@test.local", &Uuid::new_v4().to_string()[..8]);
@@ -31,11 +31,33 @@ async fn create_pi_user_and_login(app: &TestApp) -> String {
     .execute(&app.db_pool)
     .await
     .expect("assign PI role");
-    app.login(&email, password).await.expect("PI login failed")
+    let token = app.login(&email, password).await.expect("PI login failed");
+    (id, token)
+}
+
+/// 建立一份計畫（pi_user_id = `pi`），回傳它的 iacuc_no。
+async fn seed_protocol(app: &TestApp, pi: Uuid) -> String {
+    let unique = &Uuid::new_v4().to_string()[..8];
+    let iacuc_no = format!("IACUC-AVP-{unique}");
+    sqlx::query(
+        r#"INSERT INTO protocols (id, protocol_no, iacuc_no, title, status, pi_user_id, created_by, created_at, updated_at)
+           VALUES ($1, $2, $3, 'available pigs scope', 'APPROVED'::protocol_status, $4, $4, NOW(), NOW())"#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(format!("PAVP-{unique}"))
+    .bind(&iacuc_no)
+    .bind(pi)
+    .execute(&app.db_pool)
+    .await
+    .expect("insert protocol");
+    iacuc_no
 }
 
 /// code-review #386（IDOR 回歸）：只有 view_project（無 view_all）的 PI 不得透過
 /// /animals/available 列舉未指派計畫（iacuc_no NULL）的全院庫存豬；admin（view_all）則看得到。
+///
+/// 範圍後來收緊為「自己可存取之計畫」：別人計畫底下的豬同樣不得出現，
+/// 自己計畫的豬仍須看得到（證明不是整列消失）。
 #[tokio::test]
 #[serial]
 async fn available_pigs_view_project_only_excludes_unassigned_inventory() {
@@ -48,8 +70,13 @@ async fn available_pigs_view_project_only_excludes_unassigned_inventory() {
         .expect("需要一個既有 user");
 
     // 唯一標記放 remark（回應含 remark 欄、且不會被格式化），避免 ear_tag 格式化比對問題
+    let (pi_id, pi) = create_pi_user_and_login(&app).await;
+    let own_iacuc_no = seed_protocol(&app, pi_id).await;
+    let other_iacuc_no = seed_protocol(&app, owner).await;
+
     let unassigned_marker = format!("AVP-UNASSIGN-{}", &Uuid::new_v4().to_string()[..8]);
     let assigned_marker = format!("AVP-ASSIGN-{}", &Uuid::new_v4().to_string()[..8]);
+    let other_marker = format!("AVP-OTHER-{}", &Uuid::new_v4().to_string()[..8]);
     // 已指派（completed + iacuc_no 非空）vs 未指派（unassigned + iacuc_no NULL），各一隻、皆有新鮮體重。
     let seed_pig = |status: &'static str, iacuc: Option<String>, marker: String| {
         let pool = pool.clone();
@@ -78,12 +105,8 @@ async fn available_pigs_view_project_only_excludes_unassigned_inventory() {
         }
     };
     seed_pig("unassigned", None, unassigned_marker.clone()).await;
-    seed_pig(
-        "completed",
-        Some(format!("IACUC-AVP-{}", &Uuid::new_v4().to_string()[..6])),
-        assigned_marker.clone(),
-    )
-    .await;
+    seed_pig("completed", Some(own_iacuc_no), assigned_marker.clone()).await;
+    seed_pig("completed", Some(other_iacuc_no), other_marker.clone()).await;
 
     let contains = |body: &serde_json::Value, marker: &str| -> bool {
         body["animals"]
@@ -108,8 +131,12 @@ async fn available_pigs_view_project_only_excludes_unassigned_inventory() {
         "admin 應看到已指派豬"
     );
 
-    // PI（view_project，非 view_all）→ 只看得到已指派豬，看不到未指派豬
-    let pi = create_pi_user_and_login(&app).await;
+    assert!(
+        contains(&admin_body, &other_marker),
+        "admin 應看到別人計畫的豬"
+    );
+
+    // PI（view_project，非 view_all）→ 只看得到自己計畫的豬
     let pi_res = app
         .auth_get("/api/v1/animals/available?per_page=200", &pi)
         .await;
@@ -120,8 +147,12 @@ async fn available_pigs_view_project_only_excludes_unassigned_inventory() {
         "view_project-only 的 PI 不應看到未指派庫存豬（#386）"
     );
     assert!(
+        !contains(&pi_body, &other_marker),
+        "view_project-only 的 PI 不應看到別人計畫的豬"
+    );
+    assert!(
         contains(&pi_body, &assigned_marker),
-        "view_project 的 PI 仍應看到已指派計畫豬（不可整列消失）"
+        "view_project 的 PI 仍應看到自己計畫的豬（不可整列消失）"
     );
 }
 

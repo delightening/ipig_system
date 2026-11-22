@@ -313,7 +313,7 @@ async fn pending_transfer_is_exposed_on_animal_list() {
         .expect("query ear_tag");
     let query = query_by_keyword(ear_tag);
 
-    let before = AnimalService::list(&app.db_pool, &query)
+    let before = AnimalService::list(&app.db_pool, &query, None)
         .await
         .expect("list before");
     let item = before
@@ -339,7 +339,7 @@ async fn pending_transfer_is_exposed_on_animal_list() {
     .await
     .expect("發起轉讓");
 
-    let after = AnimalService::list(&app.db_pool, &query)
+    let after = AnimalService::list(&app.db_pool, &query, None)
         .await
         .expect("list after");
     let item = after

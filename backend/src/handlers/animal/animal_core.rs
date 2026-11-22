@@ -48,7 +48,8 @@ pub async fn list_animals(
         ));
     }
 
-    let mut result = AnimalService::list(&state.db, &query).await.map_err(|e| {
+    let boundary = animal_list_boundary(&state, &current_user, has_view_all).await?;
+    let result = AnimalService::list(&state.db, &query, boundary.as_deref()).await.map_err(|e| {
         tracing::error!(
             "list_animals failed: status={:?} breed={:?} keyword={:?} page={:?} per_page={:?} error={:?}",
             query.status,
@@ -61,15 +62,28 @@ pub async fn list_animals(
         e
     })?;
 
-    if !has_view_all {
-        let before_len = result.data.len();
-        result.data.retain(|a| a.iacuc_no.is_some());
-        let removed = before_len - result.data.len();
-        result.total -= removed as i64;
-        result.total_pages = (result.total as f64 / result.per_page as f64).ceil() as i64;
-    }
-
     Ok(Json(result))
+}
+
+/// 動物列表類端點（`list_animals` / `list_available_pigs`）的讀取邊界。
+///
+/// 持 `animal.animal.view_all` 者不限（`None`）；其餘只看得到自己可存取之計畫底下的
+/// 動物，未掛計畫的動物一律看不到。
+///
+/// 判準刻意沿用這兩個端點原本的 `animal.animal.view_all` 閘，而不是
+/// `access::animal_read_boundary`：後者會把「可檢視所有計畫、但沒有
+/// `animal.animal.view_all`」的人也視為不限，套在這裡會讓他們在列表上多看到
+/// 未掛計畫的庫存豬——那是放寬，不是這次修補該做的事。
+async fn animal_list_boundary(
+    state: &AppState,
+    current_user: &CurrentUser,
+    has_view_all: bool,
+) -> Result<Option<Vec<Uuid>>> {
+    if has_view_all {
+        return Ok(None);
+    }
+    let ids = access::accessible_protocol_ids(&state.db, current_user.id).await?;
+    Ok(Some(ids))
 }
 
 /// 取得動物狀態統計
@@ -107,8 +121,8 @@ pub async fn get_animal_stats(
 ///
 /// 回 JSON `AvailablePigListResponse`；若 query `export=xlsx` 則回 Excel 檔案下載。
 /// 權限：沿用 `animal.animal.view_all` 或 `animal.animal.view_project`（與 list_animals 同）。
-/// 範圍：只有 view_project（無 view_all）者收斂為「已指派計畫」豬隻，與 list_animals 一致，
-/// 避免外部 PI 列舉/匯出全院未指派庫存豬（#386）。
+/// 範圍：只有 view_project（無 view_all）者收斂為「自己可存取之計畫」底下的豬隻，
+/// 與 list_animals 一致；未指派庫存豬與別人計畫的豬都不回（#386 擋的是前者）。
 #[utoipa::path(
     get,
     path = "/api/v1/animals/available",
@@ -139,11 +153,9 @@ pub async fn list_available_pigs(
             "需要 animal.animal.view_all 或 animal.animal.view_project 權限".to_string(),
         ));
     }
-    // 只有 view_project（無 view_all）→ 收斂為已指派計畫豬隻（#386）。
-    let restrict_to_assigned = !has_view_all;
+    let boundary = animal_list_boundary(&state, &current_user, has_view_all).await?;
 
-    let result =
-        AnimalService::list_available_pigs(&state.db, &query, restrict_to_assigned).await?;
+    let result = AnimalService::list_available_pigs(&state.db, &query, boundary.as_deref()).await?;
 
     if query.export.as_deref() == Some("xlsx") {
         let bytes = animal_excel_export::build_available_pigs_xlsx(&result.animals)?;
