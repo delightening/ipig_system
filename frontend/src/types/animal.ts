@@ -619,4 +619,33 @@ export interface AnimalEvent {
     after_data?: { iacuc_no?: string | null; experiment_date?: string | null } | null
     /** 系統寫入這筆稽核紀錄的時間（不可修改），不一定等於事情實際發生的日期。 */
     created_at: string
+    /**
+     * 補登的實際變更日期（YYYY-MM-DD）。**只代表補登的日期**，沒補登過為 null；
+     * 首次分配事件原本就帶的日期仍在 `after_data.experiment_date`。
+     */
+    actual_date?: string | null
+    /** 補登資訊（補登人、時間、原因）；沒補登過為 null。 */
+    backfill?: IacucEventBackfill | null
+}
+
+/** IACUC 變更事件的補登資訊 */
+export interface IacucEventBackfill {
+    by_name?: string | null
+    /** 補登時間（ISO 8601） */
+    at: string
+    reason: string
+}
+
+/** 為 IACUC 變更事件補登實際日期（只新增不覆蓋，再補登一次以最新一筆為準）。 */
+export interface BackfillIacucEventDateRequest {
+    /** 實際變更日期（YYYY-MM-DD） */
+    actual_date: string
+    /** 補登原因（必填，最多 500 字） */
+    reason: string
+}
+
+export interface BackfillIacucEventDateResponse {
+    event_id: string
+    actual_date: string
+    backfill: IacucEventBackfill
 }

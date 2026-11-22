@@ -1,5 +1,6 @@
-import React, { lazy, Suspense, useMemo, useCallback } from 'react'
+import React, { lazy, Suspense, useMemo, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useAuthHasPermission } from '@/stores/auth'
 
 import {
   Animal,
@@ -30,6 +31,7 @@ import type { TabType } from '../constants'
 
 // Lazy-loaded tab components
 const AnimalTimelineView = lazy(() => import('@/components/animal/AnimalTimelineView').then(m => ({ default: m.AnimalTimelineView })))
+const BackfillIacucEventDateDialog = lazy(() => import('@/components/animal/BackfillIacucEventDateDialog').then(m => ({ default: m.BackfillIacucEventDateDialog })))
 const ObservationsTab = lazy(() => import('@/components/animal/ObservationsTab').then(m => ({ default: m.ObservationsTab })))
 const SurgeriesTab = lazy(() => import('@/components/animal/SurgeriesTab').then(m => ({ default: m.SurgeriesTab })))
 const WeightsTab = lazy(() => import('@/components/animal/WeightsTab').then(m => ({ default: m.WeightsTab })))
@@ -135,6 +137,22 @@ export function TabContent({
   setActiveTab,
 }: TabContentProps) {
   const { afterParam, observations, surgeries, weights, vaccinations, sacrifice, suddenDeath, transfers, iacucEvents } = data
+  // 補登 IACUC 變更事件的實際日期：權限與後端一致（animal.field_correction.review）；
+  // 沒有權限就不把 callback 傳給時間軸，按鈕也就不會出現
+  const hasPermission = useAuthHasPermission()
+  const canBackfillIacucDate = hasPermission('animal.field_correction.review')
+  // 補登對象連同它所屬的動物一起記：路由換動物時這個元件不會卸載（新動物已在快取就沒有載入畫面），
+  // 若只記事件，對話框會拿「新動物的 animalId」配「舊動物的事件」送出
+  const [backfill, setBackfill] = useState<{ animalId: string; event: AnimalEvent } | null>(null)
+  if (backfill && backfill.animalId !== animalId) {
+    // 換了動物就丟掉舊的選取（React 允許在 render 中對自己的 state 這樣重設）
+    setBackfill(null)
+  }
+  const backfillTarget = backfill && backfill.animalId === animalId ? backfill.event : null
+  const openBackfill = useCallback(
+    (event: AnimalEvent) => setBackfill({ animalId, event }),
+    [animalId],
+  )
   const handleTimelineAction = useCallback(
     (type: string) => {
       setActiveTab(type === 'observation' ? 'observations' : 'surgeries')
@@ -161,6 +179,15 @@ export function TabContent({
             onHistory={handleTimelineAction}
             onVet={handleTimelineAction}
             onDelete={handleTimelineAction}
+            onBackfillIacucDate={canBackfillIacucDate ? openBackfill : undefined}
+          />
+        )}
+        {backfillTarget && (
+          <BackfillIacucEventDateDialog
+            open
+            onOpenChange={(open) => { if (!open) setBackfill(null) }}
+            animalId={animalId}
+            event={backfillTarget}
           />
         )}
 
