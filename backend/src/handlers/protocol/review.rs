@@ -313,24 +313,7 @@ pub async fn reply_review_comment(
     Json(req): Json<ReplyCommentRequest>,
 ) -> Result<Json<ReviewComment>> {
     req.validate()?;
-    if !current_user.has_permission("aup.review.reply") {
-        let (protocol_id,): (Uuid,) = sqlx::query_as(
-            "SELECT pv.protocol_id FROM review_comments rc JOIN protocol_versions pv ON rc.protocol_version_id = pv.id WHERE rc.id = $1"
-        ).bind(req.parent_comment_id).fetch_one(&state.db).await?;
-        let is_owner = sqlx::query_scalar::<_, bool>(
-            r#"SELECT EXISTS (
-                SELECT 1 FROM protocols WHERE id = $1 AND pi_user_id = $2
-                UNION SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
-            )"#,
-        )
-        .bind(protocol_id)
-        .bind(current_user.id)
-        .fetch_one(&state.db)
-        .await?;
-        if !is_owner {
-            return Err(AppError::Forbidden("Permission denied: requires aup.review.reply or being the protocol owner/co-editor".to_string()));
-        }
-    }
+    access::require_review_reply_access(&state.db, &current_user, req.parent_comment_id).await?;
     let comment = ProtocolService::reply_comment(&state.db, &req, current_user.id).await?;
     Ok(Json(comment))
 }
@@ -343,24 +326,7 @@ pub async fn save_reply_draft(
     Json(req): Json<SaveDraftRequest>,
 ) -> Result<Json<ReviewComment>> {
     req.validate()?;
-    if !current_user.has_permission("aup.review.reply") {
-        let (protocol_id,): (Uuid,) = sqlx::query_as(
-            "SELECT pv.protocol_id FROM review_comments rc JOIN protocol_versions pv ON rc.protocol_version_id = pv.id WHERE rc.id = $1"
-        ).bind(req.comment_id).fetch_one(&state.db).await?;
-        let is_owner = sqlx::query_scalar::<_, bool>(
-            r#"SELECT EXISTS (
-                SELECT 1 FROM protocols WHERE id = $1 AND pi_user_id = $2
-                UNION SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
-            )"#,
-        )
-        .bind(protocol_id)
-        .bind(current_user.id)
-        .fetch_one(&state.db)
-        .await?;
-        if !is_owner {
-            return Err(AppError::Forbidden("Permission denied: requires aup.review.reply or being the protocol owner/co-editor".to_string()));
-        }
-    }
+    access::require_review_reply_access(&state.db, &current_user, req.comment_id).await?;
     let comment = ProtocolService::save_reply_draft(
         &state.db,
         req.comment_id,
@@ -378,24 +344,7 @@ pub async fn get_reply_draft(
     Extension(current_user): Extension<CurrentUser>,
     Path(comment_id): Path<Uuid>,
 ) -> Result<Json<Option<String>>> {
-    if !current_user.has_permission("aup.review.reply") {
-        let (protocol_id,): (Uuid,) = sqlx::query_as(
-            "SELECT pv.protocol_id FROM review_comments rc JOIN protocol_versions pv ON rc.protocol_version_id = pv.id WHERE rc.id = $1"
-        ).bind(comment_id).fetch_one(&state.db).await?;
-        let is_owner = sqlx::query_scalar::<_, bool>(
-            r#"SELECT EXISTS (
-                SELECT 1 FROM protocols WHERE id = $1 AND pi_user_id = $2
-                UNION SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
-            )"#,
-        )
-        .bind(protocol_id)
-        .bind(current_user.id)
-        .fetch_one(&state.db)
-        .await?;
-        if !is_owner {
-            return Err(AppError::Forbidden("Permission denied: requires aup.review.reply or being the protocol owner/co-editor".to_owned()));
-        }
-    }
+    access::require_review_reply_access(&state.db, &current_user, comment_id).await?;
     let draft = ProtocolService::get_reply_draft(&state.db, comment_id).await?;
     Ok(Json(draft))
 }
