@@ -357,3 +357,119 @@ async fn reply_to_missing_comment_returns_404() {
         .await;
     assert_eq!(res.status().as_u16(), 404, "不存在的意見應回 404");
 }
+
+// ── 意見的兩種資料形狀都要能回覆、也都要受範圍限制 ────────────────────────
+//
+// `review_comments` 的 `protocol_id` 與 `protocol_version_id` 各自可為 NULL
+// （至少一個非 NULL）。上面的 fixture 兩個都填，測不到只填其中一個的路徑。
+
+/// 建立一則頂層審查意見，兩個計畫參照欄位各自可省略。
+async fn seed_comment_with_refs(
+    app: &TestApp,
+    protocol_id: Option<Uuid>,
+    version_id: Option<Uuid>,
+    reviewer: Uuid,
+) -> Uuid {
+    let id = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO review_comments
+               (id, protocol_version_id, protocol_id, reviewer_id, content, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, 'please clarify', NOW(), NOW())"#,
+    )
+    .bind(id)
+    .bind(version_id)
+    .bind(protocol_id)
+    .bind(reviewer)
+    .execute(&app.db_pool)
+    .await
+    .expect("insert review comment");
+    id
+}
+
+/// 讀出某則父意見底下唯一一筆回覆的 (protocol_version_id, protocol_id)。
+async fn reply_refs(app: &TestApp, parent: Uuid) -> (Option<Uuid>, Option<Uuid>) {
+    sqlx::query_as(
+        "SELECT protocol_version_id, protocol_id FROM review_comments WHERE parent_comment_id = $1",
+    )
+    .bind(parent)
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("read reply refs")
+}
+
+async fn post_reply(app: &TestApp, token: &str, parent: Uuid) -> (u16, String) {
+    let res = app
+        .auth_post(
+            "/api/v1/reviews/comments/reply",
+            &serde_json::json!({ "parent_comment_id": parent, "content": "shape reply" }),
+            token,
+        )
+        .await;
+    let status = res.status().as_u16();
+    let body = res.text().await.unwrap_or_default();
+    (status, body)
+}
+
+#[tokio::test]
+#[serial]
+async fn reply_works_for_comment_with_only_protocol_reference() {
+    let app = TestApp::spawn().await;
+    let (pi, pi_token) = seed_login_user(&app, "pi", "PI").await;
+    let other_pi = seed_user(&app, "other-pi").await;
+    let reviewer = seed_user(&app, "reviewer").await;
+    let (own_protocol, _) = seed_protocol_with_version(&app, pi).await;
+    let (other_protocol, _) = seed_protocol_with_version(&app, other_pi).await;
+
+    let own_comment = seed_comment_with_refs(&app, Some(own_protocol), None, reviewer).await;
+    let other_comment = seed_comment_with_refs(&app, Some(other_protocol), None, reviewer).await;
+
+    let (status, body) = post_reply(&app, &pi_token, other_comment).await;
+    assert_eq!(
+        status, 403,
+        "別人計畫的意見不得回覆，實得 {status}，body={body}"
+    );
+    assert_eq!(reply_count(&app, other_comment).await, 0);
+
+    let (status, body) = post_reply(&app, &pi_token, own_comment).await;
+    assert_eq!(
+        status, 200,
+        "只有 protocol_id 的意見應可回覆，實得 {status}，body={body}"
+    );
+    assert_eq!(
+        reply_refs(&app, own_comment).await,
+        (None, Some(own_protocol)),
+        "回覆應沿用父意見的參照：版本維持 NULL、計畫為父意見的計畫"
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn reply_works_for_comment_with_only_version_reference() {
+    let app = TestApp::spawn().await;
+    let (pi, pi_token) = seed_login_user(&app, "pi", "PI").await;
+    let other_pi = seed_user(&app, "other-pi").await;
+    let reviewer = seed_user(&app, "reviewer").await;
+    let (own_protocol, own_version) = seed_protocol_with_version(&app, pi).await;
+    let (_, other_version) = seed_protocol_with_version(&app, other_pi).await;
+
+    let own_comment = seed_comment_with_refs(&app, None, Some(own_version), reviewer).await;
+    let other_comment = seed_comment_with_refs(&app, None, Some(other_version), reviewer).await;
+
+    let (status, body) = post_reply(&app, &pi_token, other_comment).await;
+    assert_eq!(
+        status, 403,
+        "別人計畫的意見不得回覆，實得 {status}，body={body}"
+    );
+    assert_eq!(reply_count(&app, other_comment).await, 0);
+
+    let (status, body) = post_reply(&app, &pi_token, own_comment).await;
+    assert_eq!(
+        status, 200,
+        "只有 protocol_version_id 的意見應可回覆，實得 {status}，body={body}"
+    );
+    assert_eq!(
+        reply_refs(&app, own_comment).await,
+        (Some(own_version), Some(own_protocol)),
+        "回覆應帶父意見的版本，計畫由版本反查而來"
+    );
+}

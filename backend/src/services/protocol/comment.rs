@@ -135,27 +135,32 @@ impl ProtocolService {
         req: &ReplyCommentRequest,
         replied_by: Uuid,
     ) -> Result<ReviewComment> {
-        // 驗證父評論存在並獲取 protocol_version_id
-        let parent_comment: Option<(Uuid,)> = sqlx::query_as(
+        // 驗證父評論存在（且為頂層意見），並取得它的版本與計畫歸屬。
+        //
+        // `protocol_version_id` 與 `protocol_id` 皆可為 NULL（`chk_protocol_reference`
+        // 只保證至少一個非 NULL），兩種形狀都要能回覆：
+        // - 只有 `protocol_id`（例：補登匯入的審查意見）→ 版本維持 NULL 帶進回覆。
+        // - 只有 `protocol_version_id` → 經 `protocol_versions` 反查計畫。
+        // 把任一欄位讀成不可為空的 `Uuid`，另一種形狀的意見就會在授權通過之後
+        // 解碼失敗、回覆存不進去。
+        let parent_comment: Option<(Option<Uuid>, Option<Uuid>)> = sqlx::query_as(
             r#"
-            SELECT protocol_version_id 
-            FROM review_comments 
-            WHERE id = $1 AND parent_comment_id IS NULL
+            SELECT rc.protocol_version_id, COALESCE(rc.protocol_id, pv.protocol_id)
+            FROM review_comments rc
+            LEFT JOIN protocol_versions pv ON pv.id = rc.protocol_version_id
+            WHERE rc.id = $1 AND rc.parent_comment_id IS NULL
             "#,
         )
         .bind(req.parent_comment_id)
         .fetch_optional(pool)
         .await?;
 
-        let (protocol_version_id,) = parent_comment
+        let (protocol_version_id, target_protocol_id) = parent_comment
             .ok_or_else(|| AppError::NotFound("Parent comment not found".to_string()))?;
-
-        // 嘗試獲取 protocol_id
-        let target_protocol_id: Uuid =
-            sqlx::query_scalar("SELECT protocol_id FROM review_comments WHERE id = $1")
-                .bind(req.parent_comment_id)
-                .fetch_one(pool)
-                .await?;
+        // 兩個欄位都對不到計畫代表資料違反 `chk_protocol_reference`，不猜測、直接報錯。
+        let target_protocol_id = target_protocol_id.ok_or_else(|| {
+            AppError::Internal("review comment has no resolvable protocol reference".to_string())
+        })?;
 
         // 插入回覆
         let comment = sqlx::query_as::<_, ReviewComment>(
