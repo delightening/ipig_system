@@ -45,7 +45,37 @@ fn resolve_animal_order_by(query: &AnimalQuery) -> Option<String> {
     Some(format!("{column} {direction} NULLS LAST, p.id {direction}"))
 }
 
+/// 「可用豬隻」查詢的讀取邊界條件。`param_index` 是綁定邊界陣列的位置參數編號。
+///
+/// 綁定值為 `NULL` 代表不限；否則只留下掛在這些計畫底下的動物（空陣列＝一隻都不留）。
+/// 每一條查詢的參數個數不同，而 PostgreSQL 要求位置參數連號，所以編號由呼叫端指定。
+/// `param_index` 是程式內的常數，不是使用者輸入。
+fn available_pig_scope_clause(param_index: u8) -> String {
+    format!(
+        "AND (${param_index}::uuid[] IS NULL OR a.iacuc_no IN \
+         (SELECT prb.iacuc_no FROM protocols prb WHERE prb.id = ANY(${param_index}::uuid[])))"
+    )
+}
+
 impl AnimalService {
+    /// 把呼叫者的讀取邊界 AND 進動物列表查詢（表別名 `p`）。
+    ///
+    /// `None` = 不限。`Some(ids)` = 只留下掛在這些計畫底下的動物；`iacuc_no` 為 NULL
+    /// 的動物不屬於任何計畫，會被 IN 子查詢排除。必須與 [`Self::push_animal_filters`]
+    /// 套在同一批查詢上（計數、選頁、非分頁全集），否則總數與實際列數會對不起來。
+    fn push_protocol_boundary(
+        qb: &mut sqlx::QueryBuilder<sqlx::Postgres>,
+        protocol_boundary: Option<&[Uuid]>,
+    ) {
+        if let Some(protocol_ids) = protocol_boundary {
+            qb.push(
+                " AND p.iacuc_no IN (SELECT prb.iacuc_no FROM protocols prb WHERE prb.id = ANY(",
+            );
+            qb.push_bind(protocol_ids.to_vec());
+            qb.push("))");
+        }
+    }
+
     pub(super) fn push_animal_filters(
         qb: &mut sqlx::QueryBuilder<sqlx::Postgres>,
         query: &AnimalQuery,
@@ -195,9 +225,15 @@ impl AnimalService {
     /// 效能（W1）：分頁採**兩段式** —— 第一段只用瘦索引取本頁 id（OFFSET 不對昂貴 enrich
     /// 空跑），第二段才對本頁少量 id 做 LATERAL / EXISTS / JOIN enrich。深分頁（第 200 頁）
     /// 由 867ms 降至 ~12ms（50k 資料實測）。詳見 docs/design/db_performance_refactor_plan.md W1。
+    ///
+    /// `protocol_boundary` 是呼叫者的讀取邊界：`None` = 不限；`Some(ids)` = 只回傳掛在
+    /// 這些計畫底下的動物（`Some(&[])` 回空結果）。邊界在 SQL 內套用，分頁的總數與
+    /// 頁數因此與實際可見的列一致——不要改回「先取一頁、再在記憶體裡濾掉」，
+    /// 那會讓每頁筆數不足、總數失真。
     pub async fn list(
         pool: &PgPool,
         query: &AnimalQuery,
+        protocol_boundary: Option<&[Uuid]>,
     ) -> Result<PaginatedResponse<AnimalListItem>> {
         let paginated = query.page.is_some() || query.per_page.is_some();
         let page = query.page.unwrap_or(1).max(1);
@@ -208,6 +244,7 @@ impl AnimalService {
                 "SELECT COUNT(*) FROM animals p WHERE p.deleted_at IS NULL",
             );
             Self::push_animal_filters(&mut count_qb, query);
+            Self::push_protocol_boundary(&mut count_qb, protocol_boundary);
             let (cnt,): (i64,) = count_qb.build_query_as().fetch_one(pool).await?;
             cnt
         } else {
@@ -232,6 +269,7 @@ impl AnimalService {
             }
             id_qb.push("WHERE p.deleted_at IS NULL");
             Self::push_animal_filters(&mut id_qb, query);
+            Self::push_protocol_boundary(&mut id_qb, protocol_boundary);
             match &order_by {
                 Some(clause) => {
                     id_qb.push(" ORDER BY ");
@@ -317,10 +355,14 @@ impl AnimalService {
                 query_builder.push(" AND p.id = ANY(");
                 query_builder.push_bind(ids.clone());
                 query_builder.push("::uuid[])");
+                // 讀取邊界則兩段都套：兩條查詢之間動物可能被轉到邊界外的計畫，
+                // 只靠第一段的 id 會把它和新計畫的資料一起帶出來。代價是那一頁少一筆。
+                Self::push_protocol_boundary(&mut query_builder, protocol_boundary);
             }
             None => {
                 // 非分頁：維持原行為（全集 + filter）。
                 Self::push_animal_filters(&mut query_builder, query);
+                Self::push_protocol_boundary(&mut query_builder, protocol_boundary);
             }
         }
         match &order_by {
@@ -481,13 +523,14 @@ impl AnimalService {
     /// 否則排除出主結果並計入 `summary.excluded_weight_expired`。
     ///
     /// 詳見 `docs/plans/r47-available-pigs-query.md`。
-    /// `restrict_to_assigned`：true 時只回已指派計畫（`iacuc_no IS NOT NULL`）的豬，
-    /// 隱藏未指派庫存豬。供「只有 view_project、無 view_all」的呼叫者收斂可見範圍，
-    /// 與 `list_animals` 的 `retain(iacuc_no.is_some())` 一致（#386）。
+    /// `protocol_boundary`：呼叫者的讀取邊界，語意與 [`Self::list`] 相同——`None` = 不限；
+    /// `Some(ids)` = 只回掛在這些計畫底下的豬。未指派庫存豬（`iacuc_no` 為 NULL）不屬於
+    /// 任何計畫，有邊界時一律不回（#386 原本要擋的就是這一類）。
+    /// 列表、統計、`excluded_weight_expired` 三條查詢套同一個邊界，數字才對得起來。
     pub async fn list_available_pigs(
         pool: &PgPool,
         query: &AvailablePigQuery,
-        restrict_to_assigned: bool,
+        protocol_boundary: Option<&[Uuid]>,
     ) -> Result<AvailablePigListResponse> {
         let page = query.page.unwrap_or(1).max(1);
         let per_page = query.per_page.unwrap_or(20).clamp(1, 200);
@@ -495,12 +538,11 @@ impl AnimalService {
 
         let fresh_days = AVAILABLE_PIG_WEIGHT_FRESHNESS_DAYS;
         let breeding_no = BREEDING_PROTOCOL_NO;
-        // restrict bool 為後端依權限計算（非使用者輸入），可安全內插進 SQL。
-        let scope_clause = if restrict_to_assigned {
-            "AND a.iacuc_no IS NOT NULL"
-        } else {
-            ""
-        };
+        // 邊界陣列本身走 bind；內插進 SQL 的只有位置參數編號（程式內常數）。
+        // 列表／統計共用的 CTE 用到 $1–$6，邊界排 $7；excluded 查詢用到 $1–$4，邊界排 $5。
+        let boundary_bind: Option<Vec<Uuid>> = protocol_boundary.map(<[Uuid]>::to_vec);
+        let scope_clause = available_pig_scope_clause(7);
+        let excluded_scope_clause = available_pig_scope_clause(5);
 
         // 共用 CTE：latest_weight（最近 ≤ N 天）+ eligible（status / breeding / 過濾條件套用）
         // 為避免重複組裝 + Option 過濾參數，採 COALESCE 寫法（NULL 時短路為「不過濾」）。
@@ -555,7 +597,7 @@ impl AnimalService {
 
         // ── Query 1: 列表（含 pagination）──
         let list_sql = format!(
-            "{base_cte} SELECT * FROM eligible ORDER BY age_months ASC, ear_tag ASC LIMIT $7 OFFSET $8"
+            "{base_cte} SELECT * FROM eligible ORDER BY age_months ASC, ear_tag ASC LIMIT $8 OFFSET $9"
         );
 
         let mut rows: Vec<AvailablePigRow> = sqlx::query_as(sqlx::AssertSqlSafe(list_sql))
@@ -565,6 +607,7 @@ impl AnimalService {
             .bind(query.age_months_max)
             .bind(query.weight_min)
             .bind(query.weight_max)
+            .bind(boundary_bind.clone())
             .bind(per_page)
             .bind(offset)
             .fetch_all(pool)
@@ -601,6 +644,7 @@ impl AnimalService {
                 .bind(query.age_months_max)
                 .bind(query.weight_min)
                 .bind(query.weight_max)
+                .bind(boundary_bind.clone())
                 .fetch_one(pool)
                 .await?;
 
@@ -612,7 +656,7 @@ impl AnimalService {
             LEFT JOIN protocols pr ON a.iacuc_no = pr.iacuc_no
             WHERE a.deleted_at IS NULL
               AND a.birth_date IS NOT NULL
-              {scope_clause}
+              {excluded_scope_clause}
               AND (
                   a.status IN ('unassigned'::animal_status, 'completed'::animal_status)
                   OR (
@@ -646,6 +690,7 @@ impl AnimalService {
             .bind(query.sex)
             .bind(query.age_months_min)
             .bind(query.age_months_max)
+            .bind(boundary_bind)
             .fetch_one(pool)
             .await?;
 
