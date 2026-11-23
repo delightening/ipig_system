@@ -78,7 +78,11 @@ async fn available_pigs_view_project_only_excludes_unassigned_inventory() {
     let assigned_marker = format!("AVP-ASSIGN-{}", &Uuid::new_v4().to_string()[..8]);
     let other_marker = format!("AVP-OTHER-{}", &Uuid::new_v4().to_string()[..8]);
     // 已指派（completed + iacuc_no 非空）vs 未指派（unassigned + iacuc_no NULL），各一隻、皆有新鮮體重。
-    let seed_pig = |status: &'static str, iacuc: Option<String>, marker: String| {
+    // `weight_days_ago` 超過保鮮期（40 天）的豬不進主結果，改計入 summary.excluded_weight_expired。
+    let seed_pig = |status: &'static str,
+                    iacuc: Option<String>,
+                    marker: String,
+                    weight_days_ago: i32| {
         let pool = pool.clone();
         async move {
             let aid = Uuid::new_v4();
@@ -96,17 +100,53 @@ async fn available_pigs_view_project_only_excludes_unassigned_inventory() {
             .await
             .expect("insert animal");
             sqlx::query(
-                "INSERT INTO animal_weights (animal_id, measure_date, weight) VALUES ($1, CURRENT_DATE, 50.0)",
+                "INSERT INTO animal_weights (animal_id, measure_date, weight) VALUES ($1, CURRENT_DATE - $2::int, 50.0)",
             )
             .bind(aid)
+            .bind(weight_days_ago)
             .execute(&pool)
             .await
             .expect("insert weight");
         }
     };
-    seed_pig("unassigned", None, unassigned_marker.clone()).await;
-    seed_pig("completed", Some(own_iacuc_no), assigned_marker.clone()).await;
-    seed_pig("completed", Some(other_iacuc_no), other_marker.clone()).await;
+    seed_pig("unassigned", None, unassigned_marker.clone(), 0).await;
+    seed_pig(
+        "completed",
+        Some(own_iacuc_no.clone()),
+        assigned_marker.clone(),
+        0,
+    )
+    .await;
+    seed_pig(
+        "completed",
+        Some(other_iacuc_no.clone()),
+        other_marker.clone(),
+        0,
+    )
+    .await;
+    // 體重過期的豬：自己計畫、別人計畫、未指派各一隻。三者條件相同、只差歸屬，
+    // 彙總查詢的範圍若放寬，PI 的 excluded_weight_expired 就會多算。
+    seed_pig(
+        "completed",
+        Some(own_iacuc_no),
+        format!("AVP-OWN-EXP-{}", &Uuid::new_v4().to_string()[..8]),
+        365,
+    )
+    .await;
+    seed_pig(
+        "completed",
+        Some(other_iacuc_no),
+        format!("AVP-OTHER-EXP-{}", &Uuid::new_v4().to_string()[..8]),
+        365,
+    )
+    .await;
+    seed_pig(
+        "unassigned",
+        None,
+        format!("AVP-UNASSIGN-EXP-{}", &Uuid::new_v4().to_string()[..8]),
+        365,
+    )
+    .await;
 
     let contains = |body: &serde_json::Value, marker: &str| -> bool {
         body["animals"]
@@ -153,6 +193,25 @@ async fn available_pigs_view_project_only_excludes_unassigned_inventory() {
     assert!(
         contains(&pi_body, &assigned_marker),
         "view_project 的 PI 仍應看到自己計畫的豬（不可整列消失）"
+    );
+
+    // 彙總欄位是另外兩條查詢算的，要分開驗：PI 的計畫是本測試新建的，
+    // 範圍內只有一隻新鮮體重的豬、一隻體重過期的豬。
+    let summary = &pi_body["summary"];
+    assert_eq!(
+        summary["total"].as_i64(),
+        Some(1),
+        "PI 的 summary.total 只應計自己計畫的新鮮體重豬，summary={summary}"
+    );
+    assert_eq!(
+        summary["male"].as_i64(),
+        Some(1),
+        "PI 的 summary.male 只應計自己計畫的豬，summary={summary}"
+    );
+    assert_eq!(
+        summary["excluded_weight_expired"].as_i64(),
+        Some(1),
+        "PI 的 excluded_weight_expired 只應計自己計畫的過期豬，summary={summary}"
     );
 }
 

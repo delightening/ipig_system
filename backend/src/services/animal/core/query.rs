@@ -355,6 +355,9 @@ impl AnimalService {
                 query_builder.push(" AND p.id = ANY(");
                 query_builder.push_bind(ids.clone());
                 query_builder.push("::uuid[])");
+                // 讀取邊界則兩段都套：兩條查詢之間動物可能被轉到邊界外的計畫，
+                // 只靠第一段的 id 會把它和新計畫的資料一起帶出來。代價是那一頁少一筆。
+                Self::push_protocol_boundary(&mut query_builder, protocol_boundary);
             }
             None => {
                 // 非分頁：維持原行為（全集 + filter）。
