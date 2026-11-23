@@ -6,6 +6,7 @@ use axum::{
 use crate::{
     middleware::CurrentUser,
     require_permission,
+    services::access,
     services::report::{
         BloodTestAnalysisQuery, BloodTestAnalysisRow, BloodTestCostReport, CostSummaryReport,
         ProtocolConsumptionReport, PurchaseLinesReport, PurchaseSalesCategorySummary,
@@ -74,14 +75,10 @@ pub async fn get_purchase_lines_report(
 /// 必須把查詢**綁回 `current_user`**：依實際的成員關係（計畫主持人／協同人員）
 /// 收斂 protocol 範圍，而不是相信呼叫端送來的 `protocol_id`。
 ///
-/// 🔴 **不要照抄 `get_blood_test_analysis`。** 它看起來像樣板，其實不是：
-/// 它的 `restrict` 旗標（`animal.animal.view_project` 且非 `view_all`）傳進
-/// `ReportService::blood_test_analysis` 之後，實際只加一條
-/// `AND a.iacuc_no IS NOT NULL`——那排除的是**還沒掛計畫的動物**，
-/// 不是**不屬於我的計畫**。該函式的參數名 `restrict_to_project_animals`
-/// 與它的 doc 都是這樣寫的，它從未宣稱做後者。而且它的 `query.iacuc_no`
-/// 同樣由呼叫端指定，restrict 為真時也不阻止你填別人的編號。
-/// 照抄它不會解決「甲看到乙」，只會讓人以為解決了。
+/// 可參考 `get_blood_test_analysis` 的做法：先向 `services::access` 取呼叫者的
+/// 讀取邊界（可存取的計畫 id 集合，`None` 才是不限），再把邊界 AND 進查詢，
+/// 呼叫端送來的篩選條件只能在邊界之內縮小範圍。
+/// ⚠️ 只排除「還沒掛計畫的資料」不算收斂——那擋不住填別人的計畫編號。
 /// # 回傳上限與截斷訊號（🔴 消費端必讀）
 ///
 /// 本端點最多回 **1001** 筆，而第 1001 筆是**哨兵不是資料**：
@@ -159,21 +156,20 @@ pub async fn get_blood_test_cost_report(
 }
 
 /// 取得血液檢查結果分析資料
-/// 與動物權限綁定：需 animal.record.view；若僅 view_project（無 view_all），僅回傳已指派計畫之動物
+///
+/// 需 `animal.record.view`。讀取範圍與單筆動物紀錄的讀取守衛
+/// （`access::require_animal_read_access`）用同一個判準：可跨計畫讀取者不限；
+/// 其餘只回傳自己可存取之計畫底下的動物，`iacuc_no` / `animal_id` 查詢參數
+/// 只能在這個範圍內再縮小。
 #[utoipa::path(get, path = "/api/v1/reports/blood-test-analysis", responses((status = 200, description = "血檢分析報表")), tag = "報表", security(("bearer" = [])))]
 pub async fn get_blood_test_analysis(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<BloodTestAnalysisQuery>,
 ) -> Result<Json<Vec<BloodTestAnalysisRow>>> {
-    if !current_user.has_permission("animal.record.view") {
-        return Err(crate::AppError::Forbidden(
-            "Permission denied: requires animal.record.view".to_string(),
-        ));
-    }
-    let restrict = current_user.has_permission("animal.animal.view_project")
-        && !current_user.has_permission("animal.animal.view_all");
-    let report = ReportService::blood_test_analysis(&state.db, &query, restrict).await?;
+    require_permission!(current_user, "animal.record.view");
+    let boundary = access::animal_read_boundary(&state.db, &current_user).await?;
+    let report = ReportService::blood_test_analysis(&state.db, &query, boundary.as_deref()).await?;
     Ok(Json(report))
 }
 

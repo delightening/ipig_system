@@ -678,11 +678,15 @@ impl ReportService {
     }
 
     /// 血液檢查結果分析（扁平化原始數據，供前端聚合）
-    /// * restrict_to_project_animals: true 時僅回傳已指派計畫之動物（iacuc_no IS NOT NULL），對應 view_project 權限
+    ///
+    /// `protocol_boundary` 是呼叫者的讀取邊界（由 `access::animal_read_boundary` 算出）：
+    /// `None` = 不限；`Some(ids)` = 只回傳掛在這些計畫底下的動物。`Some(&[])` 回空結果，
+    /// 不是不限。`query.iacuc_no` / `query.animal_id` 由呼叫端指定，只能在邊界**之內**
+    /// 再縮小範圍，無法越過邊界。
     pub async fn blood_test_analysis(
         pool: &PgPool,
         query: &BloodTestAnalysisQuery,
-        restrict_to_project_animals: bool,
+        protocol_boundary: Option<&[Uuid]>,
     ) -> Result<Vec<BloodTestAnalysisRow>> {
         let mut qb = sqlx::QueryBuilder::new(
             r#"
@@ -705,8 +709,12 @@ impl ReportService {
             WHERE bt.deleted_at IS NULL AND a.deleted_at IS NULL
             "#,
         );
-        if restrict_to_project_animals {
-            qb.push(" AND a.iacuc_no IS NOT NULL ");
+        if let Some(protocol_ids) = protocol_boundary {
+            // 動物與計畫以 iacuc_no 關聯（animals 無 protocol_id 欄）。iacuc_no 為 NULL
+            // 的動物不屬於任何計畫，IN 子查詢自然排除，不必另加 IS NOT NULL。
+            qb.push(" AND a.iacuc_no IN (SELECT pr.iacuc_no FROM protocols pr WHERE pr.id = ANY(");
+            qb.push_bind(protocol_ids.to_vec());
+            qb.push(")) ");
         }
 
         if let Some(ref iacuc_no) = query.iacuc_no {

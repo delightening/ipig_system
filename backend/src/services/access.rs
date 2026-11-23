@@ -421,6 +421,69 @@ pub async fn require_protocol_related_access(
     ))
 }
 
+/// 審查意見「回覆 / 回覆草稿」的權限碼。
+const PERM_REVIEW_REPLY: &str = "aup.review.reply";
+
+/// 取得審查意見所屬的 protocol_id；意見不存在回 `NotFound`。
+///
+/// `review_comments` 的 `protocol_id` 與 `protocol_version_id` 皆可為 NULL
+/// （`chk_protocol_reference` 只保證至少一個非 NULL），所以兩條路徑都要認：
+/// 先取意見自己的 `protocol_id`，沒有才經 `protocol_versions` 反查。
+/// 只走其中一條會讓另一種資料形狀的意見查不到歸屬。
+async fn review_comment_protocol_id(pool: &PgPool, comment_id: Uuid) -> Result<Uuid> {
+    let row: Option<(Option<Uuid>,)> = sqlx::query_as(
+        r#"SELECT COALESCE(rc.protocol_id, pv.protocol_id)
+           FROM review_comments rc
+           LEFT JOIN protocol_versions pv ON pv.id = rc.protocol_version_id
+           WHERE rc.id = $1"#,
+    )
+    .bind(comment_id)
+    .fetch_optional(pool)
+    .await?;
+    match row {
+        None => Err(AppError::NotFound("Comment not found".into())),
+        // 兩個欄位都對不到計畫時無法做計畫範圍授權，fail-closed 拒絕
+        // （與 `ProtocolService::resolve_comment` 的處理一致）。
+        Some((None,)) => Err(AppError::Forbidden("無法驗證此審查意見的計畫歸屬".into())),
+        Some((Some(protocol_id),)) => Ok(protocol_id),
+    }
+}
+
+/// 審查意見「回覆 / 儲存回覆草稿 / 讀取回覆草稿」的物件層授權。
+///
+/// 兩道條件都要過：
+///
+/// 1. **與該意見所屬計畫有關聯**（[`require_protocol_related_access`]：view_all，
+///    或為該計畫的 PI / SD / 成員 / 指派審查委員 / 指派獸醫）。
+/// 2. **具回覆資格**：持 `aup.review.reply`，或是該計畫的擁有者 / 成員。
+///
+/// 第 1 道是本函式存在的理由。先前三個 handler 只在「沒有 `aup.review.reply`」時
+/// 才檢查擁有者，等於把權限碼當成物件層授權的替代品——持有權限碼的人不論與計畫
+/// 有無關係都通過。權限碼回答的是「這個人能不能做回覆這件事」，
+/// 不回答「能不能對這一筆做」，兩者必須分開檢查。
+///
+/// 對既有使用者的影響：view_all 角色照舊（第 1 道直接通過）；只有持權限碼、
+/// 無 view_all、且與該計畫無關聯的人會從放行變成 403。
+pub async fn require_review_reply_access(
+    pool: &PgPool,
+    current_user: &CurrentUser,
+    comment_id: Uuid,
+) -> Result<()> {
+    let protocol_id = review_comment_protocol_id(pool, comment_id).await?;
+    require_protocol_related_access(pool, current_user, protocol_id).await?;
+    if current_user.has_permission(PERM_REVIEW_REPLY) {
+        return Ok(());
+    }
+    let is_owner_or_member = is_protocol_pi(pool, protocol_id, current_user.id).await?
+        || has_protocol_membership(pool, protocol_id, current_user.id).await?;
+    if is_owner_or_member {
+        return Ok(());
+    }
+    Err(AppError::Forbidden(
+        "Permission denied: requires aup.review.reply or being the protocol owner/co-editor".into(),
+    ))
+}
+
 // ============================================
 // R75-P4 Phase 2：typed scope wrapper（編譯期強制物件層授權）
 // ============================================
@@ -892,6 +955,25 @@ pub async fn require_animal_read_access(
     }
     let protocol_id = get_animal_protocol_id(pool, animal_id).await?;
     require_protocol_related_access(pool, current_user, protocol_id).await
+}
+
+/// 動物資料「列表 / 報表」的讀取邊界，是 [`require_animal_read_access`] 的批次版。
+///
+/// 回 `None` 代表不限（可跨計畫讀取者，判準與單筆讀取相同）；否則回使用者
+/// 可存取的計畫 id 集合，呼叫端必須把它 AND 進查詢。空集合代表看不到任何資料，
+/// **不是**「不限」——呼叫端不得把空集合當成沒有條件。
+///
+/// 單筆端點與批次端點必須用同一個判準：只守單筆的話，同一批資料換一條
+/// 批次路由就能整批讀走。
+pub async fn animal_read_boundary(
+    pool: &PgPool,
+    current_user: &CurrentUser,
+) -> Result<Option<Vec<Uuid>>> {
+    if has_animal_view_all(current_user) {
+        return Ok(None);
+    }
+    let ids = accessible_protocol_ids(pool, current_user.id).await?;
+    Ok(Some(ids))
 }
 
 /// 獸醫巡場報告（vet patrol）讀取授權（R75-5）。
