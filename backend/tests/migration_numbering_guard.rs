@@ -58,30 +58,66 @@ fn problems(names: &[&str]) -> Vec<String> {
         }
     }
 
-    // 期望 1..=最大號；任何沒出現的號碼都是缺號。
-    if let Some(&max) = by_version.keys().next_back() {
-        let missing: Vec<String> = (1..=max)
-            .filter(|v| !by_version.contains_key(v))
-            .map(|v| v.to_string())
-            .collect();
-        if !missing.is_empty() {
-            out.push(format!("缺號（跳號）：{}", missing.join("、")));
+    // 版本號從 1 起算；0 不合法（缺號檢查從 1 開始，0 若不單獨擋會被當成合法而漏報）。
+    if let Some(files) = by_version.get(&0) {
+        out.push(format!(
+            "版本號 0 不合法（須從 1 起）：{}",
+            files.join("、")
+        ));
+    }
+
+    // 缺號：比對排序後**相鄰**的版本號，回報缺號區間。
+    // ⚠️ 不可列舉 1..=最大號：時間戳形狀的檔名（`20260810120000_x.sql`）會讓列舉跑上兆次
+    // 並逐一配置字串，`cargo test` 卡死或耗盡記憶體，而不是給出有用的失敗。
+    // 這樣寫工作量只與檔案數成正比，與最大號無關。
+    let mut gaps = Vec::new();
+    let mut prev = 0u64;
+    for &v in by_version.keys().filter(|v| **v > 0) {
+        let expected = prev + 1;
+        if v > expected {
+            let last = v - 1;
+            gaps.push(if expected == last {
+                expected.to_string()
+            } else {
+                format!("{expected}–{last}")
+            });
         }
+        prev = v;
+    }
+    if !gaps.is_empty() {
+        out.push(format!("缺號（跳號）：{}", gaps.join("、")));
     }
     out
+}
+
+/// 列出目錄第一層的 `.sql` 檔名。任何一筆讀取失敗都回傳錯誤（帶路徑），
+/// 不靜默略過——漏掉一支 migration，剩下的序列可能剛好連續而通過。
+fn sql_file_names(dir: &Path) -> Result<Vec<String>, String> {
+    let entries = fs::read_dir(dir).map_err(|e| format!("讀不到 {}：{e}", dir.display()))?;
+    let mut names = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("列舉 {} 失敗：{e}", dir.display()))?;
+        let path = entry.path();
+        let meta =
+            fs::metadata(&path).map_err(|e| format!("讀不到 {} 的屬性：{e}", path.display()))?;
+        if meta.is_dir() {
+            continue;
+        }
+        let name = entry
+            .file_name()
+            .into_string()
+            .map_err(|n| format!("檔名不是 UTF-8：{n:?}"))?;
+        if name.ends_with(".sql") {
+            names.push(name);
+        }
+    }
+    Ok(names)
 }
 
 #[test]
 fn migration_versions_are_contiguous_and_unique() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
-    let entries = fs::read_dir(&dir).unwrap_or_else(|e| panic!("讀不到 {}：{e}", dir.display()));
-
-    let names: Vec<String> = entries
-        .flatten()
-        .filter(|e| e.path().is_file())
-        .filter_map(|e| e.file_name().to_str().map(str::to_owned))
-        .filter(|n| n.ends_with(".sql"))
-        .collect();
+    let names = sql_file_names(&dir).unwrap_or_else(|e| panic!("{e}"));
     assert!(
         !names.is_empty(),
         "migrations 目錄裡沒有任何 .sql，路徑設定有問題"
@@ -137,6 +173,37 @@ fn not_starting_at_one_is_reported() {
         p.iter().any(|m| m.contains("缺號") && m.contains('1')),
         "實際：{p:?}"
     );
+}
+
+#[test]
+fn version_zero_is_reported() {
+    // CodeRabbit #276：缺號檢查從 1 開始，`000` 加上連號的其餘檔案原本會通過。
+    let p = problems(&["000_zero.sql", "001_a.sql"]);
+    assert_eq!(p.len(), 1, "應只回報版本 0。實際：{p:?}");
+    assert!(p[0].contains("版本號 0"), "實際：{p:?}");
+}
+
+#[test]
+fn timestamp_shaped_name_reports_a_gap_range_without_enumerating() {
+    // CodeRabbit #276（Major）：舊寫法列舉 1..=最大號，時間戳形狀的檔名會跑上兆次。
+    // 這支測試若退回列舉，會卡住或耗盡記憶體而不是快速通過。
+    let p = problems(&["001_a.sql", "20260810120000_new.sql"]);
+    assert_eq!(p.len(), 1, "應回報一個缺號區間。實際：{p:?}");
+    assert!(p[0].contains("2–20260810119999"), "實際：{p:?}");
+}
+
+#[test]
+fn several_gaps_are_reported_as_ranges() {
+    let p = problems(&["001_a.sql", "003_c.sql", "007_g.sql"]);
+    assert_eq!(p.len(), 1, "實際：{p:?}");
+    assert!(p[0].contains("2、4–6"), "實際：{p:?}");
+}
+
+#[test]
+fn unreadable_directory_is_an_error_not_an_empty_list() {
+    // CodeRabbit #276：掃描錯誤不可被靜默吞掉。
+    let missing = Path::new(env!("CARGO_MANIFEST_DIR")).join("no-such-dir-for-guard-test");
+    assert!(sql_file_names(&missing).is_err());
 }
 
 #[test]
